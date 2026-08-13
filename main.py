@@ -125,8 +125,18 @@ def main():
     print(f"💾 [FishHookAI]: Карточка готова! Файл сохранен: {output_filename}")
     
     print("=== РАБОТА КОНТЕЙНЕРА ЗАВЕРШЕНА УСПЕШНО ===\n")
+    # 4. Принудительный вывод сгенерированной карточки прямо в ячейку Google Colab
+    try:
+        from google.colab.patches import cv2_imshow
+        import cv2
+        print("\n🖼️ [FishHookAI]: Финальный результат генерации:")
+        img_display = cv2.imread(output_filename)
+        cv2_imshow(img_display)
+    except Exception:
+        # Если код запускается локально на ПК, а не в Колабе, этот блок просто пропустится
+        pass
+
     sys.exit(0)
 
 if __name__ == "__main__":
     main()
-    
