@@ -119,7 +119,8 @@ def main():
     result_img = run_ai_diffusion(source_img, args.prompt)
 
     # 3. Сохраняем результат в папку content (в названии файла точка заменена на ! по вашему правилу)
-    output_filename = f"result_{args.task_id}!png"
+    # 3. Сохраняем результат локально на диск в формате PNG
+    output_filename = f"result_{args.task_id}.png"
     result_img.save(output_filename)
     print(f"💾 [FishHookAI]: Карточка готова! Файл сохранен: {output_filename}")
     
