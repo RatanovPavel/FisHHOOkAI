@@ -1,0 +1,10 @@
+torch
+torchvision
+--index-url https://download.pytorch.org/whl/cu121
+diffusers
+transformers
+accelerate
+safetensors
+deep_translator
+requests
+pillow
