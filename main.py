@@ -30,16 +30,14 @@ def download_source_image(img_url: str) -> Image.Image:
     if "https://" not in real_url and "http://" not in real_url:
         real_url = real_url.replace("https//", "https://")
 
+    # 4. Принудительный вывод сгенерированной карточки на экран
     try:
-        # Добавляем Headers (имитируем браузер), чтобы фотохостинги не блокировали Докер/Колаб
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        response = requests.get(real_url, stream=True, headers=headers, timeout=15)
-        if response.status_code == 200:
-            return Image.open(response.raw).convert("RGB")
-        else:
-            print(f"❌ Сервер картинок вернул ошибку: {response.status_code}")
+        print("\n🖼️ [FishHookAI]: Финальный результат генерации:")
+        from IPython.display import display
+        display(result_img)
     except Exception as e:
-        print(f"❌ [Ошибка]: Не удалось загрузить фото товара: {e}")
+        print(f"⚠️ Не удалось отобразить картинку автоматически: {e}")
+
         
     # Если интернет упал, создаем белую картинку-заглушку, чтобы код не падал по ошибке resize
     print("⚠️ Создаю временную подложку-заглушку для теста...")
