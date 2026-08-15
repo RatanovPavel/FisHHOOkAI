@@ -5,8 +5,10 @@ import os
 import torch
 from PIL import Image
 import numpy as np
+import torchvision.transforms as T
 from deep_translator import GoogleTranslator
 from diffusers import AutoPipelineForText2Image, StableDiffusionXLInpaintPipeline
+from transformers import AutoModelForImageSegmentation
 
 def check_server_permission(token: str, task_id: str) -> bool:
     """Шаг 0: Рукопожатие с сервером"""
@@ -18,10 +20,10 @@ def check_server_permission(token: str, task_id: str) -> bool:
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Пайплайн с честным вырезанием объекта (Inpainting):
+    Пайплайн с профессиональным вырезанием объекта (BiRefNet + Inpainting):
     1. Генерирует базовый товар (флакон).
-    2. Вырезает флакон (создает маску фона).
-    3. Генерирует новый фон, оставляя флакон на 100% оригинальным.
+    2. Нейросеть BiRefNet строит идеальную маску объекта.
+    3. SDXL Inpaint дорисовывает окружение вокруг вырезанного объекта.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
@@ -35,10 +37,8 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     txt2img_pipe.to(device)
     txt2img_pipe.safety_checker = None
 
-    source_prompt = "A high-end luxury perfume bottle, isolated on pure white background, commercial product photography, 8k resolution"
-    print(f"   📝 [Лог]: Отправка запроса: '{source_prompt}'")
-    
-    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images[0]
+    source_prompt = "A high-end luxury perfume bottle, isolated on studio grey background, commercial product photography, 8k resolution"
+    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images
     
     source_filename = f"step1_source_{task_id}.png"
     source_image.save(source_filename)
@@ -55,33 +55,51 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: АЛГОРИТМ ВЫРЕЗАНИЯ ТОВАРА (МАСКА) ---
-    print("\n✂️ [ИИ Этап 2]: Запуск алгоритма сегментации. Вырезаю флакон духов...")
+    # --- ЭТАП 2: НЕЙРОСЕТЬ ВЫРЕЗАНИЯ ТОВАРА (BiRefNet) ---
+    print("\n✂️ [ИИ Этап 2]: Запуск нейросети сегментации BiRefNet. Вырезаю флакон духов по контуру...")
     
-    # На основе белого фона создаем маску (все, что не белое — это наш товар)
-    img_np = np.array(source_image)
-    # Находим белые пиксели фона (с порогом яркости > 240)
-    white_mask = (img_np[:,:,0] > 240) & (img_np[:,:,1] > 240) & (img_np[:,:,2] > 240)
+    # Загружаем специализированную ИИ-модель для удаления фона
+    birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet-general-lite", trust_remote_code=True)
+    birefnet.to(device)
+    birefnet.eval()
+
+    # Подготавливаем изображение для ИИ-сегментатора
+    transform_image = T.Compose([
+        T.Resize((1024, 1024)),
+        T.ToTensor(),
+        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
     
-    # Inpainting требует, чтобы закрашиваемая область (фон) была БЕЛОЙ, а сохраняемая (товар) — ЧЕРНОЙ
-    mask_np = np.where(white_mask, 255, 0).astype(np.uint8)
-    mask_image = Image.fromarray(mask_np).convert("L")
+    input_images = transform_image(source_image).unsqueeze(0).to(device)
+    
+    # Генерируем идеальную маску
+    with torch.no_grad():
+        preds = birefnet(input_images)[-1].sigmoid().cpu()
+    pred = preds[0].squeeze()
+    pred_pil = T.ToPILImage()(pred).resize(source_image.size)
+    
+    # Конвертируем маску под стандарт Inpainting (Фон должен быть БЕЛЫМ, а товар ЧЕРНЫМ)
+    mask_np = np.array(pred_pil)
+    final_mask_np = np.where(mask_np > 128, 0, 255).astype(np.uint8)
+    mask_image = Image.fromarray(final_mask_np).convert("L")
     
     mask_filename = f"step2_mask_{task_id}.png"
     mask_image.save(mask_filename)
-    print(f"💾 [Лог]: Черно-белая маска фона успешно создана и сохранена как {mask_filename}")
+    print(f"💾 [Лог]: Идеальная маска фона успешно создана и сохранена как {mask_filename}")
 
     try:
         from IPython.display import display
-        print("🖼️ [Экран]: Промежуточный результат (Маска для вырезания фона):")
+        print("🖼️ [Экран]: Промежуточный результат (Идеальная маска ИИ):")
         display(mask_image)
     except Exception:
         pass
 
+    del birefnet
+    if device == "cuda":
+        torch.cuda.empty_cache()
+
     # --- ЭТАП 3: ИНПАИНТИНГ (ЗАМЕНА ОКРУЖЕНИЯ) ---
     print("\n🎨 [ИИ Этап 3]: Вписываю вырезанный флакон в красивое окружение...")
-    
-    # Используем специализированный пайплайн для замены фона (Inpaint)
     inpaint_pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
         "diffusers/stable-diffusion-xl-1.0-inpainting-0.1".replace("!", "."),
         torch_dtype=dtype,
@@ -95,7 +113,6 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     full_background_prompt = f"Professional product photography, commercial shot, {en_style}, highly detailed, studio lighting, dslr, 8k"
     print(f"   📝 [Лог]: Финальный запрос для фона: '{full_background_prompt}'")
 
-    # Генерируем новый фон (сила изменений 0.99 — полностью перерисовать всё, кроме флакона)
     final_image = inpaint_pipe(
         prompt=full_background_prompt,
         image=source_image,
@@ -103,7 +120,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         num_inference_steps=4,
         strength=0.99,
         guidance_scale=0.0
-    ).images[0]
+    ).images
 
     final_filename = f"result_card_{task_id}.png"
     final_image.save(final_filename)
@@ -117,7 +134,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Inpaint Pipeline")
+    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Pro Inpaint Pipeline")
     parser.add_argument("--token", type=str, default="DEMO_TOKEN")
     parser.add_argument("--task_id", type=str, default="task_001")
     parser.add_argument("--prompt", type=str, default="on a luxury gold podium, neon cyber punk light, dark background, 8k")
