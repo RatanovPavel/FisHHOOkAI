@@ -50,9 +50,13 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception:
         pass
 
+    # Принудительно убираем первую модель из видеокарты в обычную память, освобождая GPU
+    txt2img_pipe.to("cpu")
     del txt2img_pipe
     if device == "cuda":
         torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+
 
     # --- ЭТАП 2: ИИ ВЫРЕЗАНИЕ ТОВАРА (rembg) ---
     print("\n✂️ [ИИ Этап 2]: Запуск нейросети сегментации rembg. Вырезаю флакон духов по контуру...")
