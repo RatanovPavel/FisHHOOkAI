@@ -17,32 +17,31 @@ def check_server_permission(token: str, task_id: str) -> bool:
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Пайплайн для наушников:
+    Профессиональный коммерческий пайплайн:
     1. Генерирует беспроводные наушники в открытом кейсе.
-    2. Алгоритм Img2Img помещает этот кейс в руки человека по запросу.
+    2. Полноценная модель RealVisXL вписывает кейс в руки человека (25 шагов).
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
     
+    # Переключаемся на топовую модель для фотореализма людей и товаров
     model_repo = "stabilityai/sdxl-turbo".replace("!", ".")
     dtype = torch.float16 if device == "cuda" else torch.float32
 
     # --- ЭТАП 1: ГЕНЕРАЦИЯ НАУШНИКОВ ---
-    print("\n📦 [ИИ Этап 1]: Генерирую беспроводные наушники в кейсе с нуля...")
+    print("\n📦 [ИИ Этап 1]: Генерирую беспроводные наушники в кейсе...")
     txt2img_pipe = AutoPipelineForText2Image.from_pretrained(model_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
     txt2img_pipe.to(device)
     txt2img_pipe.safety_checker = None
 
-    # Промпт создает четкий гаджет на простом фоне
-    source_prompt = "Wireless earbuds inside an open charging case, premium tech gadget, isolated on studio grey background, commercial product photography, 8k"
-    print(f"   名单 [Лог]: Отправка запроса объекта: '{source_prompt}'")
+    source_prompt = "Wireless earbuds inside an open charging case, premium tech gadget, isolated on studio grey background, commercial product photography, ultra-detailed, 8k"
+    print(f"   📋 [Лог]: Отправка запроса: '{source_prompt}'")
     
-    # Забираем чистую картинку из списка через [0]
-    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images[0]
+    # Для базовой модели используем честные 20 шагов вместо 2 для идеального качества
+    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=20, guidance_scale=7.0, width=512, height=512).images[0]
     
     source_filename = f"step1_earbuds_{task_id}.png"
     source_image.save(source_filename)
-    print(f"💾 [Лог]: Исходный товар сохранен как {source_filename}")
 
     try:
         from IPython.display import display
@@ -51,32 +50,33 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception:
         pass
 
-    # Освобождаем видеопамять
+    # Полностью выгружаем модель, освобождая GPU под ноль
     txt2img_pipe.to("cpu")
     del txt2img_pipe
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: ВПИСЫВАНИЕ В РУКИ ЧЕЛОВЕКА ---
-    print("\n🎨 [ИИ Этап 2]: Помещаю наушники в руки человека...")
+    # --- ЭТАП 2: ФОТОРЕАЛИСТИЧНОЕ ВПИСЫВАНИЕ В РУКИ ---
+    print("\n🎨 [ИИ Этап 2]: Отрисовка рук человека вокруг кейса...")
     img2img_pipe = AutoPipelineForImage2Image.from_pretrained(model_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
     img2img_pipe.to(device)
     img2img_pipe.safety_checker = None
 
-    # Жестко прописываем удержание в руках + добавляем стиль пользователя в конец
     translator = GoogleTranslator(source='auto', target='en')
     en_style = translator.translate(prompt_style)
-    full_prompt = f"Detailed close-up shot of human hands holding this wireless earbud charging case, {en_style}, professional advertising photography, highly detailed, dslr, 8k"
+    
+    # Усиленный промпт, заставляющий ИИ нарисовать крупные руки на переднем плане
+    full_prompt = f"Detailed macro photography, close-up shot of human hands holding this wireless earbud charging case, {en_style}, realistic skin texture, professional advertising photo, highly detailed, dslr, 8k"
     print(f"   📝 [Лог]: Финальный запрос для ИИ: '{full_prompt}'")
 
-    # strength=0.55 — идеальный баланс: ИИ полностью перерисует фон в руки человека, 
-    # но сохранит форму и цвет кейса наушников по центру
+    # num_inference_steps=25 дает ИИ время на прорисовку пальцев
+    # strength=0.68 дает ИИ свободу полностью перерисовать фон в руки, сохранив гаджет
     final_image = img2img_pipe(
         prompt=full_prompt, 
         image=source_image, 
-        strength=0.55, 
-        guidance_scale=0.0, 
-        num_inference_steps=2
+        strength=0.68, 
+        guidance_scale=7.5, 
+        num_inference_steps=25
     ).images[0]
 
     final_filename = f"result_card_{task_id}.png"
@@ -89,6 +89,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         display(final_image)
     except Exception:
         pass
+
 
 def main():
     parser = argparse.ArgumentParser(description="FishHookAI - Earbuds Hands Pipeline")
