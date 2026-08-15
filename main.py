@@ -4,11 +4,12 @@ import time
 import os
 import torch
 from PIL import Image
+import numpy as np
 from deep_translator import GoogleTranslator
-from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
+from diffusers import AutoPipelineForText2Image, StableDiffusionXLInpaintPipeline
 
 def check_server_permission(token: str, task_id: str) -> bool:
-    """Шаг 0: Рукопожатие с сервером (Проверка вечного токена)"""
+    """Шаг 0: Рукопожатие с сервером"""
     print(f"🔒 [FishHookAI]: Проверка вечной лицензии для токена: {token}...")
     if token == "DEMO_TOKEN" or token.startswith("LIFETIME_"):
         print("✅ [FishHookAI]: Лицензия подтверждена сервером. Доступ к GPU разрешен!")
@@ -17,15 +18,14 @@ def check_server_permission(token: str, task_id: str) -> bool:
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Основной пайплайн: 
-    1. Генерирует базовый товар из текста.
-    2. Дорисовывает вокруг него фотореалистичный фон.
-    3. Выводит промежуточные результаты на экран.
+    Пайплайн с честным вырезанием объекта (Inpainting):
+    1. Генерирует базовый товар (флакон).
+    2. Вырезает флакон (создает маску фона).
+    3. Генерирует новый фон, оставляя флакон на 100% оригинальным.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"🖥️ [GPU ИИ]: Инициализация моделей. Процессор: {device.upper()}")
+    print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
     
-    # Локально восстанавливаем точки в имени модели для серверов StabilityAI
     model_repo = "stabilityai/sdxl-turbo".replace("!", ".")
     dtype = torch.float16 if device == "cuda" else torch.float32
 
@@ -35,19 +35,15 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     txt2img_pipe.to(device)
     txt2img_pipe.safety_checker = None
 
-    # Промпт для создания самого предмета (флакона) на чистом фоне
-    source_prompt = "A high-end luxury perfume bottle, isolated on studio grey background, commercial product photography, 8k resolution"
-    print(f"   📝 Запрос для объекта: '{source_prompt}'")
+    source_prompt = "A high-end luxury perfume bottle, isolated on pure white background, commercial product photography, 8k resolution"
+    print(f"   📝 [Лог]: Отправка запроса: '{source_prompt}'")
     
-    # Создаем исходный предмет
     source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images[0]
     
-    # Сохраняем промежуточный результат на диск
     source_filename = f"step1_source_{task_id}.png"
     source_image.save(source_filename)
-    print(f"💾 [FishHookAI]: Промежуточный объект успешно создан и сохранен как {source_filename}!")
+    print(f"💾 [Лог]: Исходный товар сохранен как {source_filename}")
 
-    # Принудительно выводим исходный товар на экран в Colab
     try:
         from IPython.display import display
         print("🖼️ [Экран]: Промежуточный результат (Исходный товар):")
@@ -55,56 +51,84 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception:
         pass
 
-    # Удаляем первый пайплайн из памяти GPU, чтобы не вызвать ошибку нехватки памяти (OOM)
     del txt2img_pipe
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: ЗАМЕНА ОКРУЖЕНИЯ И ХУДОЖЕСТВЕННЫЙ РЕНДЕР ---
-    print("\n🎨 [ИИ Этап 2]: Перерисовываю окружение вокруг созданного товара...")
-    img2img_pipe = AutoPipelineForImage2Image.from_pretrained(model_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
-    img2img_pipe.to(device)
-    img2img_pipe.safety_checker = None
+    # --- ЭТАП 2: АЛГОРИТМ ВЫРЕЗАНИЯ ТОВАРА (МАСКА) ---
+    print("\n✂️ [ИИ Этап 2]: Запуск алгоритма сегментации. Вырезаю флакон духов...")
+    
+    # На основе белого фона создаем маску (все, что не белое — это наш товар)
+    img_np = np.array(source_image)
+    # Находим белые пиксели фона (с порогом яркости > 240)
+    white_mask = (img_np[:,:,0] > 240) & (img_np[:,:,1] > 240) & (img_np[:,:,2] > 240)
+    
+    # Inpainting требует, чтобы закрашиваемая область (фон) была БЕЛОЙ, а сохраняемая (товар) — ЧЕРНОЙ
+    mask_np = np.where(white_mask, 255, 0).astype(np.uint8)
+    mask_image = Image.fromarray(mask_np).convert("L")
+    
+    mask_filename = f"step2_mask_{task_id}.png"
+    mask_image.save(mask_filename)
+    print(f"💾 [Лог]: Черно-белая маска фона успешно создана и сохранена как {mask_filename}")
 
-    # Переводим русский маркетинговый промпт селлера на английский язык
+    try:
+        from IPython.display import display
+        print("🖼️ [Экран]: Промежуточный результат (Маска для вырезания фона):")
+        display(mask_image)
+    except Exception:
+        pass
+
+    # --- ЭТАП 3: ИНПАИНТИНГ (ЗАМЕНА ОКРУЖЕНИЯ) ---
+    print("\n🎨 [ИИ Этап 3]: Вписываю вырезанный флакон в красивое окружение...")
+    
+    # Используем специализированный пайплайн для замены фона (Inpaint)
+    inpaint_pipe = StableDiffusionXLInpaintPipeline.from_pretrained(
+        "diffusers/stable-diffusion-xl-1.0-inpainting-0.1".replace("!", "."),
+        torch_dtype=dtype,
+        variant="fp16" if device == "cuda" else None
+    )
+    inpaint_pipe.to(device)
+    inpaint_pipe.safety_checker = None
+
     translator = GoogleTranslator(source='auto', target='en')
     en_style = translator.translate(prompt_style)
     full_background_prompt = f"Professional product photography, commercial shot, {en_style}, highly detailed, studio lighting, dslr, 8k"
-    print(f"   📝 Финальный запрос для фона: '{full_background_prompt}'")
+    print(f"   📝 [Лог]: Финальный запрос для фона: '{full_background_prompt}'")
 
-    # Обрабатываем нашу созданную картинку (strength=0.6 заменяет фон, но сохраняет форму флакона)
-    final_image = img2img_pipe(prompt=full_background_prompt, image=source_image, strength=0.6, guidance_scale=0.0, num_inference_steps=2).images[0]
+    # Генерируем новый фон (сила изменений 0.99 — полностью перерисовать всё, кроме флакона)
+    final_image = inpaint_pipe(
+        prompt=full_background_prompt,
+        image=source_image,
+        mask_image=mask_image,
+        num_inference_steps=4,
+        strength=0.99,
+        guidance_scale=0.0
+    ).images[0]
 
-    # Сохраняем финальный результат
     final_filename = f"result_card_{task_id}.png"
     final_image.save(final_filename)
     print(f"💾 [FishHookAI]: Финальная карточка готова! Сохранено как {final_filename}")
 
-    # Принудительно выводим готовую карточку на экран в Colab
     try:
         from IPython.display import display
-        print("🖼️ [Экран]: Финальный результат генерации карточки:")
+        print("🖼️ [Экран]: Финальный результат (Флакон на новом фоне):")
         display(final_image)
     except Exception:
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Dual Pipeline")
+    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Inpaint Pipeline")
     parser.add_argument("--token", type=str, default="DEMO_TOKEN")
     parser.add_argument("--task_id", type=str, default="task_001")
     parser.add_argument("--prompt", type=str, default="on a luxury gold podium, neon cyber punk light, dark background, 8k")
     args = parser.parse_args()
 
-    print("\n=== СТАРТ ДВУХЭТАПНОЙ НОДЫ FISHHOOKAI ===")
-    
-    # 0. Рукопожатие
+    print("\n=== СТАРТ ТРЕХЭТАПНОЙ НОДЫ FISHHOOKAI ===")
     if not check_server_permission(args.token, args.task_id):
         print("❌ [Доступ Запрещен]: Контейнер остановлен.")
         sys.exit(403)
 
-    # 1. Запуск объединенного ИИ-процесса
     run_dual_ai_pipeline(args.prompt, args.task_id)
-    
     print("=== РАБОТА ЦЕПОЧКИ ЗАВЕРШЕНА УСПЕШНО ===\n")
     sys.exit(0)
 
