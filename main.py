@@ -25,7 +25,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
     
     # Переключаемся на топовую модель для фотореализма людей и товаров
-    model_repo = "stabilityai/sdxl-turbo".replace("!", ".")
+    model_repo = "SG16DC/RealVisXL_V4.0".replace("!", ".")
     dtype = torch.float16 if device == "cuda" else torch.float32
 
     # --- ЭТАП 1: ГЕНЕРАЦИЯ НАУШНИКОВ ---
