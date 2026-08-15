@@ -37,7 +37,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     txt2img_pipe.safety_checker = None
 
     source_prompt = "A high-end product shot of white wireless earbuds inside an open charging case, premium tech gadget, isolated on studio grey background, commercial photography, sharp focus, 8k resolution"
-    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=25, guidance_scale=7.5, width=1024, height=1024).images
+    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=25, guidance_scale=7.5, width=1024, height=1024).images[0]
     
     source_filename = f"step1_earbuds_{task_id}.png"
     source_image.save(source_filename)
@@ -100,7 +100,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         mask_image=mask_image,
         num_inference_steps=30,
         guidance_scale=8.0
-    ).images
+    ).images[0]
 
     final_filename = f"result_card_{task_id}.png"
     final_image.save(final_filename)
