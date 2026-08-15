@@ -24,8 +24,9 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
     
-    # Переключаемся на топовую модель для фотореализма людей и товаров
-    model_repo = "SG16DC/RealVisXL_V4.0".replace("!", ".")
+        # Переключаемся на официальную открытую модель SDXL Base, доступную без паролей
+    model_repo = "stabilityai/stable-diffusion-xl-base-1.0".replace("!", ".")
+
     dtype = torch.float16 if device == "cuda" else torch.float32
 
     # --- ЭТАП 1: ГЕНЕРАЦИЯ НАУШНИКОВ ---
