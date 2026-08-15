@@ -103,7 +103,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         num_inference_steps=4,
         strength=0.99,
         guidance_scale=0.0
-    ).images
+    ).images[0]
 
     final_filename = f"result_card_{task_id}.png"
     final_image.save(final_filename)
