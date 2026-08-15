@@ -5,7 +5,7 @@ import os
 import torch
 from PIL import Image
 from deep_translator import GoogleTranslator
-from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image
+from diffusers import AutoPipelineForText2Image, AutoPipelineForImage2Image, EulerDiscreteScheduler
 
 def check_server_permission(token: str, task_id: str) -> bool:
     """Шаг 0: Рукопожатие с сервером"""
@@ -17,29 +17,32 @@ def check_server_permission(token: str, task_id: str) -> bool:
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Профессиональный коммерческий пайплайн:
-    1. Генерирует беспроводные наушники в открытом кейсе.
-    2. Полноценная модель RealVisXL вписывает кейс в руки человека (25 шагов).
+    Пайплайн на базе ByteDance SDXL-Lightning:
+    1. Идеально генерирует беспроводные наушники.
+    2. Жестко перерисовывает фон, вставляя гаджет в руки человека.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🖥️ [GPU ИИ]: Инициализация процессора: {device.upper()}")
     
-        # Переключаемся на официальную открытую модель SDXL Base, доступную без паролей
-    model_repo = "stabilityai/stable-diffusion-xl-base-1.0".replace("!", ".")
-
+    # Официальный репозиторий скоростного фотореализма от ByteDance
+    base_model = "ByteDance/SDXL-Lightning".replace("!", ".")
     dtype = torch.float16 if device == "cuda" else torch.float32
 
     # --- ЭТАП 1: ГЕНЕРАЦИЯ НАУШНИКОВ ---
-    print("\n📦 [ИИ Этап 1]: Генерирую беспроводные наушники в кейсе...")
-    txt2img_pipe = AutoPipelineForText2Image.from_pretrained(model_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
+    print("\n📦 [ИИ Этап 1]: Генерирую беспроводные наушники в открытом кейсе...")
+    txt2img_pipe = AutoPipelineForText2Image.from_pretrained(base_model, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
     txt2img_pipe.to(device)
     txt2img_pipe.safety_checker = None
+    
+    # Настройка специального планировщика для модели Lightning
+    txt2img_pipe.scheduler = EulerDiscreteScheduler.from_config(txt2img_pipe.scheduler.config, timestep_spacing="trailing")
 
-    source_prompt = "Wireless earbuds inside an open charging case, premium tech gadget, isolated on studio grey background, commercial product photography, ultra-detailed, 8k"
+    # Четкий коммерческий промпт без лишнего мусора
+    source_prompt = "A pair of white wireless earbuds inside an open charging case, premium tech gadget, isolated on studio white background, commercial product photography, highly detailed, 8k"
     print(f"   📋 [Лог]: Отправка запроса: '{source_prompt}'")
     
-    # Для базовой модели используем честные 20 шагов вместо 2 для идеального качества
-    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=20, guidance_scale=7.0, width=512, height=512).images[0]
+    # Модель Lightning выдает шедевр строго на 4 шагах генерации
+    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=4, guidance_scale=0.0, width=512, height=512).images[0]
     
     source_filename = f"step1_earbuds_{task_id}.png"
     source_image.save(source_filename)
@@ -51,33 +54,36 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception:
         pass
 
-    # Полностью выгружаем модель, освобождая GPU под ноль
-    txt2img_pipe.to("cpu")
+    # Полная очистка памяти видеокарты
     del txt2img_pipe
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: ФОТОРЕАЛИСТИЧНОЕ ВПИСЫВАНИЕ В РУКИ ---
+    # --- ЭТАП 2: ВПИСЫВАНИЕ В РУКИ ЧЕЛОВЕКА ---
     print("\n🎨 [ИИ Этап 2]: Отрисовка рук человека вокруг кейса...")
-    img2img_pipe = AutoPipelineForImage2Image.from_pretrained(model_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
+    img2img_pipe = AutoPipelineForImage2Image.from_pretrained(base_model, torch_dtype=dtype, variant="fp16" if device == "cuda" else None)
     img2img_pipe.to(device)
     img2img_pipe.safety_checker = None
+    img2img_pipe.scheduler = EulerDiscreteScheduler.from_config(img2img_pipe.scheduler.config, timestep_spacing="trailing")
 
     translator = GoogleTranslator(source='auto', target='en')
     en_style = translator.translate(prompt_style)
     
-    # Усиленный промпт, заставляющий ИИ нарисовать крупные руки на переднем плане
-    full_prompt = f"Detailed macro photography, close-up shot of human hands holding this wireless earbud charging case, {en_style}, realistic skin texture, professional advertising photo, highly detailed, dslr, 8k"
+    # Жесткий промпт, заставляющий ИИ нарисовать крупные ладони
+    full_prompt = "A close-up macro photograph of human hands holding this white wireless earbud charging case, realistic skin texture, fingers holding the object, professional advertising photo, highly detailed, 8k"
+    if en_style:
+        full_prompt += f", {en_style}"
+        
     print(f"   📝 [Лог]: Финальный запрос для ИИ: '{full_prompt}'")
 
-    # num_inference_steps=25 дает ИИ время на прорисовку пальцев
-    # strength=0.68 дает ИИ свободу полностью перерисовать фон в руки, сохранив гаджет
+    # Сбалансированный strength=0.65 и 4 шага заставят ИИ нарисовать руки поверх белого фона, 
+    # зажав сгенерированный кейс между пальцев
     final_image = img2img_pipe(
         prompt=full_prompt, 
         image=source_image, 
-        strength=0.68, 
-        guidance_scale=7.5, 
-        num_inference_steps=25
+        strength=0.65, 
+        guidance_scale=0.0, 
+        num_inference_steps=4
     ).images[0]
 
     final_filename = f"result_card_{task_id}.png"
@@ -91,12 +97,11 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception:
         pass
 
-
 def main():
-    parser = argparse.ArgumentParser(description="FishHookAI - Earbuds Hands Pipeline")
+    parser = argparse.ArgumentParser(description="FishHookAI - Lightning Pipeline")
     parser.add_argument("--token", type=str, default="DEMO_TOKEN")
     parser.add_argument("--task_id", type=str, default="task_001")
-    parser.add_argument("--prompt", type=str, default="neon cyber punk lighting, modern tech style, blurred background")
+    parser.add_argument("--prompt", type=str, default="neon light, cyber punk style, blurred background")
     args = parser.parse_args()
 
     print("\n=== СТАРТ НОДЫ FISHHOOKAI ===")
