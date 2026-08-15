@@ -37,7 +37,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     txt2img_pipe.safety_checker = None
 
     source_prompt = "A high-end luxury perfume bottle, isolated on studio grey background, commercial product photography, 8k resolution"
-    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images
+    source_image = txt2img_pipe(prompt=source_prompt, num_inference_steps=2, guidance_scale=0.0, width=512, height=512).images[0]
     
     source_filename = f"step1_source_{task_id}.png"
     source_image.save(source_filename)
