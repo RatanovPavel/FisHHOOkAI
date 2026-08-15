@@ -5,10 +5,9 @@ import os
 import torch
 from PIL import Image
 import numpy as np
-import torchvision.transforms as T
 from deep_translator import GoogleTranslator
 from diffusers import AutoPipelineForText2Image, StableDiffusionXLInpaintPipeline
-from transformers import AutoModelForImageSegmentation
+import rembg
 
 def check_server_permission(token: str, task_id: str) -> bool:
     """Шаг 0: Рукопожатие с сервером"""
@@ -20,9 +19,9 @@ def check_server_permission(token: str, task_id: str) -> bool:
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Пайплайн с профессиональным вырезанием объекта (BiRefNet + Inpainting):
+    Пайплайн с профессиональным вырезанием объекта (rembg + Inpainting):
     1. Генерирует базовый товар (флакон).
-    2. Нейросеть BiRefNet строит идеальную маску объекта.
+    2. Библиотека rembg идеально отделяет флакон от фона.
     3. SDXL Inpaint дорисовывает окружение вокруг вырезанного объекта.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,32 +54,16 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     if device == "cuda":
         torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: НЕЙРОСЕТЬ ВЫРЕЗАНИЯ ТОВАРА (BiRefNet) ---
-    print("\n✂️ [ИИ Этап 2]: Запуск нейросети сегментации BiRefNet. Вырезаю флакон духов по контуру...")
+    # --- ЭТАП 2: ИИ ВЫРЕЗАНИЕ ТОВАРА (rembg) ---
+    print("\n✂️ [ИИ Этап 2]: Запуск нейросети сегментации rembg. Вырезаю флакон духов по контуру...")
     
-    # Загружаем специализированную ИИ-модель для удаления фона
-    birefnet = AutoModelForImageSegmentation.from_pretrained("ZhengPeng7/BiRefNet-general-lite", trust_remote_code=True)
-    birefnet.to(device)
-    birefnet.eval()
-
-    # Подготавливаем изображение для ИИ-сегментатора
-    transform_image = T.Compose([
-        T.Resize((1024, 1024)),
-        T.ToTensor(),
-        T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    ])
+    # rembg автоматически находит объект на картинке и удаляет фон
+    output_rembg = rembg.remove(source_image)
     
-    input_images = transform_image(source_image).unsqueeze(0).to(device)
-    
-    # Генерируем идеальную маску
-    with torch.no_grad():
-        preds = birefnet(input_images)[-1].sigmoid().cpu()
-    pred = preds[0].squeeze()
-    pred_pil = T.ToPILImage()(pred).resize(source_image.size)
-    
-    # Конвертируем маску под стандарт Inpainting (Фон должен быть БЕЛЫМ, а товар ЧЕРНЫМ)
-    mask_np = np.array(pred_pil)
-    final_mask_np = np.where(mask_np > 128, 0, 255).astype(np.uint8)
+    # Вытаскиваем альфа-канал (маску прозрачности), где сам объект черный, а фон белый для инпаинта
+    alpha = output_rembg.split()[-1]
+    mask_np = np.array(alpha)
+    final_mask_np = np.where(mask_np > 10, 0, 255).astype(np.uint8)
     mask_image = Image.fromarray(final_mask_np).convert("L")
     
     mask_filename = f"step2_mask_{task_id}.png"
@@ -93,10 +76,6 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         display(mask_image)
     except Exception:
         pass
-
-    del birefnet
-    if device == "cuda":
-        torch.cuda.empty_cache()
 
     # --- ЭТАП 3: ИНПАИНТИНГ (ЗАМЕНА ОКРУЖЕНИЯ) ---
     print("\n🎨 [ИИ Этап 3]: Вписываю вырезанный флакон в красивое окружение...")
@@ -134,7 +113,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         pass
 
 def main():
-    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Pro Inpaint Pipeline")
+    parser = argparse.ArgumentParser(description="FishHookAI - Autonomous Rembg Inpaint Pipeline")
     parser.add_argument("--token", type=str, default="DEMO_TOKEN")
     parser.add_argument("--task_id", type=str, default="task_001")
     parser.add_argument("--prompt", type=str, default="on a luxury gold podium, neon cyber punk light, dark background, 8k")
