@@ -14,7 +14,8 @@ def analyze_product_with_qwen(image_path: str, device: str) -> str:
     """
     print("[Qwen ИИ-Анализатор]: Инициализация Qwen2-VL...")
     
-    model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    #model_id = "Qwen/Qwen2-VL-7B-Instruct"
+    model_id = "Qwen/Qwen2-VL-2B-Instruct"
     # Загружаем модель с оптимизацией по памяти (Bfloat16/Float16) для T4 GPU
     processor = AutoProcessor.from_pretrained(model_id)
     model = Qwen2VLForConditionalGeneration.from_pretrained(
