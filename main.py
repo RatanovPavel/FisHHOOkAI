@@ -60,8 +60,8 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     
     # [НОВЫЙ ХАК]: Вместо черной пустоты делаем грубую цветную заготовку (фиолетово-синий градиент)
     # Это даст нейросети пиксельную "почву" для генерации неонового фона
-    gradient_bg = Image.new("RGB", (1024, 1024), (40, 10, 70)) # Темно-фиолетовый базовый цвет
-    
+    #gradient_bg = Image.new("RGB", (1024, 1024), (40, 10, 70)) # Темно-фиолетовый базовый цвет
+    gradient_bg = Image.new("RGB", (1024, 1024), (10, 45, 20))
     # Накладываем товар поверх этой цветной подложки
     forced_source_image = Image.composite(source_image, gradient_bg, alpha)
     forced_source_image.save(f"step2_forced_source_{task_id}.png")
