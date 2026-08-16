@@ -28,7 +28,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
     print(f"[ОТЛАДКА] Запуск теста для задачи: {task_id}")
     
-    # 1. Задаем размер холста (стандарт SDXL)
+    # 1. Задаем размер холста
     width, height = 1024, 1024
     
     # 2. Создаем маску: 255 (белый фон) — зона перегенерации
@@ -53,8 +53,9 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     except Exception as e:
         print(f"Не удалось вывести в блокнот, но маска создана: {e}")
         
-    # Сохраняем на всякий случай в файлы
+    # Сохраняем в файлы
     mask_image.save(f"debug_square_{task_id}.png")
+
 
 def main():
     parser = argparse.ArgumentParser(description="FishHookAI - Zero-OOM Inpaint Pipeline")
