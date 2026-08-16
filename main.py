@@ -34,7 +34,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     
     source_image = txt2img_pipe(
         prompt=product_prompt, num_inference_steps=25, guidance_scale=7.5, width=1024, height=1024
-    ).images
+    ).images[0]
     
     source_filename = f"step1_earbuds_{task_id}.png"
     source_image.save(source_filename)
@@ -102,7 +102,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         strength=0.99,
         guidance_scale=8.0,
         num_inference_steps=30
-    ).images
+    ).images[0]
     
     final_filename = f"fresult_card_{task_id}.png"
     final_image.save(final_filename)
