@@ -8,8 +8,7 @@ from diffusers import AutoPipelineForText2Image, StableDiffusionXLInpaintPipelin
 
 def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     """
-    Полный пайплайн: Генерация товара -> RemBG -> Мягкая маска по контуру объекта -> Инпаинтинг фона.
-    С экстремальной очисткой RAM/VRAM для предотвращения краша ядра.
+    Пайплайн с агрессивной заменой фона для кардинального изменения окружения.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
@@ -30,59 +29,52 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     txt2img_pipe.safety_checker = None
     
     product_prompt = "A high-end product shot of white wireless earbuds inside an open charging case, isolated on studio grey background, commercial photography, sharp focus, 8k resolution"
-    print(f"[ЭТАП 1]: Генерирую товар по запросу: '{product_prompt}'")
-    
-    source_image = txt2img_pipe(
-        prompt=product_prompt, num_inference_steps=25, guidance_scale=7.5, width=1024, height=1024
-    ).images[0]
+    source_image = txt2img_pipe(prompt=product_prompt, num_inference_steps=25, guidance_scale=7.5, width=1024, height=1024).images[0]
     
     source_filename = f"step1_earbuds_{task_id}.png"
     source_image.save(source_filename)
     
     try:
         from IPython.display import display
-        print(f"{GREEN}[ЭКРАН]: Шаг 1 – Сгенерированный товар (сохранен в {source_filename}):{ENDC}")
+        print(f"{GREEN}[ЭКРАН]: Шаг 1 – Сгенерированный товар:{ENDC}")
         display(source_image)
     except Exception:
         pass
 
-    # ОЧИСТКА ПАМЯТИ ПОСЛЕ ЭТАПА 1
-    print("[ОЧИСТКА 1]: Удаляю модель генерации товара из памяти...")
+    print("[ОЧИСТКА 1]: Удаляю модель генерации товара...")
     del txt2img_pipe
     gc.collect()
-    if device == "cuda": 
-        torch.cuda.empty_cache()
+    if device == "cuda": torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: УДАЛЕНИЕ ФОНА И СОЗДАНИЕ МАСКИ ПО ОЧЕРТАНИЯМ ---
-    print(f"\n{BLUE}[ЭТАП 2]: Запуск rembg. Вырезаю фон по контуру товара...{ENDC}")
+    # --- ЭТАП 2: УДАЛЕНИЕ ФОНА И АГРЕССИВНАЯ ПОДГОТОВКА ИСХОДНИКА ---
+    print(f"\n{BLUE}[ЭТАП 2]: Запуск rembg и жесткое выжигание фона...{ENDC}")
     output_rembg = rembg.remove(source_image)
-    alpha = output_rembg.split()[-1]  # Получаем альфа-канал силуэта
+    alpha = output_rembg.split()[-1]
     alpha_np = np.array(alpha)
     
-    # Инвертируем: Товар = 0 (черный, защита), Фон = 255 (белый, замена)
+    # 1. Создаем маску: Товар = 0 (черный), Фон = 255 (белый)
     inverted_mask_np = np.where(alpha_np > 10, 0, 255).astype(np.uint8)
     raw_mask = Image.fromarray(inverted_mask_np).convert("L")
-    
-    # Размываем маску по контуру на 12 пикселей для идеального бесшовного стыка (как на первом скрине)
     mask_image = raw_mask.filter(ImageFilter.GaussianBlur(radius=12))
+    mask_image.save(f"step2_mask_{task_id}.png")
     
-    mask_filename = f"step2_mask_{task_id}.png"
-    mask_image.save(mask_filename)
-    
+    # [СЕКРЕТНЫЙ ХАК]: Вырезаем товар и сажаем его на чистый черный холст!
+    # Это уничтожит серую студию и заставит инпаинт рисовать сочные эффекты с нуля
+    black_bg = Image.new("RGB", (1024, 1024), (0, 0, 0))
+    forced_source_image = Image.composite(source_image, black_bg, alpha)
+    forced_source_image.save(f"step2_forced_source_{task_id}.png")
+
     try:
         from IPython.display import display
-        print(f"{GREEN}[ЭКРАН]: Шаг 2 – Маска по точным очертаниям товара (сохранена в {mask_filename}):{ENDC}")
-        print("[ПОЯСНЕНИЕ]: Черный силуэт в точности повторяет форму наушников и защищает их.")
-        display(mask_image)
+        print(f"{GREEN}[ЭКРАН]: Шаг 2 – Товар на черной подложке для агрессивной перерисовки:{ENDC}")
+        display(forced_source_image)
     except Exception:
         pass
 
-    # КРИТИЧЕСКАЯ ОЧИСТКА ПАМЯТИ ПОСЛЕ REMBG И ONNX (Защита от краша сессии)
-    print("[ОЧИСТКА 2]: Выгружаю rembg и очищаю системный кэш RAM...")
-    del output_rembg, alpha, alpha_np, inverted_mask_np, raw_mask
+    print("[ОЧИСТКА 2]: Выгружаю rembg...")
+    del output_rembg, alpha, alpha_np, inverted_mask_np, raw_mask, black_bg
     gc.collect()
-    if device == "cuda": 
-        torch.cuda.empty_cache()
+    if device == "cuda": torch.cuda.empty_cache()
 
     # --- ЭТАП 3: ИНПАИНТИНГ ФОТО-ОКРУЖЕНИЯ ---
     print(f"\n{BLUE}[ЭТАП 3]: Инициализация модели инпаинтинга SDXL...{ENDC}")
@@ -94,14 +86,18 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         inpaint_pipe.enable_model_cpu_offload()
     inpaint_pipe.safety_checker = None
     
-    print(f"[ЭТАП 3]: Отрисовываю новое окружение по запросу: '{prompt_style}'")
+    # Жесткий бан на серые студийные фоны
+    negative_prompt = "grey background, studio background, plain wall, minimalism, boring background, simple backdrop"
+    
+    print(f"[ЭТАП 3]: Отрисовываю КАРДИНАЛЬНО новый фон: '{prompt_style}'")
     final_image = inpaint_pipe(
         prompt=prompt_style,
-        image=source_image,
+        negative_prompt=negative_prompt,
+        image=forced_source_image,  # Передаем картинку, где вокруг товара темнота
         mask_image=mask_image,
         strength=0.99,
-        guidance_scale=8.0,
-        num_inference_steps=30
+        guidance_scale=8.5,        # Чуть увеличили силу следования промпту
+        num_inference_steps=35     # Больше шагов для взрывных неоновых эффектов
     ).images[0]
     
     final_filename = f"fresult_card_{task_id}.png"
@@ -109,8 +105,7 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     
     try:
         from IPython.display import display
-        print(f"\n{GREEN}[ЭКРАН]: Шаг 3 – Финальная карточка (сохранена в {final_filename}):{ENDC}")
-        print("[ПОЯСНЕНИЕ]: Фон вокруг наушников полностью перерисован ИИ по контуру.")
+        print(f"\n{GREEN}[ЭКРАН]: Шаг 3 – Кардинально новая карточка:{ENDC}")
         display(final_image)
     except Exception:
         pass
