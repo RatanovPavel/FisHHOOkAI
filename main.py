@@ -90,14 +90,15 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     negative_prompt = "grey background, studio background, plain wall, minimalism, boring background, simple backdrop"
     
     print(f"[ЭТАП 3]: Отрисовываю КАРДИНАЛЬНО новый фон: '{prompt_style}'")
+    print(f"[ЭТАП 3]: Отрисовываю КАРДИНАЛЬНО новый фон: '{prompt_style}'")
     final_image = inpaint_pipe(
         prompt=prompt_style,
         negative_prompt=negative_prompt,
-        image=forced_source_image,  # Передаем картинку, где вокруг товара темнота
+        image=forced_source_image,
         mask_image=mask_image,
-        strength=0.99,
-        guidance_scale=8.5,        # Чуть увеличили силу следования промпту
-        num_inference_steps=35     # Больше шагов для взрывных неоновых эффектов
+        strength=0.85,             # Уменьшили с 0.99 для агрессивного смешивания с неоном
+        guidance_scale=9.5,        # Увеличили, чтобы промпт сильнее влиял на картинку
+        num_inference_steps=35
     ).images[0]
     
     final_filename = f"fresult_card_{task_id}.png"
