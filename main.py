@@ -46,8 +46,8 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     gc.collect()
     if device == "cuda": torch.cuda.empty_cache()
 
-    # --- ЭТАП 2: УДАЛЕНИЕ ФОНА И АГРЕССИВНАЯ ПОДГОТОВКА ИСХОДНИКА ---
-    print(f"\n{BLUE}[ЭТАП 2]: Запуск rembg и жесткое выжигание фона...{ENDC}")
+    # --- ЭТАП 2: УДАЛЕНИЕ ФОНА И СОЗДАНИЕ НЕОНОВОЙ ПОДЛОЖКИ-ЗАЦЕПКИ ---
+    print(f"\n{BLUE}[ЭТАП 2]: Запуск rembg и создание текстурной подложки...{ENDC}")
     output_rembg = rembg.remove(source_image)
     alpha = output_rembg.split()[-1]
     alpha_np = np.array(alpha)
@@ -58,21 +58,23 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
     mask_image = raw_mask.filter(ImageFilter.GaussianBlur(radius=12))
     mask_image.save(f"step2_mask_{task_id}.png")
     
-    # [СЕКРЕТНЫЙ ХАК]: Вырезаем товар и сажаем его на чистый черный холст!
-    # Это уничтожит серую студию и заставит инпаинт рисовать сочные эффекты с нуля
-    black_bg = Image.new("RGB", (1024, 1024), (0, 0, 0))
-    forced_source_image = Image.composite(source_image, black_bg, alpha)
+    # [НОВЫЙ ХАК]: Вместо черной пустоты делаем грубую цветную заготовку (фиолетово-синий градиент)
+    # Это даст нейросети пиксельную "почву" для генерации неонового фона
+    gradient_bg = Image.new("RGB", (1024, 1024), (40, 10, 70)) # Темно-фиолетовый базовый цвет
+    
+    # Накладываем товар поверх этой цветной подложки
+    forced_source_image = Image.composite(source_image, gradient_bg, alpha)
     forced_source_image.save(f"step2_forced_source_{task_id}.png")
 
     try:
         from IPython.display import display
-        print(f"{GREEN}[ЭКРАН]: Шаг 2 – Товар на черной подложке для агрессивной перерисовки:{ENDC}")
+        print(f"{GREEN}[ЭКРАН]: Шаг 2 – Товар на цветной подложке для генерации лазеров:{ENDC}")
         display(forced_source_image)
     except Exception:
         pass
 
     print("[ОЧИСТКА 2]: Выгружаю rembg...")
-    del output_rembg, alpha, alpha_np, inverted_mask_np, raw_mask, black_bg
+    del output_rembg, alpha, alpha_np, inverted_mask_np, raw_mask, gradient_bg
     gc.collect()
     if device == "cuda": torch.cuda.empty_cache()
 
@@ -86,19 +88,17 @@ def run_dual_ai_pipeline(prompt_style: str, task_id: str):
         inpaint_pipe.enable_model_cpu_offload()
     inpaint_pipe.safety_checker = None
     
-    # Жесткий бан на серые студийные фоны
-    negative_prompt = "grey background, studio background, plain wall, minimalism, boring background, simple backdrop"
+    negative_prompt = "plain black background, solid black, boring background, simple backdrop, grey wall"
     
-    print(f"[ЭТАП 3]: Отрисовываю КАРДИНАЛЬНО новый фон: '{prompt_style}'")
     print(f"[ЭТАП 3]: Отрисовываю КАРДИНАЛЬНО новый фон: '{prompt_style}'")
     final_image = inpaint_pipe(
         prompt=prompt_style,
         negative_prompt=negative_prompt,
-        image=forced_source_image,
+        image=forced_source_image,  
         mask_image=mask_image,
-        strength=0.85,             # Уменьшили с 0.99 для агрессивного смешивания с неоном
-        guidance_scale=9.5,        # Увеличили, чтобы промпт сильнее влиял на картинку
-        num_inference_steps=35
+        strength=0.99,             # Возвращаем максимум, чтобы полностью переписать подложку в лазеры
+        guidance_scale=9.5,        
+        num_inference_steps=30
     ).images[0]
     
     final_filename = f"fresult_card_{task_id}.png"
