@@ -40,35 +40,40 @@ def init_vton_models():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
+    import sys
+    if '/content/IDm_VTON_Engine' not in sys.path:
+        sys.path.append('/content/IDm_VTON_Engine')
+        
     Log.info("Инициализация стабильной сессии маскирования...")
     REMBG_SESSION = rembg.new_session("u2net")
     
-    Log.info("Загрузка коммерческого пайплайна IDm-VTON (Identity-Preserving Try-On)...")
+    Log.info("Загрузка коммерческого пайплайна IDm-VTON...")
     try:
-        # Базовый репозиторий для деформации и вшивания текстур одежды
-        base_model = "yisol/IDm-VTON"
+        # 🔥 ФИКС: Импортируем правильный класс из скачанной папки под уникальным именем
+        from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as IDmVtonPipeline
         
-        if StableDiffusionXLTryOnPipeline is not None:
-            # Инициализируем специализированный пайплайн виртуальной примерки
-            VTON_PIPE = StableDiffusionXLTryOnPipeline.from_pretrained(
-                base_model,
-                torch_dtype=dtype,
-                variant="fp16" if device == "cuda" else None
-            )
-            if device == "cuda":
-                VTON_PIPE.enable_model_cpu_offload()
-            Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
-        else:
-            Log.warn("Движок IDm-VTON не найден, откатываюсь на продвинутый инпаинт-режим...")
-            # Резервный качественный инпаинт на случай сбоя путей гитхаба
-            VTON_PIPE = StableDiffusionXLInpaintPipeline.from_pretrained(
-                "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=dtype, variant="fp16" if device == "cuda" else None
-            )
-            if device == "cuda": VTON_PIPE.enable_model_cpu_offload()
-            VTON_PIPE.safety_checker = None
+        base_model = "yisol/IDm-VTON"
+        VTON_PIPE = IDmVtonPipeline.from_pretrained(
+            base_model,
+            torch_dtype=dtype,
+            variant="fp16" if device == "cuda" else None
+        )
+        if device == "cuda":
+            VTON_PIPE.enable_model_cpu_offload()
+        Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
+        
     except Exception as e:
-        Log.error(f"Критический сбой загрузки ИИ-весов: {e}")
-        sys.exit(1)
+        Log.warn(f"Кастомный пайплайн выдал ошибку импорта ({e}), откатываюсь на базовый SDXL Inpaint...")
+        from diffusers import StableDiffusionXLInpaintPipeline as BaseInpaintPipeline
+        VTON_PIPE = BaseInpaintPipeline.from_pretrained(
+            "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", 
+            torch_dtype=dtype, 
+            variant="fp16" if device == "cuda" else None
+        )
+        if device == "cuda": 
+            VTON_PIPE.enable_model_cpu_offload()
+        VTON_PIPE.safety_checker = None
+
 
 def fetch_task_from_server(user_login: str):
     clean_login = user_login.lower().strip()
