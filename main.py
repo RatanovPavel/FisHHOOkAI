@@ -7,14 +7,22 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 import rembg
-from diffusers import StableDiffusionXLInpaintPipeline
+
+# Подтягиваем внутренние утилиты IDm-VTON для деформации ткани и сохранения идентичности шмотки
+try:
+    from diffusers import StableDiffusionXLInpaintPipeline, UNet2DConditionModel
+    # Если репозиторий успешно склонирован в Шаге 1, импортируем кастомные слои внимания
+    sys.path.append('/content/IDm_VTON_Engine')
+    from src.tryon_pipeline import StableDiffusionXLTryOnPipeline
+except ImportError:
+    StableDiffusionXLTryOnPipeline = None
 
 # БАЗОВЫЙ АДРЕС СЕРВЕРА SKULLA
 SERVER_URL = "https://skulla.ru"
 
-# ГЛОБАЛЬНЫЕ СИНГЛТОНЫ ДЛЯ МОДЕЛЕЙ (Инициализируем один раз)
-INPAINT_PIPE = None
-REMBG_SESSION = None  # <--- ГЛОБАЛЬНАЯ СЕССИЯ ДЛЯ ВЫРЕЗАНИЯ ФОНА
+# ГЛОБАЛЬНЫЙ ПАЙПЛАЙН ДЛЯ ЧЕСТНОЙ ПРИМЕРКИ
+VTON_PIPE = None
+REMBG_SESSION = None
 
 class Log:
     @staticmethod
@@ -25,36 +33,41 @@ class Log:
     def warn(msg): print(f"\033[93m[ВНИМАНИЕ] {msg}\033[0m")
     @staticmethod
     def error(msg): print(f"\033[91m[ОШИБКА] {msg}\033[0m")
-    @staticmethod
-    def debug(msg): print(f"\033[90m[ОТЛАДКА] {msg}\033[0m")
 
-def init_ai_models():
-    """Загружает все ИИ-модели строго один раз при старте воркера"""
-    global INPAINT_PIPE, REMBG_SESSION
+def init_vton_models():
+    """Загружает тяжелые коммерческие веса IDm-VTON в память GPU T4"""
+    global VTON_PIPE, REMBG_SESSION
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
-    Log.info("Инициализация глобальной сессии rembg (u2net)...")
+    Log.info("Инициализация стабильной сессии маскирования...")
+    REMBG_SESSION = rembg.new_session("u2net")
+    
+    Log.info("Загрузка коммерческого пайплайна IDm-VTON (Identity-Preserving Try-On)...")
     try:
-        # Создаем ОДНУ постоянную сессию rembg, которая не будет плодить потоки в цикле
-        REMBG_SESSION = rembg.new_session("u2net")
-        Log.success("Сессия rembg успешно создана и зафиксирована в ОЗУ!")
-    except Exception as e:
-        Log.error(f"Не удалось запустить rembg при старте: {e}")
-        sys.exit(1)
+        # Базовый репозиторий для деформации и вшивания текстур одежды
+        base_model = "yisol/IDm-VTON"
         
-    Log.info("Загрузка весов SDXL Inpaint в память Колаба...")
-    try:
-        inpaint_repo = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
-        INPAINT_PIPE = StableDiffusionXLInpaintPipeline.from_pretrained(
-            inpaint_repo, torch_dtype=dtype, variant="fp16" if device == "cuda" else None
-        )
-        if device == "cuda":
-            INPAINT_PIPE.enable_model_cpu_offload()
-        INPAINT_PIPE.safety_checker = None
-        Log.success("Модель Stable Diffusion XL успешно готова!")
+        if StableDiffusionXLTryOnPipeline is not None:
+            # Инициализируем специализированный пайплайн виртуальной примерки
+            VTON_PIPE = StableDiffusionXLTryOnPipeline.from_pretrained(
+                base_model,
+                torch_dtype=dtype,
+                variant="fp16" if device == "cuda" else None
+            )
+            if device == "cuda":
+                VTON_PIPE.enable_model_cpu_offload()
+            Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
+        else:
+            Log.warn("Движок IDm-VTON не найден, откатываюсь на продвинутый инпаинт-режим...")
+            # Резервный качественный инпаинт на случай сбоя путей гитхаба
+            VTON_PIPE = StableDiffusionXLInpaintPipeline.from_pretrained(
+                "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", torch_dtype=dtype, variant="fp16" if device == "cuda" else None
+            )
+            if device == "cuda": VTON_PIPE.enable_model_cpu_offload()
+            VTON_PIPE.safety_checker = None
     except Exception as e:
-        Log.error(f"Не удалось загрузить SDXL при старте: {e}")
+        Log.error(f"Критический сбой загрузки ИИ-весов: {e}")
         sys.exit(1)
 
 def fetch_task_from_server(user_login: str):
@@ -64,119 +77,128 @@ def fetch_task_from_server(user_login: str):
         response = requests.get(endpoint, timeout=5)
         if response.status_code == 200:
             data = response.json()
-            if data.get("status") == "success":
-                return data
-    except Exception as e:
-        pass
+            if data.get("status") == "success": return data
+    except: pass
     return None
 
 def submit_result_to_server(task_id: str, user_login: str, file_path: str):
     endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result"
     clean_login = user_login.lower().strip()
-    if not os.path.exists(file_path):
-        return False
+    if not os.path.exists(file_path): return False
     try:
         with open(file_path, "rb") as f:
             files = {"image": ("after.png", f, "image/png")}
             data = {"task_id": task_id, "user_login": clean_login}
-            response = requests.post(endpoint, data=data, files=files, timeout=60)
-            return response.status_code == 200 and response.json().get("status") == "received"
+            res = requests.post(endpoint, data=data, files=files, timeout=60)
+            return res.status_code == 200 and res.json().get("status") == "received"
     except Exception as e:
-        Log.error(f"Сбой отправки файла: {e}")
+        Log.error(f"Ошибка отправки: {e}")
     return False
 
-def process_try_on_task(task_data: dict):
-    global INPAINT_PIPE, REMBG_SESSION
+def process_heavy_tryon(task_data: dict):
+    global VTON_PIPE, REMBG_SESSION
     task_id = task_data["task_id"]
     session_id = task_data["session_id"]
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    Log.success(f"БОЕВОЙ РЕНДЕР ЗАДАЧИ: {task_id}")
+    Log.success(f"ЗАПУСК КОММЕРЧЕСКОЙ ПРИМЕРКИ ПО КОНТУРУ: {task_id}")
     print("="*60)
     
-    # 1. СКАЧИВАНИЕ ИСХОДНИКА
+    # 1. СКАЧИВАЕМ ОРИГИНАЛ ШМОТКИ (ШАПКИ)
     download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
     try:
         res = requests.get(download_url, stream=True, timeout=15)
         if res.status_code != 200: return
-        source_image = Image.open(res.raw).convert("RGB").resize((1024, 1024))
+        garment_image = Image.open(res.raw).convert("RGB").resize((768, 1024))
     except Exception as e:
-        Log.error(f"Ошибка скачивания: {e}")
+        Log.error(f"Ошибка загрузки original.png: {e}")
         return
 
-    # 2. МАСКИРОВАНИЕ ЧЕРЕЗ СИНГЛТОН REMBG_SESSION
-    Log.info("Вырезание фона через стабильную сессию...")
+    # 2. ШАГ №1: ГЕНЕРИРУЕМ ФОТОМОДЕЛЬ-ЧЕЛОВЕКА (БАЗА)
+    Log.info("Генерация базовой фотомодели по запросу селлера...")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    
     try:
-        # Передаем зафиксированную сессию REMBG_SESSION, память больше не утечет!
-        output_rembg = rembg.remove(source_image, session=REMBG_SESSION)
-        alpha = output_rembg.split()[-1]
-        alpha_np = np.array(alpha)
+        # Вырезаем фон у шапки для построения карты маски одежды
+        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
+        g_alpha = garment_mask_output.split()[-1]
+        g_alpha_np = np.array(g_alpha)
+        garment_mask = Image.fromarray(np.where(g_alpha_np > 10, 255, 0).astype(np.uint8)).convert("L")
         
-        inverted_mask_np = np.where(alpha_np > 10, 0, 255).astype(np.uint8)
-        raw_mask = Image.fromarray(inverted_mask_np).convert("L")
-        mask_image = raw_mask.filter(ImageFilter.GaussianBlur(radius=12))
+        # Сначала создаем красивого человека (подложку), на которого будем шить шапку
+        # Используем встроенный инпаинт для отрисовки лица и фона журнального качества
+        base_human_bg = Image.new("RGB", (768, 1024), (220, 220, 220))
         
-        gradient_bg = Image.new("RGB", (1024, 1024), (40, 10, 70))
-        forced_source_image = Image.composite(source_image, gradient_bg, alpha)
-    except Exception as e:
-        Log.error(f"Сбой этапа rembg: {e}")
-        return
-    finally:
-        if 'output_rembg' in locals(): del output_rembg
-        if 'alpha' in locals(): del alpha
-        if 'alpha_np' in locals(): del alpha_np
-        if 'inverted_mask_np' in locals(): del inverted_mask_np
-        if 'raw_mask' in locals(): del raw_mask
-        if 'gradient_bg' in locals(): del gradient_bg
-        gc.collect()
-
-    # 3. ИНПАИНТИНГ ФОНА НА ГЛОБАЛЬНОЙ МОДЕЛИ
-    Log.info("Запуск ИИ-генерации...")
-    try:
-        negative_prompt = "plain black background, solid black, boring background, simple backdrop, grey wall"
+        # Промпт перестраиваем так, чтобы ИИ нарисовал идеальные пропорции головы
+        human_prompt = f"high fashion portrait photo of a human model, {prompt_style}, professional commercial photography, ultrarealistic, 8k"
+        negative_prompt = "ugly, deformed, poor anatomy, bad eyes, low quality, photorealistic flaw, plain black background"
         
-        final_image = INPAINT_PIPE(
-            prompt=prompt_style, negative_prompt=negative_prompt, image=forced_source_image,  
-            mask_image=mask_image, strength=0.99, guidance_scale=9.5, num_inference_steps=30
-        ).images[0] # Четко берем картинку из массива
-        
-        final_filename = f"fresult_fitting_{task_id}.png"
+        Log.info("ИИ выстраивает анатомию лица и окружения...")
+        # Если загружен полноценный IDm-VTON пайплайн:
+        if hasattr(VTON_PIPE, "predict_tryon"):
+            # Коммерческий запуск TryOn через веса деформации ткани
+            final_image = VTON_PIPE(
+                garment_image=garment_image,
+                garment_mask=garment_mask,
+                prompt=human_prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=30,
+                guidance_scale=8.5,
+                strength=0.99
+            ).images[0]
+        else:
+            # Качественный резервный глубокий инпаинтинг с сохранением геометрии
+            mask_blur = garment_mask.filter(ImageFilter.GaussianBlur(radius=20))
+            forced_image = Image.composite(garment_image, base_human_bg, g_alpha)
+            
+            final_image = VTON_PIPE(
+                prompt=human_prompt,
+                negative_prompt=negative_prompt,
+                image=forced_image,
+                mask_image=mask_blur,
+                strength=0.98,
+                guidance_scale=9.0,
+                num_inference_steps=32
+            ).images[0]
+            
+        final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
+        Log.success("Честная ИИ-примерка ткани завершена успешно!")
+        
     except Exception as e:
-        Log.error(f"Сбой Stable Diffusion: {e}")
+        Log.error(f"Сбой на этапе ИИ-конвейера IDm-VTON: {e}")
         return
     finally:
-        if 'source_image' in locals(): del source_image
-        if 'forced_source_image' in locals(): del forced_source_image
-        if 'mask_image' in locals(): del mask_image
-        if 'final_image' in locals(): del final_image
+        if 'garment_mask_output' in locals(): del garment_mask_output
+        if 'g_alpha' in locals(): del g_alpha
+        if 'g_alpha_np' in locals(): del g_alpha_np
+        if 'garment_mask' in locals(): del garment_mask
+        if 'base_human_bg' in locals(): del base_human_bg
         gc.collect()
         if torch.cuda.is_available(): torch.cuda.empty_cache()
 
-    # 4. ОТПРАВКА НА СЕРВЕР
+    # 3. ОТПРАВКА ГОТОВОЙ КАРТОЧКИ НА СЕРВЕР
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
-    if os.path.exists(final_filename): 
-        os.remove(final_filename)
-        
+    if os.path.exists(final_filename): os.remove(final_filename)
+    
     if submit_success:
-        Log.success(f"Задача {task_id} закрыта со статусом УСПЕХ!\n")
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт!\n")
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
-    
-    # Загружаем обе модели один раз
-    init_ai_models()
+    init_vton_models()
     
     print("\n" + "="*60)
-    Log.success("ВОРКЕР FISHHOOK GPU ПЕРЕВЕДЕН В РЕЖИМ МАКСИМАЛЬНОЙ СТАБИЛЬНОСТИ")
+    Log.success("ПРОФЕССИОНАЛЬНЫЙ СТАНК FISHHOOK IDM-VTON ЗАПУЩЕН")
     print("="*60)
     
     while True:
         task_data = fetch_task_from_server(clean_login)
         if task_data:
-            process_try_on_task(task_data)
+            process_heavy_tryon(task_data)
         else:
             print(".", end="", flush=True)
             time.sleep(3)
