@@ -49,18 +49,18 @@ def init_vton_models():
     
     Log.info("Загрузка коммерческого пайплайна IDm-VTON...")
     try:
-        # 🔥 ФИКС: Импортируем правильный класс из скачанной папки под уникальным именем
         from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as IDmVtonPipeline
         
         base_model = "yisol/IDm-VTON"
+        # 🔥 ФИКС: УБРАЛИ variant="fp16", чтобы качались оригинальные веса!
         VTON_PIPE = IDmVtonPipeline.from_pretrained(
             base_model,
-            torch_dtype=dtype,
-            variant="fp16" if device == "cuda" else None
+            torch_dtype=dtype
         )
         if device == "cuda":
             VTON_PIPE.enable_model_cpu_offload()
         Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
+
         
     except Exception as e:
         Log.warn(f"Кастомный пайплайн выдал ошибку импорта ({e}), откатываюсь на базовый SDXL Inpaint...")
