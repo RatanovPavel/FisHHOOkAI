@@ -55,17 +55,20 @@ def init_vton_models():
         # 1. Скачиваем честный оригинальный VAE от StabilityAI, чтобы закрыть дыру в репозитории авторов
         Log.info("Подгружаю официальный VAE от StabilityAI для устранения ошибки репозитория...")
         stable_vae = AutoencoderKL.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0", 
-            subfolder="vae", 
-            torch_dtype=dtype
+            "stabilityai/stable-diffusion-xl-base-1.0",
+            subfolder="vae",
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True
         )
+
         
         # 2. Загружаем основной коммерческий пайплайн примерки
         base_model = "yisol/IDm-VTON"
         VTON_PIPE = IDmVtonPipeline.from_pretrained(
             base_model,
-            vae=stable_vae,  # 🔥 ЖЕСТКО ПОДСТАВИЛИ РАБОЧИЙ VAE!
-            torch_dtype=dtype
+            vae=stable_vae,
+            torch_dtype=dtype,
+            low_cpu_mem_usage=True
         )
         
         if device == "cuda":
