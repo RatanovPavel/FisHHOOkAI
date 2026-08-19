@@ -160,7 +160,7 @@ def process_try_on_task(task_data: dict):
         final_image = inpaint_pipe(
             prompt=prompt_style, negative_prompt=negative_prompt, image=forced_source_image,  
             mask_image=mask_image, strength=0.99, guidance_scale=9.5, num_inference_steps=30
-        ).images
+        ).images[0]
         
         final_filename = f"fresult_fitting_{task_id}.png"
         final_image.save(final_filename)
