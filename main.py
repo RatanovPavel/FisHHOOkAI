@@ -50,16 +50,28 @@ def init_vton_models():
     Log.info("Загрузка коммерческого пайплайна IDm-VTON...")
     try:
         from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as IDmVtonPipeline
+        from diffusers import AutoencoderKL  # Подтягиваем класс автоэнкодера
         
-        base_model = "yisol/IDm-VTON"
-        # 🔥 ФИКС: УБРАЛИ variant="fp16", чтобы качались оригинальные веса!
-        VTON_PIPE = IDmVtonPipeline.from_pretrained(
-            base_model,
+        # 1. Скачиваем честный оригинальный VAE от StabilityAI, чтобы закрыть дыру в репозитории авторов
+        Log.info("Подгружаю официальный VAE от StabilityAI для устранения ошибки репозитория...")
+        stable_vae = AutoencoderKL.from_pretrained(
+            "stabilityai/stable-diffusion-xl-base-1.0", 
+            subfolder="vae", 
             torch_dtype=dtype
         )
+        
+        # 2. Загружаем основной коммерческий пайплайн примерки
+        base_model = "yisol/IDm-VTON"
+        VTON_PIPE = IDmVtonPipeline.from_pretrained(
+            base_model,
+            vae=stable_vae,  # 🔥 ЖЕСТКО ПОДСТАВИЛИ РАБОЧИЙ VAE!
+            torch_dtype=dtype
+        )
+        
         if device == "cuda":
             VTON_PIPE.enable_model_cpu_offload()
         Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
+
 
         
     except Exception as e:
