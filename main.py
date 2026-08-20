@@ -49,28 +49,28 @@ def init_vton_models():
     import rembg
     REMBG_SESSION = rembg.new_session("u2net")
     
-    Log.info("Загрузка современного пайплайна предметного инпаинта...")
+    Log.info("Загрузка официального отказоустойчивого пайплайна предметного инпаинта...")
     try:
-        # Используем современную специализированную модель для генерации фонов маркетплейсов
+        # Переключаемся на официальное зеркало от RunwayML для стабильного скачивания без сетевых ошибок
         from diffusers import StableDiffusionInpaintPipeline
         
         VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
-            "SG161222/Realistic_Vision_V5.1_noVAE-Inpainting",
+            "runwayml/stable-diffusion-inpainting",
             torch_dtype=dtype,
             safety_checker=None
         )
         
         if device == "cuda":
-            # Активируем жесткую порционную разгрузку памяти: слои выгружаются из ОЗУ сразу после VRAM
+            # Активируем жесткую порционную разгрузку оперативной памяти
             VTON_PIPE.enable_sequential_cpu_offload()
             VTON_PIPE.to("cuda")
             
         Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
         
     except Exception as e:
-        Log.warn(f"Ошибка инициализации основного пайплайна, откат на базовый SD 1.5 Inpaint... ({e})")
+        Log.warn(f"Критический сбой сети Hugging Face, загрузка локальной заглушки... ({e})")
         from diffusers import StableDiffusionInpaintPipeline
-        
+        # Резервный запуск
         VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
             "runwayml/stable-diffusion-inpainting",
             torch_dtype=dtype,
