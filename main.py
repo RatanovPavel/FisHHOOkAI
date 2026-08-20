@@ -35,8 +35,9 @@ class Log:
     def error(msg): print(f"\033[91m[ОШИБКА] {msg}\033[0m")
 
 def init_vton_models():
-    """Загружает тяжелые коммерческие веса IDm-VTON в память GPU T4"""
+    """Загружает легковесные современные пайплайны инпаинта для предметов напрямую в VRAM"""
     global VTON_PIPE, REMBG_SESSION
+    
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
@@ -44,50 +45,41 @@ def init_vton_models():
     if '/content/IDm_VTON_Engine' not in sys.path:
         sys.path.append('/content/IDm_VTON_Engine')
         
-    Log.info("Инициализация стабильной сессии маскирования...")
+    Log.info("Инициализация стабильной сессии маскирования предметов...")
+    import rembg
     REMBG_SESSION = rembg.new_session("u2net")
     
-    Log.info("Загрузка коммерческого пайплайна IDm-VTON...")
+    Log.info("Загрузка современного пайплайна предметного инпаинта...")
     try:
-        from src.tryon_pipeline import StableDiffusionXLInpaintPipeline as IDmVtonPipeline
-        from diffusers import AutoencoderKL  # Подтягиваем класс автоэнкодера
+        # Используем современную специализированную модель для генерации фонов маркетплейсов
+        from diffusers import StableDiffusionInpaintPipeline
         
-        # 1. Скачиваем честный оригинальный VAE от StabilityAI, чтобы закрыть дыру в репозитории авторов
-        Log.info("Подгружаю официальный VAE от StabilityAI для устранения ошибки репозитория...")
-        stable_vae = AutoencoderKL.from_pretrained(
-            "stabilityai/stable-diffusion-xl-base-1.0",
-            subfolder="vae",
+        VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
+            "SG161222/Realistic_Vision_V5.1_noVAE-Inpainting",
             torch_dtype=dtype,
-            low_cpu_mem_usage=True
-        )
-
-        
-        # 2. Загружаем основной коммерческий пайплайн примерки
-        base_model = "yisol/IDm-VTON"
-        VTON_PIPE = IDmVtonPipeline.from_pretrained(
-            base_model,
-            vae=stable_vae,
-            torch_dtype=dtype,
-            low_cpu_mem_usage=True
+            safety_checker=None
         )
         
         if device == "cuda":
-            VTON_PIPE.enable_model_cpu_offload()
-        Log.success("🔥 СВЕРХМОЩНЫЙ ИИ-ДВИЖОК IDm-VTON УСПЕШНО ЗАГРУЖЕН И ГОТОВ К БОЮ!")
-
-
+            # Активируем жесткую порционную разгрузку памяти: слои выгружаются из ОЗУ сразу после VRAM
+            VTON_PIPE.enable_sequential_cpu_offload()
+            VTON_PIPE.to("cuda")
+            
+        Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
         
     except Exception as e:
-        Log.warn(f"Кастомный пайплайн выдал ошибку импорта ({e}), откатываюсь на базовый SDXL Inpaint...")
-        from diffusers import StableDiffusionXLInpaintPipeline as BaseInpaintPipeline
-        VTON_PIPE = BaseInpaintPipeline.from_pretrained(
-            "diffusers/stable-diffusion-xl-1.0-inpainting-0.1", 
-            torch_dtype=dtype, 
-            variant="fp16" if device == "cuda" else None
+        Log.warn(f"Ошибка инициализации основного пайплайна, откат на базовый SD 1.5 Inpaint... ({e})")
+        from diffusers import StableDiffusionInpaintPipeline
+        
+        VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
+            "runwayml/stable-diffusion-inpainting",
+            torch_dtype=dtype,
+            safety_checker=None
         )
-        if device == "cuda": 
-            VTON_PIPE.enable_model_cpu_offload()
-        VTON_PIPE.safety_checker = None
+        if device == "cuda":
+            VTON_PIPE.enable_sequential_cpu_offload()
+            VTON_PIPE.to("cuda")
+
 
 
 def fetch_task_from_server(user_login: str):
