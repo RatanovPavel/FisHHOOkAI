@@ -395,7 +395,7 @@ def process_heavy_tryon_naked(task_data: dict):
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    print(f" ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
+    print(f" ЗАПУСК ДВУХЭТАПНОГО КОНВЕЙЕРА (ОДЕЖДА -> ФОН) [900x1200]: {task_id}")
     print("="*60)
     
     TARGET_WIDTH = 900
@@ -416,68 +416,89 @@ def process_heavy_tryon_naked(task_data: dict):
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА И ОДЕЖДЫ
-    Log.info("Удаление старого фона и жесткая изоляция анатомии...")
     try:
         import rembg
         
-        # Получаем силуэт человека (альфа-канал)
+        # Шаг А: Получаем чистый силуэт человека (альфа-канал)
+        Log.info("Сегментация силуэта для изоляции фона...")
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
         g_alpha_np = np.array(g_alpha)
         
-        # Строим инвертированную маску фона (белый фон = 255, человек = 0)
-        bg_mask_np = 255 - g_alpha_np
+        # Создаем изображение человека С НАПИСАННЫМ БЕЛЫМ ФОНОМ (чтобы ИИ не путался в прозрачности)
+        isolated_human = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), (255, 255, 255))
+        isolated_human.paste(garment_image, mask=g_alpha)
         
-        # Строим маску одежды. Отрезаем голову сверху (25%), чтобы ИИ вообще ее не видел.
-        # Также отрезаем нижнюю часть под руки (75%), если ладони лежат вдоль тела.
-        clothing_draw = np.zeros_like(g_alpha_np)
+        # Шаг Б: Строим маску исключительно для одежды (внутри силуэта, без головы и кистей)
+        clothing_mask_np = np.zeros_like(g_alpha_np)
         head_limit = int(TARGET_HEIGHT * 0.25)
         hands_limit = int(TARGET_HEIGHT * 0.78)
         
-        # Выделяем область торса и бедер под генерацию одежды
-        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-        
-        # Объединяем: меняем только фон и выделенную зону одежды
-        combined_mask_np = np.maximum(bg_mask_np, clothing_draw)
-        
-        # Превращаем в PIL Image
-        mask_img = Image.fromarray(combined_mask_np.astype(np.uint8), mode="L")
-        
-        # Мягкое размытие контуров перехода (radius=3), чтобы избежать жестких швов
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=3))
+        # Вырезаем торс под замену одежды
+        clothing_mask_np[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+        clothing_mask = Image.fromarray(clothing_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=2))
         
     except Exception as e:
-        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
+        Log.error(f"Ошибка на этапе подготовки масок сегментации: {e}")
         return
 
-    # Обогащаем negative prompt критическими тегами против мутаций конечностей
+    # Общие негативные теги против анатомических багов
     negative_prompt = (
         "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
-        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutaded hands, "
+        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutated hands, "
         "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy"
     )
     
-    Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
     try:
-        # Понижаем strength до 0.78-0.82. Это заставит модель генерировать новую ткань, 
-        # строго следуя контурам исходного тела, не выдумывая лишние руки
-        base_image = VTON_PIPE(
-            prompt=prompt_style,
+        # =====================================================================
+        # ЭТАП №1: СМЕНА ОДЕЖДЫ НА ИЗОЛИРОВАННОМ ЧЕЛОВЕКЕ
+        # =====================================================================
+        Log.info("ЭТАП 1/2: Нейросеть перерисовывает одежду на белом фоне...")
+        
+        # Промпт фокусируем только на одежде, игнорируя пока окружение
+        clothing_prompt = f"A high quality studio photo of a model wearing {prompt_style}, clean white studio background"
+        
+        person_with_new_clothing = VTON_PIPE(
+            prompt=clothing_prompt,
             negative_prompt=negative_prompt,
-            image=garment_image,
-            mask_image=mask_blur,
-            num_inference_steps=40,
-            guidance_scale=8.5,
-            strength=0.80 
+            image=isolated_human,
+            mask_image=clothing_mask,
+            num_inference_steps=35,
+            guidance_scale=8.0,
+            strength=0.82  # Оптимально для полной смены текстуры ткани без изменения позы
         ).images[0]
         
-        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
+        # =====================================================================
+        # ЭТАП №2: ГЕНЕРАЦИЯ НОВОГО ФОНА ВОКРУГ ЧЕЛОВЕКА
+        # =====================================================================
+        Log.info("ЭТАП 2/2: Генерация коммерческого фона вокруг готового силуэта...")
+        
+        # Маска для фона — это инвертированный полный силуэт человека. 
+        # Человек теперь на 100% залит ЧЕРНЫМ (0% изменений), а фон БЕЛЫЙ (100% изменений)
+        bg_only_mask_np = 255 - g_alpha_np
+        
+        # Размываем маску сильнее (radius=4), чтобы контур человека мягко «вписался» в освещение нового фона
+        bg_only_mask = Image.fromarray(bg_only_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
+        
+        # Запускаем генерацию фона вокруг модели с новой одеждой
+        base_image = VTON_PIPE(
+            prompt=prompt_style,  # Здесь ИИ считывает описание локации/студии/пляжа
+            negative_prompt=negative_prompt,
+            image=person_with_new_clothing,
+            mask_image=bg_only_mask,
+            num_inference_steps=35,
+            guidance_scale=7.5,
+            strength=0.99  # Фон переписываем полностью с нуля
+        ).images[0]
+        
+        # =====================================================================
+        # ЭТАП №3: НЕЙРОСЕТЕВОЙ HI-RES FIX (ПОВЫШЕНИЕ ДЕТАЛИЗАЦИИ ФОНА)
+        # =====================================================================
+        Log.info("ЭТАП №3: Финальный апскейл и прорисовка микродеталей...")
         high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
         high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
         
-        # При апскейле передаем маску, защищающую лицо и руки
-        high_res_mask = mask_blur.resize(high_res_size, resample=Image.Resampling.NEAREST)
+        high_res_mask = bg_only_mask.resize(high_res_size, resample=Image.Resampling.NEAREST)
         
         temp_hd_image = VTON_PIPE(
             prompt=prompt_style,
@@ -486,27 +507,29 @@ def process_heavy_tryon_naked(task_data: dict):
             mask_image=high_res_mask,
             num_inference_steps=20,
             guidance_scale=7.5,
-            strength=0.28
+            strength=0.30
         ).images[0]
         
-        Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900х1200...")
+        Log.info("ФИНАЛЬНЫЙ ШАГ: Кадрирование и фиксация размера под 900х1200...")
         final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
         
         # Сохраняем результат
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(f"Вертикальный рендеринг карточки {final_image.size} успешно завершен!")
+        Log.success(f"Двухэтапный рендеринг карточки {final_image.size} успешно завершен!")
         
     except Exception as e:
-        Log.error(f"Критический сбой ИИ-генератора фона и одежды: {e}")
+        Log.error(f"Критический сбой ИИ-конвейера генерации: {e}")
         return
         
     # #4 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
     finally:
         if 'raw_image' in locals(): del raw_image
         if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'mask_img' in locals(): del mask_img
-        if 'mask_blur' in locals(): del mask_blur
+        if 'isolated_human' in locals(): del isolated_human
+        if 'clothing_mask' in locals(): del clothing_mask
+        if 'person_with_new_clothing' in locals(): del person_with_new_clothing
+        if 'bg_only_mask' in locals(): del bg_only_mask
         if 'base_image' in locals(): del base_image
         if 'high_res_input' in locals(): del high_res_input
         if 'high_res_mask' in locals(): del high_res_mask
