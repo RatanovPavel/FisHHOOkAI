@@ -387,15 +387,15 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
     return final_mask
 
 
-def process_heavy_tryon_naked(task_data: dict):
-    global VTON_PIPE, REMBG_SESSION
+def process_heavy_tryon_ext(task_data: dict):
+    global VTON_PIPE  # Используется в режиме Image-to-Image / strength-controlled
     task_id = task_data["task_id"]
     session_id = task_data["session_id"]
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    print(f" ЗАПУСК ДВУХЭТАПНОГО КОНВЕЙЕРА (ОДЕЖДА -> ФОН) [900x1200]: {task_id}")
+    print(f" ЗАПУСК ОДНОПРОХОДНОГО IMG2IMG КОНВЕЙЕРА [900x1200]: {task_id}")
     print("="*60)
     
     TARGET_WIDTH = 900
@@ -412,133 +412,52 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
         return
 
-    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА
+    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА СТРОГО 900х1200
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    try:
-        import rembg
-        
-        # Шаг А: Получаем чистый силуэт человека (альфа-канал)
-        Log.info("Сегментация силуэта для изоляции фона...")
-        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
-        g_alpha = garment_mask_output.split()[-1]
-        g_alpha_np = np.array(g_alpha)
-        
-        # Создаем изображение человека С НАПИСАННЫМ БЕЛЫМ ФОНОМ (чтобы ИИ не путался в прозрачности)
-        isolated_human = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), (255, 255, 255))
-        isolated_human.paste(garment_image, mask=g_alpha)
-        
-        # Шаг Б: Строим маску исключительно для одежды (внутри силуэта, без головы и кистей)
-        clothing_mask_np = np.zeros_like(g_alpha_np)
-        head_limit = int(TARGET_HEIGHT * 0.25)
-        hands_limit = int(TARGET_HEIGHT * 0.78)
-        
-        # Вырезаем торс под замену одежды
-        clothing_mask_np[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-        clothing_mask = Image.fromarray(clothing_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=2))
-        
-    except Exception as e:
-        Log.error(f"Ошибка на этапе подготовки масок сегментации: {e}")
-        return
-
-    # Общие негативные теги против анатомических багов
+    # Жесткие негативные теги для удержания анатомической структуры
     negative_prompt = (
         "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
-        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutated hands, "
-        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy"
+        "deformed hands, extra fingers, mutated hands, three arms, extra limbs, deformed face, "
+        "bad skin, ugly eyes, unrealistic anatomy, distorted proportions"
     )
     
+    Log.info("ЕДИНЫЙ ЭТАП: Генерация одежды и фона в один проход нейросети...")
     try:
-        # =====================================================================
-        # ЭТАП №1: СМЕНА ОДЕЖДЫ НА ИЗОЛИРОВАННОМ ЧЕЛОВЕКЕ
-        # =====================================================================
-        Log.info("ЭТАП 1/2: Нейросеть перерисовывает одежду на белом фоне...")
+        # Модифицируем промпт, чтобы ИИ понимал, что нужно сохранить человека, изменив одежду и фон
+        full_generation_prompt = f"A high quality professional photo of the exact same person, wearing {prompt_style}, highly detailed studio corporate fashion background"
         
-        # Промпт фокусируем только на одежде, игнорируя пока окружение
-        clothing_prompt = f"A high quality studio photo of a model wearing {prompt_style}, clean white studio background"
-        
-        person_with_new_clothing = VTON_PIPE(
-            prompt=clothing_prompt,
+        # Запуск пайплайна без mask_image. Работает чистый Img2Img.
+        # strength=0.38 — это критический баланс: лицо и руки изменятся максимум на 5% (дойдет только свет),
+        # а плоская однотонная одежда и простой фон примут на себя 100% генерации нового стиля.
+        final_image = VTON_PIPE(
+            prompt=full_generation_prompt,
             negative_prompt=negative_prompt,
-            image=isolated_human,
-            mask_image=clothing_mask,
+            image=garment_image,
             num_inference_steps=35,
             guidance_scale=8.0,
-            strength=0.82  # Оптимально для полной смены текстуры ткани без изменения позы
-        ).images[0]
+            strength=0.38
+        ).images[0]  # Извлекаем итоговое PIL-изображение
         
-        # =====================================================================
-        # ЭТАП №2: ГЕНЕРАЦИЯ НОВОГО ФОНА ВОКРУГ ЧЕЛОВЕКА
-        # =====================================================================
-        Log.info("ЭТАП 2/2: Генерация коммерческого фона вокруг готового силуэта...")
-        
-        # Маска для фона — это инвертированный полный силуэт человека. 
-        # Человек теперь на 100% залит ЧЕРНЫМ (0% изменений), а фон БЕЛЫЙ (100% изменений)
-        bg_only_mask_np = 255 - g_alpha_np
-        
-        # Размываем маску сильнее (radius=4), чтобы контур человека мягко «вписался» в освещение нового фона
-        bg_only_mask = Image.fromarray(bg_only_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
-        
-        # Запускаем генерацию фона вокруг модели с новой одеждой
-        base_image = VTON_PIPE(
-            prompt=prompt_style,  # Здесь ИИ считывает описание локации/студии/пляжа
-            negative_prompt=negative_prompt,
-            image=person_with_new_clothing,
-            mask_image=bg_only_mask,
-            num_inference_steps=35,
-            guidance_scale=7.5,
-            strength=0.99  # Фон переписываем полностью с нуля
-        ).images[0]
-        
-        # =====================================================================
-        # ЭТАП №3: НЕЙРОСЕТЕВОЙ HI-RES FIX (ПОВЫШЕНИЕ ДЕТАЛИЗАЦИИ ФОНА)
-        # =====================================================================
-        Log.info("ЭТАП №3: Финальный апскейл и прорисовка микродеталей...")
-        high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
-        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        
-        high_res_mask = bg_only_mask.resize(high_res_size, resample=Image.Resampling.NEAREST)
-        
-        temp_hd_image = VTON_PIPE(
-            prompt=prompt_style,
-            negative_prompt=negative_prompt,
-            image=high_res_input,
-            mask_image=high_res_mask,
-            num_inference_steps=20,
-            guidance_scale=7.5,
-            strength=0.30
-        ).images[0]
-        
-        Log.info("ФИНАЛЬНЫЙ ШАГ: Кадрирование и фиксация размера под 900х1200...")
-        final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
-        
-        # Сохраняем результат
+        # Сохраняем результат без апскейлов и склеек
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(f"Двухэтапный рендеринг карточки {final_image.size} успешно завершен!")
+        Log.success(f"Рендеринг карточки {final_image.size} успешно завершен за 1 шаг!")
         
     except Exception as e:
-        Log.error(f"Критический сбой ИИ-конвейера генерации: {e}")
+        Log.error(f"Критический сбой ИИ-генерации: {e}")
         return
         
-    # #4 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
+    # #3 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ
     finally:
         if 'raw_image' in locals(): del raw_image
-        if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'isolated_human' in locals(): del isolated_human
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'person_with_new_clothing' in locals(): del person_with_new_clothing
-        if 'bg_only_mask' in locals(): del bg_only_mask
-        if 'base_image' in locals(): del base_image
-        if 'high_res_input' in locals(): del high_res_input
-        if 'high_res_mask' in locals(): del high_res_mask
-        if 'temp_hd_image' in locals(): del temp_hd_image
+        if 'garment_image' in locals(): del garment_image
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             
-    # #5 ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
+    # #4 ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
     if os.path.exists(final_filename):
         os.remove(final_filename)
