@@ -132,7 +132,7 @@ def process_heavy_tryon(task_data: dict):
         
         g_alpha_np = np.array(g_alpha)
         mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=4))
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=1))
         
         Log.info(f"[ОТЛАДКА]: Альфа-маска объекта успешно сгенерирована и инвертирована. Размер: {mask_blur.size}")
     except Exception as e:
@@ -182,10 +182,10 @@ def process_heavy_tryon(task_data: dict):
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=high_res_input,
-            mask_image=high_res_mask, # Подаем оригинальную маску вместо белой!
+            mask_image=high_res_mask, 
             num_inference_steps=20,
-            guidance_scale=7.5,
-            strength=0.28             # Чуть снижаем силу, чтобы ИИ только точил резкость, но ничего не пририсовывал
+            guidance_scale=8.5,     # Немного увеличиваем, чтобы промпт работал жестче
+            strength=0.20           # Маленькая сила: ИИ только добавит резкости асфальту первого этапа
         ).images[0]
 
         
