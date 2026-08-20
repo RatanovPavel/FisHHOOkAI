@@ -35,50 +35,35 @@ class Log:
     def error(msg): print(f"\033[91m[ОШИБКА] {msg}\033[0m")
 
 def init_vton_models():
-    """Загружает легковесные современные пайплайны инпаинта для предметов напрямую в VRAM"""
+    """Загружает официальный легковесный инпаинт для предметов напрямую в VRAM"""
     global VTON_PIPE, REMBG_SESSION
     
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device == "cuda" else torch.float32
     
-    import sys
-    if '/content/IDm_VTON_Engine' not in sys.path:
-        sys.path.append('/content/IDm_VTON_Engine')
-        
     Log.info("Инициализация стабильной сессии маскирования предметов...")
     import rembg
     REMBG_SESSION = rembg.new_session("u2net")
     
-    Log.info("Загрузка официального отказоустойчивого пайплайна предметного инпаинта...")
-    try:
-        # Переключаемся на официальное зеркало от RunwayML для стабильного скачивания без сетевых ошибок
-        from diffusers import StableDiffusionInpaintPipeline
+    Log.info("Загрузка официального отказоустойчивого пайплайна...")
+    
+    # Импортируем стандартный нативный пайплайн для обычного инпаинта предметов
+    from diffusers import StableDiffusionInpaintPipeline
+    
+    # Загружаем стабильное зеркало, которое никогда не выдает ошибок метаданных
+    VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
+        "runwayml/stable-diffusion-inpainting",
+        torch_dtype=dtype,
+        safety_checker=None
+    )
+    
+    if device == "cuda":
+        # Самый жесткий режим экономии системной RAM (укладывается в 3-4 ГБ ОЗУ)
+        VTON_PIPE.enable_sequential_cpu_offload()
+        VTON_PIPE.to("cuda")
         
-        VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
-            "runwayml/stable-diffusion-inpainting",
-            torch_dtype=dtype,
-            safety_checker=None
-        )
-        
-        if device == "cuda":
-            # Активируем жесткую порционную разгрузку оперативной памяти
-            VTON_PIPE.enable_sequential_cpu_offload()
-            VTON_PIPE.to("cuda")
-            
-        Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
-        
-    except Exception as e:
-        Log.warn(f"Критический сбой сети Hugging Face, загрузка локальной заглушки... ({e})")
-        from diffusers import StableDiffusionInpaintPipeline
-        # Резервный запуск
-        VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
-            "runwayml/stable-diffusion-inpainting",
-            torch_dtype=dtype,
-            safety_checker=None
-        )
-        if device == "cuda":
-            VTON_PIPE.enable_sequential_cpu_offload()
-            VTON_PIPE.to("cuda")
+    Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН!")
+
 
 
 
