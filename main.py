@@ -398,11 +398,10 @@ def process_heavy_tryon_naked(task_data: dict):
     print(f" ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
     print("="*60)
     
-    # Жесткие эталонные размеры для Wildberries / Ozon
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
     
-    # #1 СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
+    # #1 СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С СЕРВЕРА
     download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
     try:
         res = requests.get(download_url, stream=True, timeout=15)
@@ -413,50 +412,69 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
         return
 
-    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900х1200
+    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА И ОДЕЖДЫ
-    Log.info("Удаление старого фона и сегментация гардероба...")
+    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ С ГРАДИЕНТОМ ИЗМЕНЕНИЯ ЛИЦА
+    Log.info("Удаление старого фона и расчет контролируемой маски лица...")
     try:
         import rembg
         
-        # Вырезаем силуэт человека
+        # Получаем силуэт человека
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
+        g_alpha = garment_mask_output.split()[-1]
+        g_alpha_np = np.array(g_alpha)
         
-        # Генерируем комбинированную маску (Фон + Одежда под замену, Лицо защищено)
-        mask_img = generate_vton_mask(garment_image, garment_mask_output)
+        # Начинаем строить кастомную карту весов (маску)
+        # Фон полностью белый (255) — меняется на 100%
+        mask_np = 255 - g_alpha_np
         
-        # Минимальное размытие для идеальной контурной резкости
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=2))
+        # Определяем примерную границу головы (верхние 23% силуэта)
+        head_height_limit = int(TARGET_HEIGHT * 0.23)
+        
+        # Область одежды (ниже головы): меняется сильно, заполняем белым (255)
+        mask_np[head_height_limit:] = np.maximum(mask_np[head_height_limit:], g_alpha_np[head_height_limit:])
+        
+        # Область головы и лица: заполняем полупрозрачным серым цветом (значение 110).
+        # Благодаря этому ИИ скорректирует лицо под новый свет, но сохранит сходство на ~80%
+        face_area_mask = np.zeros_like(g_alpha_np)
+        face_area_mask[:head_height_limit] = g_alpha_np[:head_height_limit]
+        
+        # Накладываем серое значение на зону лица
+        mask_np = np.where(face_area_mask > 0, 110, mask_np)
+        
+        # Превращаем в PIL и размываем границы, чтобы изменения перетекали бесшовно
+        mask_blur = Image.fromarray(mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
         
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
         return
 
-    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, deformed face, bad skin"
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, deformed face, bad skin, distorted facial features"
     
     Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
     try:
-        # Для того чтобы ИИ переписал одежду по промпту, но не сломал позу, 
-        # мы снижаем strength до 0.82-0.85 (вместо 0.99)
+        # Общий параметр strength выставляем высоким, чтобы фон и одежда прорисовались с нуля.
+        # Внутри маски лицо умножится на этот коэффициент и получит деликатную степень свободы.
         base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
             num_inference_steps=35,
-            guidance_scale=7.5,
-            strength=0.85 
-        ).images[0]
+            guidance_scale=8.0,
+            strength=0.90 
+        ).images
         
         Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
-        
-        # Промежуточный апскейл для прорисовки текстур ткани и фона
         high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
         high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        high_res_full_mask = Image.new("L", high_res_size, 255)
+        
+        # Для второго этапа создаем карту легкого инпейнтинга:
+        # Фон и одежду улучшаем (255), лицо защищаем сильнее (значение 40 из 255), чтобы не размыть черты при апскейле
+        high_res_mask_np = np.where(np.array(mask_blur.resize(high_res_size)) <= 115, 40, 255)
+        high_res_full_mask = Image.fromarray(high_res_mask_np.astype(np.uint8), mode="L")
         
         temp_hd_image = VTON_PIPE(
             prompt=prompt_style,
@@ -465,8 +483,8 @@ def process_heavy_tryon_naked(task_data: dict):
             mask_image=high_res_full_mask,
             num_inference_steps=20,
             guidance_scale=7.5,
-            strength=0.32
-        ).images[0]
+            strength=0.35
+        ).images
         
         Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900х1200...")
         final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
@@ -484,7 +502,6 @@ def process_heavy_tryon_naked(task_data: dict):
     finally:
         if 'raw_image' in locals(): del raw_image
         if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'mask_img' in locals(): del mask_img
         if 'mask_blur' in locals(): del mask_blur
         if 'base_image' in locals(): del base_image
         if 'high_res_input' in locals(): del high_res_input
@@ -503,6 +520,7 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
     else:
         Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+
 
 
 def main_loop(user_login: str):
