@@ -97,24 +97,25 @@ def process_heavy_tryon(task_data: dict):
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
     
-    """Коммерческий конвейер: вырезает предмет селлера и дорисовывает фотореалистичный интерьер"""
-    global VTON_PIPE, REMBG_SESSION
+    print("\n" + "="*60)
+    Log.success(f"ЗАПУСК КОММЕРЧЕСКОЙ ПРЕДМЕТНОЙ СЪЕМКИ: {task_id}")
+    print("-"*60)
     
-    if task_data.get("status_code", 200) != 200: return
-    
-    # 1! Загружаем исходное изображение товара от селлера
-    # prompt_style — это промпт окружения, который селлер вводит на сайте (интерьер, свет, стол)
-    prompt_style = task_data.get("prompt_style", "A professional product photo, modern cozy interior background, studio lighting, photorealistic, 8k")
-    
+    # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
+    import requests
+    from io import BytesIO
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
     try:
-        init_image_path = "original.png" # Предположим, файл уже скачан в эту локацию
-        garment_image = Image.open(init_image_path).convert("RGB").resize((768, 768))
+        res = requests.get(download_url, stream=True, timeout=15)
+        if res.status_code != 200: return
+        # Загружаем изображение товара и приводим его к квадратному формату инференса
+        garment_image = Image.open(res.raw).convert("RGB").resize((768, 768))
     except Exception as e:
-        Log.error(f"Ошибка загрузки исходного изображения товара: {e}")
+        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
         return
 
-    # 2! Автоматическое маскирование фона вокруг предмета
-    Log.info("Анализ геометрии товара и удаление старого фона...")
+    # 2! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
+    Log.info("Удаление старого фона и анализ геометрии объекта...")
     try:
         import numpy as np
         from PIL import ImageFilter
@@ -123,46 +124,43 @@ def process_heavy_tryon(task_data: dict):
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
         
-        # Инвертируем маску: закрашиваем всё, КРОМЕ самого предмета
-        # Нейросеть будет дорисовывать фон вокруг, не трогая товар селлера
+        # Инвертируем маску, чтобы закрашивать ВСЁ, КРОМЕ самого предмета
         g_alpha_np = np.array(g_alpha)
         mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
         
-        # Делаем легкое размытие краев маски для бесшовного встраивания теней
+        # Размываем края маски для плавного встраивания теней на столе/в интерьере
         mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=4))
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
         return
 
-    # 3! Настройка защитных промптов от брака и букв
-    # Включаем жесткий блок на буквы, текст и водяные знаки, которые ломали прошлый рендер
-    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, distorted, bad shadows, ugly background, deformed object"
+    # Жесткий негативный промпт, чтобы на карточках товаров не генерировались буквы и водяные знаки
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, human, face, skin"
 
-    Log.info("ИИ-движок приступает к рендерингу интерьера и теней вокруг товара...")
+    Log.info("ИИ-движок приступает к генерации окружения и мягких теней...")
     
     try:
-        # Запускаем нативный инпаинт на обновленной модели runwayml
+        # Запускаем инпаинт на официальной отказоустойчивой модели runwayml
         final_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
-            num_inference_steps=30, # Оптимально для скорости на видеокарте T4
+            num_inference_steps=30,
             guidance_scale=7.5,
-            strength=0.99 # Максимально перерисовываем фон, адаптируя свет под предмет
+            strength=0.99
         ).images[0]
         
-        # Сохраняем готовую коммерческую карточку товара
-        task_id = task_data.get("task_id", "test_task")
+        # Сохраняем результат под системным именем задачи
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(" Рендеринг предметной карточки успешно завершен!")
+        Log.success("Рендеринг предметной карточки успешно завершен!")
         
     except Exception as e:
         Log.error(f"Критический сбой ИИ-генератора фона: {e}")
         return
 
-    # 4! Очистка RAM и VRAM оперативной памяти на лету
+    # 4! БЕЗОПАСНАЯ ОЧИСТКА ОЗУ И ВИДЕОПАМЯТИ НА ЛЕТУ
     finally:
         if 'garment_mask_output' in locals(): del garment_mask_output
         if 'g_alpha' in locals(): del g_alpha
@@ -173,14 +171,14 @@ def process_heavy_tryon(task_data: dict):
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # 5! Отправка готового файла обратно селлеру в сервис
-    user_login = task_data.get("user_login", "unknown")
+    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
     if os.path.exists(final_filename): 
         os.remove(final_filename)
         
     if submit_success:
-        Log.success(f" Боевой цикл задачи {task_id} полностью закрыт и отправлен на сервер!\n")
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
