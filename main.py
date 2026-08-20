@@ -46,11 +46,9 @@ def init_vton_models():
     REMBG_SESSION = rembg.new_session("u2net")
     
     Log.info("Загрузка официального предметного пайплайна...")
-    
-    # Импортируем стандартный нативный пайплайн для обычного инпаинта предметов
     from diffusers import StableDiffusionInpaintPipeline
     
-    # Загружаем стабильное зеркало, которое никогда не выдает ошибок метаданных
+    # Используем современный метод загрузки, совместимый с Python 3.12
     VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
         "runwayml/stable-diffusion-inpainting",
         torch_dtype=dtype,
@@ -58,11 +56,11 @@ def init_vton_models():
     )
     
     if device == "cuda":
-        # Самый жесткий режим экономики системной RAM (укладывается в 3-4 ГБ ОЗУ)
-        VTON_PIPE.enable_sequential_cpu_offload()
-        VTON_PIPE.to("cuda")
+        # В современных diffusers этот метод идеально разгружает память без крашей ядра
+        VTON_PIPE.enable_model_cpu_offload()
         
     Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
+
 
 
 
