@@ -92,37 +92,39 @@ def submit_result_to_server(task_id: str, user_login: str, file_path: str):
 
 def process_heavy_tryon(task_data: dict):
     global VTON_PIPE, REMBG_SESSION
-    
-    task_id = task_data.get("task_id", "unknown")
-    session_id = task_data.get("session_id", "unknown")
-    user_login = task_data.get("user_login", "unknown")
-    prompt_style = task_data.get("prompt_style", "")
+    task_id = task_data["task_id"]
+    session_id = task_data["session_id"]
+    user_login = task_data["user_login"]
+    prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    Log.success(f"ЗАПУСК НЕЙРОСЕТЕВОГО HI-RES КОНВЕЙЕРА (ОТЛАДКА 4K): {task_id}")
+    Log.success(f"ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
     print("-"*60)
+    
+    # Жесткие эталонные размеры для Wildberries / Ozon
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
     
     # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
     import requests
     from io import BytesIO
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+    from PIL import ImageOps
     
-    Log.info(f"[ОТЛАДКА]: Скачивание исходного изображения по URL: {download_url}")
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
     try:
         res = requests.get(download_url, stream=True, timeout=15)
-        Log.info(f"[ОТЛАДКА]: Ответ сервера: статус-код = {res.status_code}")
-        if res.status_code != 200: 
-            Log.error(f"Сервер вернул ошибку при скачивании исходника: {res.status_code}")
-            return
-            
-        garment_image = Image.open(res.raw).convert("RGB").resize((768, 768))
-        Log.info(f"[ОТЛАДКА]: Исходное изображение успешно загружено и приведено к размеру {garment_image.size}")
+        if res.status_code != 200: return
+        raw_image = Image.open(res.raw).convert("RGB")
     except Exception as e:
-        Log.error(f"Критическая ошибка загрузки изображения с сервера: {e}")
+        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
         return
 
-    # 2! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
-    Log.info("Удаление старого фона и анализ геометрии объекта...")
+    # 2! УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900x1200
+    Log.info("Адаптация геометрии под эталонный формат маркетплейса 900x1200...")
+    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
+
+    # 3! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
+    Log.info("Удаление старого фона...")
     try:
         import numpy as np
         from PIL import ImageFilter
@@ -132,18 +134,17 @@ def process_heavy_tryon(task_data: dict):
         
         g_alpha_np = np.array(g_alpha)
         mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=1))
         
-        Log.info(f"[ОТЛАДКА]: Альфа-маска объекта успешно сгенерирована и инвертирована. Размер: {mask_blur.size}")
+        # Минимальное размытие для идеальной контурной резкости товара
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=1))
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
         return
 
     negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, human, face, skin"
 
-    Log.info("ЭТАП №1: ИИ-движок генерирует базовую композицию кадров...")
+    Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения...")
     try:
-        Log.info(f"[ОТЛАДКА]: Запуск Inpaint-инференса. Промпт: {prompt_style}")
         base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
@@ -154,54 +155,39 @@ def process_heavy_tryon(task_data: dict):
             strength=0.99
         ).images[0]
         
-        Log.info(f"[ОТЛАДКА]: Базовая композиция успешно сгенерирована. Размер: {base_image.size}")
-    except Exception as e:
-        Log.error(f"Критический сбой ИИ-генератора фона на ЭТАПЕ №1: {e}")
-        return
-
-    Log.info("ЭТАП №2: Запуск прецизионного инпаинт-апскейлера для прорисовки ворса и микродеталей...")
-    try:
-        width, height = base_image.size
-        high_res_size = (width * 2, height * 2) # Переходим в разрешение 1024x1024 или 1536x1536
+        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
         
-        Log.info(f"[ОТЛАДКА]: Масштабирование базового кадра алгоритмом LANCZOS до размера {high_res_size}")
+        # Промежуточный апскейл для прорисовки текстур
+        high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
         high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        
-        # Генерируем абсолютно белую маску такого же размера
-        # Она заставит 9-канальный UNet обработать всю площадь картинки для генерации ультра-текстур
         high_res_full_mask = Image.new("L", high_res_size, 255)
-        Log.info(f"[ОТЛАДКА]: Белая маска детализации успешно создана. Размер: {high_res_full_mask.size}")
         
-        Log.info("ЭТАП №2: Запуск прецизионного инпаинт-апскейлера для прорисовки ворса и микродеталей...")
-        # Симметрично увеличиваем оригинальную размытую маску фона
-        high_res_mask = mask_blur.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        
-        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети строго по контуру фона...")
-        final_image = VTON_PIPE(
+        temp_hd_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=high_res_input,
-            mask_image=high_res_mask, 
+            mask_image=high_res_full_mask,
             num_inference_steps=20,
-            guidance_scale=8.5,     # Немного увеличиваем, чтобы промпт работал жестче
-            strength=0.20           # Маленькая сила: ИИ только добавит резкости асфальту первого этапа
+            guidance_scale=7.5,
+            strength=0.32          
         ).images[0]
-
         
-        Log.info(f"[ОТЛАДКА]: Финальная Hi-Res карточка успешно отрендерена. Размер: {final_image.size}")
+        Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900x1200...")
+        # Сжимаем HD-картинку обратно до эталонных 900x1200 через высококачественный фильтр LANCZOS
+        final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
         
+        # Сохраняем результат
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(" Нейросетевой Hi-Res рендеринг карточки успешно завершен!")
+        Log.success(f" Вертикальный рендеринг карточки {final_image.size} успешно завершен!")
         
     except Exception as e:
-        Log.error(f"Критический сбой ИИ-детализатора на ЭТАПЕ №2: {e}")
+        Log.error(f"Критический сбой ИИ-генератора фона: {e}")
         return
 
-
-    # 4! БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ
+    # 4! БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
     finally:
+        if 'raw_image' in locals(): del raw_image
         if 'garment_mask_output' in locals(): del garment_mask_output
         if 'g_alpha' in locals(): del g_alpha
         if 'g_alpha_np' in locals(): del g_alpha_np
@@ -209,14 +195,19 @@ def process_heavy_tryon(task_data: dict):
         if 'mask_blur' in locals(): del mask_blur
         if 'base_image' in locals(): del base_image
         if 'high_res_input' in locals(): del high_res_input
-        if 'img2img_pipe' in locals(): del img2img_pipe
+        if 'high_res_full_mask' in locals(): del high_res_full_mask
+        if 'temp_hd_image' in locals(): del temp_hd_image
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ
-    Log.info(f"[ОТЛАДКА]: Отправка рендера {final_filename} на сервер для пользователя {user_login}")
+    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
+    if os.path.exists(final_filename): 
+        os.remove(final_filename)
+        
+    if submit_success:
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
     
     if os.path.exists(final_filename): 
         os.remove(final_filename)
