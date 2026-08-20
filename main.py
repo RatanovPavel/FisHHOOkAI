@@ -416,74 +416,77 @@ def process_heavy_tryon_naked(task_data: dict):
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ С ГРАДИЕНТОМ ИЗМЕНЕНИЯ ЛИЦА
-    Log.info("Удаление старого фона и расчет контролируемой маски лица...")
+    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА И ОДЕЖДЫ
+    Log.info("Удаление старого фона и жесткая изоляция анатомии...")
     try:
         import rembg
         
-        # Получаем силуэт человека
+        # Получаем силуэт человека (альфа-канал)
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
         g_alpha_np = np.array(g_alpha)
         
-        # Начинаем строить кастомную карту весов (маску)
-        # Фон полностью белый (255) — меняется на 100%
-        mask_np = 255 - g_alpha_np
+        # Строим инвертированную маску фона (белый фон = 255, человек = 0)
+        bg_mask_np = 255 - g_alpha_np
         
-        # Определяем примерную границу головы (верхние 23% силуэта)
-        head_height_limit = int(TARGET_HEIGHT * 0.23)
+        # Строим маску одежды. Отрезаем голову сверху (25%), чтобы ИИ вообще ее не видел.
+        # Также отрезаем нижнюю часть под руки (75%), если ладони лежат вдоль тела.
+        clothing_draw = np.zeros_like(g_alpha_np)
+        head_limit = int(TARGET_HEIGHT * 0.25)
+        hands_limit = int(TARGET_HEIGHT * 0.78)
         
-        # Область одежды (ниже головы): меняется сильно, заполняем белым (255)
-        mask_np[head_height_limit:] = np.maximum(mask_np[head_height_limit:], g_alpha_np[head_height_limit:])
+        # Выделяем область торса и бедер под генерацию одежды
+        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
         
-        # Область головы и лица: заполняем полупрозрачным серым цветом (значение 110).
-        # Благодаря этому ИИ скорректирует лицо под новый свет, но сохранит сходство на ~80%
-        face_area_mask = np.zeros_like(g_alpha_np)
-        face_area_mask[:head_height_limit] = g_alpha_np[:head_height_limit]
+        # Объединяем: меняем только фон и выделенную зону одежды
+        combined_mask_np = np.maximum(bg_mask_np, clothing_draw)
         
-        # Накладываем серое значение на зону лица
-        mask_np = np.where(face_area_mask > 0, 110, mask_np)
+        # Превращаем в PIL Image
+        mask_img = Image.fromarray(combined_mask_np.astype(np.uint8), mode="L")
         
-        # Превращаем в PIL и размываем границы, чтобы изменения перетекали бесшовно
-        mask_blur = Image.fromarray(mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
+        # Мягкое размытие контуров перехода (radius=3), чтобы избежать жестких швов
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=3))
         
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
         return
 
-    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, deformed face, bad skin, distorted facial features"
+    # Обогащаем negative prompt критическими тегами против мутаций конечностей
+    negative_prompt = (
+        "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
+        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutaded hands, "
+        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy"
+    )
     
     Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
     try:
-        # Общий параметр strength выставляем высоким, чтобы фон и одежда прорисовались с нуля.
-        # Внутри маски лицо умножится на этот коэффициент и получит деликатную степень свободы.
+        # Понижаем strength до 0.78-0.82. Это заставит модель генерировать новую ткань, 
+        # строго следуя контурам исходного тела, не выдумывая лишние руки
         base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
-            num_inference_steps=35,
-            guidance_scale=8.0,
-            strength=0.90 
+            num_inference_steps=40,
+            guidance_scale=8.5,
+            strength=0.80 
         ).images[0]
         
         Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
         high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
         high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
         
-        # Для второго этапа создаем карту легкого инпейнтинга:
-        # Фон и одежду улучшаем (255), лицо защищаем сильнее (значение 40 из 255), чтобы не размыть черты при апскейле
-        high_res_mask_np = np.where(np.array(mask_blur.resize(high_res_size)) <= 115, 40, 255)
-        high_res_full_mask = Image.fromarray(high_res_mask_np.astype(np.uint8), mode="L")
+        # При апскейле передаем маску, защищающую лицо и руки
+        high_res_mask = mask_blur.resize(high_res_size, resample=Image.Resampling.NEAREST)
         
         temp_hd_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=high_res_input,
-            mask_image=high_res_full_mask,
+            mask_image=high_res_mask,
             num_inference_steps=20,
             guidance_scale=7.5,
-            strength=0.35
+            strength=0.28
         ).images[0]
         
         Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900х1200...")
@@ -502,10 +505,11 @@ def process_heavy_tryon_naked(task_data: dict):
     finally:
         if 'raw_image' in locals(): del raw_image
         if 'garment_mask_output' in locals(): del garment_mask_output
+        if 'mask_img' in locals(): del mask_img
         if 'mask_blur' in locals(): del mask_blur
         if 'base_image' in locals(): del base_image
         if 'high_res_input' in locals(): del high_res_input
-        if 'high_res_full_mask' in locals(): del high_res_full_mask
+        if 'high_res_mask' in locals(): del high_res_mask
         if 'temp_hd_image' in locals(): del temp_hd_image
         gc.collect()
         if torch.cuda.is_available():
@@ -520,6 +524,7 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
     else:
         Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+
 
 
 
