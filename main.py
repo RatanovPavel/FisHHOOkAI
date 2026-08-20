@@ -172,16 +172,22 @@ def process_heavy_tryon(task_data: dict):
         high_res_full_mask = Image.new("L", high_res_size, 255)
         Log.info(f"[ОТЛАДКА]: Белая маска детализации успешно создана. Размер: {high_res_full_mask.size}")
         
-        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети для субпиксельной контурной резкости...")
+        Log.info("ЭТАП №2: Запуск прецизионного инпаинт-апскейлера для прорисовки ворса и микродеталей...")
+        # Симметрично увеличиваем оригинальную размытую маску фона
+        high_res_mask = mask_blur.resize(high_res_size, resample=Image.Resampling.LANCZOS)
+        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
+        
+        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети строго по контуру фона...")
         final_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=high_res_input,
-            mask_image=high_res_full_mask, # Подаем полную маску для обхода ошибки каналов ядра
-            num_inference_steps=20,        # 20 шагов идеально для наложения текстуры ворса
+            mask_image=high_res_mask, # Подаем оригинальную маску вместо белой!
+            num_inference_steps=20,
             guidance_scale=7.5,
-            strength=0.32                  # Небольшая сила: сохраняет форму, но выжигает мыло
+            strength=0.28             # Чуть снижаем силу, чтобы ИИ только точил резкость, но ничего не пририсовывал
         ).images[0]
+
         
         Log.info(f"[ОТЛАДКА]: Финальная Hi-Res карточка успешно отрендерена. Размер: {final_image.size}")
         
