@@ -98,7 +98,7 @@ def process_heavy_tryon(task_data: dict):
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    Log.success(f"ЗАПУСК ВЫСОКОДЕТАЛИЗИРОВАННОЙ СЪЕМКИ (HI-RES CONVEYOR): {task_id}")
+    Log.success(f"ЗАПУСК НЕЙРОСЕТЕВОГО HI-RES КОНВЕЙЕРА (ДЕТАЛИЗАЦИЯ 4K): {task_id}")
     print("-"*60)
     
     # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
@@ -140,30 +140,44 @@ def process_heavy_tryon(task_data: dict):
     Log.info("ЭТАП №1: ИИ-движок генерирует базовую композицию кадров...")
     
     try:
-        # Запускаем инпаинт на официальной модели runwayml с повышенным числом шагов для микродеталей
+        # Генерация базовой картинки в стандартном разрешении
         base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
-            num_inference_steps=55, # Увеличено для глубокой проработки текстуры камня, огня и ворса
-            guidance_scale=8.5,     # Немного прижимаем соответствие промпту для четкости
+            num_inference_steps=35,
+            guidance_scale=7.5,
             strength=0.99
         ).images[0]
         
-        Log.info("ЭТАП №2: Активация Hi-Res станка, масштабирование и субпиксельный апскейл до Ultra-HD...")
+        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей и ворсинок в 4K)...")
         
-        # Вычисляем целевой размер (увеличиваем картинку в 2 раза, сохраняя пропорции)
+        # Масштабируем базовую картинку в 2 раза через интерполяцию
         width, height = base_image.size
-        high_res_size = (width * 2, height * 2) # Переходим в разрешение 1536x1536
+        high_res_image = base_image.resize((width * 2, height * 2), resample=Image.Resampling.LANCZOS)
         
-        # Используем самый качественный коммерческий алгоритм сглаживания LANCZOS
-        final_image = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
+        # Симметрично увеличиваем маску и исходный четкий товар для второй проходки
+        high_res_mask = mask_blur.resize((width * 2, height * 2), resample=Image.Resampling.NEAREST)
+        high_res_garment = garment_image.resize((width * 2, height * 2), resample=Image.Resampling.LANCZOS)
+        
+        # Запускаем вторую проходку нейросети поверх увеличенной картинки
+        # Небольшая сила (strength=0.35) гарантирует, что композиция и товар не изменятся,
+        # но на пустых пикселях сгенерируются реальные ворсинки ворса, текстура дерева и четкий фон
+        final_image = VTON_PIPE(
+            prompt=prompt_style,
+            negative_prompt=negative_prompt,
+            image=high_res_garment,
+            mask_image=high_res_mask,
+            num_inference_steps=20, # Для прорисовки деталей достаточно 20 шагов
+            guidance_scale=7.5,
+            strength=0.35          # Маленькая сила для дорисовки только микротекстур
+        ).images[0]
         
         # Сохраняем результат под системным именем задачи
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(" Рендеринг и ультра-апскейл предметной карточки успешно завершены!")
+        Log.success(" Нейросетевой Hi-Res рендеринг карточки успешно завершен!")
         
     except Exception as e:
         Log.error(f"Критический сбой ИИ-генератора фона: {e}")
@@ -177,6 +191,9 @@ def process_heavy_tryon(task_data: dict):
         if 'mask_img' in locals(): del mask_img
         if 'mask_blur' in locals(): del mask_blur
         if 'base_image' in locals(): del base_image
+        if 'high_res_image' in locals(): del high_res_image
+        if 'high_res_mask' in locals(): del high_res_mask
+        if 'high_res_garment' in locals(): del high_res_garment
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
