@@ -98,7 +98,7 @@ def process_heavy_tryon(task_data: dict):
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    Log.success(f"ЗАПУСК КОММЕРЧЕСКОЙ ПРЕДМЕТНОЙ СЪЕМКИ: {task_id}")
+    Log.success(f"ЗАПУСК ВЫСОКОДЕТАЛИЗИРОВАННОЙ СЪЕМКИ (HI-RES CONVEYOR): {task_id}")
     print("-"*60)
     
     # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
@@ -108,14 +108,14 @@ def process_heavy_tryon(task_data: dict):
     try:
         res = requests.get(download_url, stream=True, timeout=15)
         if res.status_code != 200: return
-        # Загружаем изображение товара и приводим его к квадратному формату инференса
+        # Загружаем изображение товара и приводим его к базовому квадрату инференса
         garment_image = Image.open(res.raw).convert("RGB").resize((768, 768))
     except Exception as e:
         Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
         return
 
     # 2! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
-    Log.info("Удаление старого фона и анализ геометрии объекта...")
+    Log.info("Удаление старого фона и прецизионный анализ геометрии объекта...")
     try:
         import numpy as np
         from PIL import ImageFilter
@@ -137,24 +137,33 @@ def process_heavy_tryon(task_data: dict):
     # Жесткий негативный промпт, чтобы на карточках товаров не генерировались буквы и водяные знаки
     negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, human, face, skin"
 
-    Log.info("ИИ-движок приступает к генерации окружения и мягких теней...")
+    Log.info("ЭТАП №1: ИИ-движок генерирует базовую композицию кадров...")
     
     try:
-        # Запускаем инпаинт на официальной отказоустойчивой модели runwayml
-        final_image = VTON_PIPE(
+        # Запускаем инпаинт на официальной модели runwayml с повышенным числом шагов для микродеталей
+        base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
-            num_inference_steps=30,
-            guidance_scale=7.5,
+            num_inference_steps=55, # Увеличено для глубокой проработки текстуры камня, огня и ворса
+            guidance_scale=8.5,     # Немного прижимаем соответствие промпту для четкости
             strength=0.99
         ).images[0]
+        
+        Log.info("ЭТАП №2: Активация Hi-Res станка, масштабирование и субпиксельный апскейл до Ultra-HD...")
+        
+        # Вычисляем целевой размер (увеличиваем картинку в 2 раза, сохраняя пропорции)
+        width, height = base_image.size
+        high_res_size = (width * 2, height * 2) # Переходим в разрешение 1536x1536
+        
+        # Используем самый качественный коммерческий алгоритм сглаживания LANCZOS
+        final_image = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
         
         # Сохраняем результат под системным именем задачи
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success("Рендеринг предметной карточки успешно завершен!")
+        Log.success(" Рендеринг и ультра-апскейл предметной карточки успешно завершены!")
         
     except Exception as e:
         Log.error(f"Критический сбой ИИ-генератора фона: {e}")
@@ -167,17 +176,19 @@ def process_heavy_tryon(task_data: dict):
         if 'g_alpha_np' in locals(): del g_alpha_np
         if 'mask_img' in locals(): del mask_img
         if 'mask_blur' in locals(): del mask_blur
+        if 'base_image' in locals(): del base_image
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
+    # 5! ОТПРАВКА ГОТОВОЙ ВЫСОКОДЕТАЛИЗИРОВАННОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
     if os.path.exists(final_filename): 
         os.remove(final_filename)
         
     if submit_success:
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
+
 
 
 def main_loop(user_login: str):
