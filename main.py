@@ -388,7 +388,7 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
 
 
 def process_heavy_tryon_naked(task_data: dict):
-    global VTON_PIPE  # Используется в режиме Image-to-Image / strength-controlled
+    global VTON_PIPE
     task_id = task_data["task_id"]
     session_id = task_data["session_id"]
     user_login = task_data["user_login"]
@@ -416,6 +416,10 @@ def process_heavy_tryon_naked(task_data: dict):
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
+    # Создаем абсолютно белую маску (весь кадр под генерацию Img2Img)
+    # Это исключит ошибку форматов внутри VTON_PIPE, но сохранит логику без маскирования
+    full_white_mask = Image.new("L", (TARGET_WIDTH, TARGET_HEIGHT), 255)
+    
     # Жесткие негативные теги для удержания анатомической структуры
     negative_prompt = (
         "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
@@ -425,34 +429,35 @@ def process_heavy_tryon_naked(task_data: dict):
     
     Log.info("ЕДИНЫЙ ЭТАП: Генерация одежды и фона в один проход нейросети...")
     try:
-        # Модифицируем промпт, чтобы ИИ понимал, что нужно сохранить человека, изменив одежду и фон
         full_generation_prompt = f"A high quality professional photo of the exact same person, wearing {prompt_style}, highly detailed studio corporate fashion background"
         
-        # Запуск пайплайна без mask_image. Работает чистый Img2Img.
-        # strength=0.38 — это критический баланс: лицо и руки изменятся максимум на 5% (дойдет только свет),
-        # а плоская однотонная одежда и простой фон примут на себя 100% генерации нового стиля.
+        # Передаем белую маску и забираем результат через, как в вашем оригинальном коде
         final_image = VTON_PIPE(
             prompt=full_generation_prompt,
             negative_prompt=negative_prompt,
             image=garment_image,
+            mask_image=full_white_mask,
             num_inference_steps=35,
             guidance_scale=8.0,
             strength=0.38
-        ).images[0]  # Извлекаем итоговое PIL-изображение
+        )[0]  # СТРОГО [0] вместо .images для совместимости с вашей моделью
         
-        # Сохраняем результат без апскейлов и склеек
+        # Сохраняем результат
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
         Log.success(f"Рендеринг карточки {final_image.size} успешно завершен за 1 шаг!")
         
     except Exception as e:
         Log.error(f"Критический сбой ИИ-генерации: {e}")
+        import traceback
+        traceback.print_exc()
         return
         
     # #3 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ
     finally:
         if 'raw_image' in locals(): del raw_image
         if 'garment_image' in locals(): del garment_image
+        if 'full_white_mask' in locals(): del full_white_mask
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -466,6 +471,7 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
     else:
         Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+
 
 
 
