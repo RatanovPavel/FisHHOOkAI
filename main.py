@@ -97,90 +97,90 @@ def process_heavy_tryon(task_data: dict):
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
     
-    print("\n" + "="*60)
-    Log.success(f"ЗАПУСК КОММЕРЧЕСКОЙ ПРИМЕРКИ ПО КОНТУРУ: {task_id}")
-    print("="*60)
+    """Коммерческий конвейер: вырезает предмет селлера и дорисовывает фотореалистичный интерьер"""
+    global VTON_PIPE, REMBG_SESSION
     
-    # 1. СКАЧИВАЕМ ОРИГИНАЛ ШМОТКИ (ШАПКИ)
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+    if task_data.get("status_code", 200) != 200: return
+    
+    # 1! Загружаем исходное изображение товара от селлера
+    # prompt_style — это промпт окружения, который селлер вводит на сайте (интерьер, свет, стол)
+    prompt_style = task_data.get("prompt_style", "A professional product photo, modern cozy interior background, studio lighting, photorealistic, 8k")
+    
     try:
-        res = requests.get(download_url, stream=True, timeout=15)
-        if res.status_code != 200: return
-        garment_image = Image.open(res.raw).convert("RGB").resize((768, 1024))
+        init_image_path = "original.png" # Предположим, файл уже скачан в эту локацию
+        garment_image = Image.open(init_image_path).convert("RGB").resize((768, 768))
     except Exception as e:
-        Log.error(f"Ошибка загрузки original.png: {e}")
+        Log.error(f"Ошибка загрузки исходного изображения товара: {e}")
         return
 
-    # 2. ШАГ №1: ГЕНЕРИРУЕМ ФОТОМОДЕЛЬ-ЧЕЛОВЕКА (БАЗА)
-    Log.info("Генерация базовой фотомодели по запросу селлера...")
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if device == "cuda" else torch.float32
-    
+    # 2! Автоматическое маскирование фона вокруг предмета
+    Log.info("Анализ геометрии товара и удаление старого фона...")
     try:
-        # Вырезаем фон у шапки для построения карты маски одежды
+        import numpy as np
+        from PIL import ImageFilter
+        
+        # Вырезаем предмет с помощью rembg
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
+        
+        # Инвертируем маску: закрашиваем всё, КРОМЕ самого предмета
+        # Нейросеть будет дорисовывать фон вокруг, не трогая товар селлера
         g_alpha_np = np.array(g_alpha)
-        garment_mask = Image.fromarray(np.where(g_alpha_np > 10, 255, 0).astype(np.uint8)).convert("L")
+        mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
         
-        # Сначала создаем красивого человека (подложку), на которого будем шить шапку
-        # Используем встроенный инпаинт для отрисовки лица и фона журнального качества
-        base_human_bg = Image.new("RGB", (768, 1024), (220, 220, 220))
+        # Делаем легкое размытие краев маски для бесшовного встраивания теней
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=4))
+    except Exception as e:
+        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
+        return
+
+    # 3! Настройка защитных промптов от брака и букв
+    # Включаем жесткий блок на буквы, текст и водяные знаки, которые ломали прошлый рендер
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, distorted, bad shadows, ugly background, deformed object"
+
+    Log.info("ИИ-движок приступает к рендерингу интерьера и теней вокруг товара...")
+    
+    try:
+        # Запускаем нативный инпаинт на обновленной модели runwayml
+        final_image = VTON_PIPE(
+            prompt=prompt_style,
+            negative_prompt=negative_prompt,
+            image=garment_image,
+            mask_image=mask_blur,
+            num_inference_steps=30, # Оптимально для скорости на видеокарте T4
+            guidance_scale=7.5,
+            strength=0.99 # Максимально перерисовываем фон, адаптируя свет под предмет
+        ).images[0]
         
-        # Промпт перестраиваем так, чтобы ИИ нарисовал идеальные пропорции головы
-        human_prompt = f"high fashion portrait photo of a human model, {prompt_style}, professional commercial photography, ultrarealistic, 8k"
-        negative_prompt = "ugly, deformed, poor anatomy, bad eyes, low quality, photorealistic flaw, plain black background"
-        
-        Log.info("ИИ выстраивает анатомию лица и окружения...")
-        # Если загружен полноценный IDm-VTON пайплайн:
-        if hasattr(VTON_PIPE, "predict_tryon"):
-            # Коммерческий запуск TryOn через веса деформации ткани
-            final_image = VTON_PIPE(
-                garment_image=garment_image,
-                garment_mask=garment_mask,
-                prompt=human_prompt,
-                negative_prompt=negative_prompt,
-                num_inference_steps=30,
-                guidance_scale=8.5,
-                strength=0.99
-            ).images[0]
-        else:
-            # Качественный резервный глубокий инпаинтинг с сохранением геометрии
-            mask_blur = garment_mask.filter(ImageFilter.GaussianBlur(radius=20))
-            forced_image = Image.composite(garment_image, base_human_bg, g_alpha)
-            
-            final_image = VTON_PIPE(
-                prompt=human_prompt,
-                negative_prompt=negative_prompt,
-                image=forced_image,
-                mask_image=mask_blur,
-                strength=0.98,
-                guidance_scale=9.0,
-                num_inference_steps=32
-            ).images[0]
-            
+        # Сохраняем готовую коммерческую карточку товара
+        task_id = task_data.get("task_id", "test_task")
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success("Честная ИИ-примерка ткани завершена успешно!")
+        Log.success(" Рендеринг предметной карточки успешно завершен!")
         
     except Exception as e:
-        Log.error(f"Сбой на этапе ИИ-конвейера IDm-VTON: {e}")
+        Log.error(f"Критический сбой ИИ-генератора фона: {e}")
         return
+
+    # 4! Очистка RAM и VRAM оперативной памяти на лету
     finally:
         if 'garment_mask_output' in locals(): del garment_mask_output
         if 'g_alpha' in locals(): del g_alpha
         if 'g_alpha_np' in locals(): del g_alpha_np
-        if 'garment_mask' in locals(): del garment_mask
-        if 'base_human_bg' in locals(): del base_human_bg
+        if 'mask_img' in locals(): del mask_img
+        if 'mask_blur' in locals(): del mask_blur
         gc.collect()
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    # 3. ОТПРАВКА ГОТОВОЙ КАРТОЧКИ НА СЕРВЕР
+    # 5! Отправка готового файла обратно селлеру в сервис
+    user_login = task_data.get("user_login", "unknown")
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
-    if os.path.exists(final_filename): os.remove(final_filename)
-    
+    if os.path.exists(final_filename): 
+        os.remove(final_filename)
+        
     if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт!\n")
+        Log.success(f" Боевой цикл задачи {task_id} полностью закрыт и отправлен на сервер!\n")
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
