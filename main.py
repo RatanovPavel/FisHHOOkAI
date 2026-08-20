@@ -34,7 +34,7 @@ class Log:
     @staticmethod
     def error(msg): print(f"\033[91m[ОШИБКА] {msg}\033[0m")
 
-def init_vton_models():
+def init_vton_models_good():
     """Загружает официальный легковесный инпаинт для предметов напрямую в VRAM"""
     global VTON_PIPE, REMBG_SESSION
     
@@ -62,6 +62,35 @@ def init_vton_models():
     Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
 
 
+def init_vton_models():
+    """Загружает тяжелую коммерческую модель SDXL Inpainting напрямую в VRAM"""
+    global VTON_PIPE, REMBG_SESSION
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    
+    Log.info("Инициализация стабильной сессии маскирования предметов...")
+    import rembg
+    REMBG_SESSION = rembg.new_session("u2net")
+    
+    Log.info("Инициализация тяжелого ИИ-движка SDXL Inpainting...")
+    
+    # Импортируем официальный пайплайн для моделей класса XL
+    from diffusers import StableDiffusionXLInpaintPipeline
+    
+    # Загружаем официальное стабильное зеркало SDXL Inpaint от StabilityAI
+    VTON_PIPE = StableDiffusionXLInpaintPipeline.from_pretrained(
+        "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+        torch_dtype=dtype,
+        safety_checker=None,
+        variant="fp16" # Загружаем облегченные веса для жесткой экономии VRAM видеокарты
+    )
+    
+    if device == "cuda":
+        # Самый мощный режим разгрузки памяти: слои XL-модели не грузят системное ОЗУ 12ГБ
+        VTON_PIPE.enable_sequential_cpu_offload()
+        
+    Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
 
 
 
