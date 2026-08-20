@@ -465,7 +465,7 @@ def process_heavy_tryon_naked(task_data: dict):
             num_inference_steps=35,
             guidance_scale=7.5,
             strength=0.85 
-        )[0]  # Берем первый элемент, как это было в твоей рабочей версии
+        ).images[0]  # Берем первый элемент, как это было в твоей рабочей версии
         
         # Сохраняем результат
         final_filename = f"vton_result_{task_id}.png"
