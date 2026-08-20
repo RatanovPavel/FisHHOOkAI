@@ -159,40 +159,31 @@ def process_heavy_tryon(task_data: dict):
         Log.error(f"Критический сбой ИИ-генератора фона на ЭТАПЕ №1: {e}")
         return
 
-    Log.info("ЭТАП №2: Переключение на Img2Img апскейлер для прорисовки ворса и микродеталей...")
+    Log.info("ЭТАП №2: Запуск прецизионного инпаинт-апскейлера для прорисовки ворса и микродеталей...")
     try:
         width, height = base_image.size
-        high_res_size = (width * 2, height * 2)
+        high_res_size = (width * 2, height * 2) # Переходим в разрешение 1024x1024 или 1536x1536
         
-        Log.info(f"[ОТЛАДКА]: Масштабирование кадра алгоритмом LANCZOS до размера {high_res_size}")
+        Log.info(f"[ОТЛАДКА]: Масштабирование базового кадра алгоритмом LANCZOS до размера {high_res_size}")
         high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
         
-        # Динамически пересобираем пайплайн в режим классического Img2Img для апскейла без маски
-        from diffusers import StableDiffusionImg2ImgPipeline
+        # Генерируем абсолютно белую маску такого же размера
+        # Она заставит 9-канальный UNet обработать всю площадь картинки для генерации ультра-текстур
+        high_res_full_mask = Image.new("L", high_res_size, 255)
+        Log.info(f"[ОТЛАДКА]: Белая маска детализации успешно создана. Размер: {high_res_full_mask.size}")
         
-        Log.info("[ОТЛАДКА]: Перепривязка весов UNet в режим пространственного апскейла Img2Img...")
-        img2img_pipe = StableDiffusionImg2ImgPipeline(
-            vae=VTON_PIPE.vae,
-            text_encoder=VTON_PIPE.text_encoder,
-            tokenizer=VTON_PIPE.tokenizer,
-            unet=VTON_PIPE.unet,
-            scheduler=VTON_PIPE.scheduler,
-            safety_checker=None,
-            feature_extractor=None,
-            requires_safety_checker=False
-        )
-        
-        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети для субпиксельной детализации...")
-        final_image = img2img_pipe(
+        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети для субпиксельной контурной резкости...")
+        final_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=high_res_input,
-            num_inference_steps=20, # 20 шагов достаточно для добавления текстур
+            mask_image=high_res_full_mask, # Подаем полную маску для обхода ошибки каналов ядра
+            num_inference_steps=20,        # 20 шагов идеально для наложения текстуры ворса
             guidance_scale=7.5,
-            strength=0.32          # Оптимальная сила: не меняет форму предмета, но создает звенящую резкость фонов
+            strength=0.32                  # Небольшая сила: сохраняет форму, но выжигает мыло
         ).images[0]
         
-        Log.info(f"[ОТЛАДКА]: Финальная 4K карточка успешно отрендерена. Размер: {final_image.size}")
+        Log.info(f"[ОТЛАДКА]: Финальная Hi-Res карточка успешно отрендерена. Размер: {final_image.size}")
         
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
@@ -201,6 +192,7 @@ def process_heavy_tryon(task_data: dict):
     except Exception as e:
         Log.error(f"Критический сбой ИИ-детализатора на ЭТАПЕ №2: {e}")
         return
+
 
     # 4! БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ
     finally:
