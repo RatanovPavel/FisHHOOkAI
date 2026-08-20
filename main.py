@@ -465,7 +465,7 @@ def process_heavy_tryon_naked(task_data: dict):
             num_inference_steps=35,
             guidance_scale=8.0,
             strength=0.90 
-        ).images
+        ).images[0]
         
         Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
         high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
@@ -484,7 +484,7 @@ def process_heavy_tryon_naked(task_data: dict):
             num_inference_steps=20,
             guidance_scale=7.5,
             strength=0.35
-        ).images
+        ).images[0]
         
         Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900х1200...")
         final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
