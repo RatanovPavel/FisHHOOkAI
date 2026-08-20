@@ -45,7 +45,7 @@ def init_vton_models():
     import rembg
     REMBG_SESSION = rembg.new_session("u2net")
     
-    Log.info("Загрузка официального отказоустойчивого пайплайна...")
+    Log.info("Загрузка официального предметного пайплайна...")
     
     # Импортируем стандартный нативный пайплайн для обычного инпаинта предметов
     from diffusers import StableDiffusionInpaintPipeline
@@ -58,11 +58,11 @@ def init_vton_models():
     )
     
     if device == "cuda":
-        # Самый жесткий режим экономии системной RAM (укладывается в 3-4 ГБ ОЗУ)
+        # Самый жесткий режим экономики системной RAM (укладывается в 3-4 ГБ ОЗУ)
         VTON_PIPE.enable_sequential_cpu_offload()
         VTON_PIPE.to("cuda")
         
-    Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН!")
+    Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
 
 
 
