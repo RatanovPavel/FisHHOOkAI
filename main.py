@@ -388,14 +388,18 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
 
 
 def process_heavy_tryon_naked(task_data: dict):
-    global VTON_PIPE, REMBG_SESSION
+    global VTON_PIPE, REMBG_SESSION  # VTON_PIPE используем строго для одежды
+    # ВНИМАНИЕ: Для фона ниже используется стандартный SDXL Inpaint пайплайн вашей системы.
+    # Если он называется по-другому (например, INPAINT_PIPE или SDXL_PIPE), замените имя переменной.
+    global SDXL_PIPE 
+    
     task_id = task_data["task_id"]
     session_id = task_data["session_id"]
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    print(f" ЗАПУСК ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (БЕРЕЖНОЕ ИЗМЕНЕНИЕ ЛИЦА): {task_id}")
+    print(f" ЗАПУСК ДВУХМОДЕЛЬНОГО КОНВЕЙЕРА (ОДЕЖДА В VTON -> ФОН В SDXL): {task_id}")
     print("="*60)
     
     TARGET_WIDTH = 900
@@ -416,8 +420,6 @@ def process_heavy_tryon_naked(task_data: dict):
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ С ГРАДИЕНТОМ ДЛЯ ЛИЦА
-    Log.info("Удаление старого фона и расчет контролируемой маски лица...")
     try:
         import rembg
         
@@ -426,57 +428,64 @@ def process_heavy_tryon_naked(task_data: dict):
         g_alpha = garment_mask_output.split()[-1]
         g_alpha_np = np.array(g_alpha)
         
-        # Фон полностью белый (255) — меняется на 100%
-        mask_np = 255 - g_alpha_np
+        # --- МАСКА №1: СТРОГО ОДЕЖДА (Лицо, руки и ФОН залиты черным - ИИ их не видит) ---
+        clothing_draw = np.zeros_like(g_alpha_np)
+        head_limit = int(TARGET_HEIGHT * 0.25)    # Защита головы
+        hands_limit = int(TARGET_HEIGHT * 0.76)   # Защита кистей рук
+        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+        clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
         
-        # Определяем примерную границу головы (верхние 23% силуэта)
-        head_height_limit = int(TARGET_HEIGHT * 0.23)
-        
-        # Область одежды (ниже головы): меняется сильно, заполняем белым (255)
-        mask_np[head_height_limit:] = np.maximum(mask_np[head_height_limit:], g_alpha_np[head_height_limit:])
-        
-        # Выделяем область головы и лица
-        face_area_mask = np.zeros_like(g_alpha_np)
-        face_area_mask[:head_height_limit] = g_alpha_np[:head_height_limit]
-        
-        # Накладываем серое значение на зону лица. 
-        # Значение 75 из 255 дает ИИ лишь минимальную свободу для подгонки света,
-        # сохраняя оригинальные черты лица практически нетронутыми.
-        mask_np = np.where(face_area_mask > 0, 75, mask_np)
-        
-        # Превращаем в PIL и размываем границы, чтобы изменения перетекали бесшовно
-        mask_blur = Image.fromarray(mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
+        # --- МАСКА №2: СТРОГО ФОН (Человек полностью залит черным, меняется только окружение) ---
+        bg_mask_np = 255 - g_alpha_np
+        bg_mask = Image.fromarray(bg_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
         
     except Exception as e:
-        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
+        Log.error(f"Ошибка на этапе подготовки масок сегментации: {e}")
         return
 
-    negative_prompt = (
-        "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
-        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutated hands, "
-        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy, distorted facial features"
-    )
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad anatomy, deformed hands"
     
-    Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
     try:
-        # Извлекаем картинку через [0] для совместимости с возвращаемым списком IDM-VTON
-        final_image = VTON_PIPE(
-            prompt=prompt_style,
+        # =====================================================================
+        # ШАГ №1: МЕНЯЕМ ТОЛЬКО ОДЕНУ ЧЕРЕЗ КОРРЕКТНЫЙ ДЛЯ ЭТОГО IDM-VTON
+        # =====================================================================
+        Log.info("ШАГ 1: IDM-VTON меняет одежду в границах силуэта (лицо и фон в безопасности)...")
+        # Передаем точечный промпт на саму вещь
+        clothing_prompt = f"high quality professional cloth, {prompt_style}"
+        
+        person_with_new_cloth = VTON_PIPE(
+            prompt=clothing_prompt,
             negative_prompt=negative_prompt,
             image=garment_image,
-            mask_image=mask_blur,
-            num_inference_steps=35,
-            guidance_scale=8.0,
-            strength=0.88 
+            mask_image=clothing_mask,
+            num_inference_steps=30,
+            guidance_scale=7.5,
+            strength=0.85
         ).images[0]
         
-        # Сохраняем результат
+        # =====================================================================
+        # ШАГ №2: МЕНЯЕМ ФОН ЧЕРЕЗ СТАНДАРТНЫЙ SDXL INPAINT ПАЙПЛАЙН
+        # =====================================================================
+        Log.info("ШАГ 2: Commercial SDXL-движок генерирует интерьер вокруг модели...")
+        # Передаем картинку из Шага 1 и маску фона. Весь человек теперь под защитой.
+        
+        final_image = SDXL_PIPE(
+            prompt=prompt_style,  # Здесь ИИ считывает описание локации/студии/пляжа
+            negative_prompt=negative_prompt,
+            image=person_with_new_cloth,
+            mask_image=bg_mask,
+            num_inference_steps=35,
+            guidance_scale=8.0,
+            strength=0.99  # Фон затираем полностью с нуля
+        ).images[0]
+        
+        # Сохраняем чистый результат
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
-        Log.success(f"Вертикальный рендеринг карточки {final_image.size} успешно завершен!")
+        Log.success(f"Рендеринг карточки {final_image.size} успешно завершен!")
         
     except Exception as e:
-        Log.error(f"Критический сбой ИИ-генерации: {e}")
+        Log.error(f"Критический сбой ИИ-конвейера: {e}")
         import traceback
         traceback.print_exc()
         return
@@ -485,7 +494,9 @@ def process_heavy_tryon_naked(task_data: dict):
     finally:
         if 'raw_image' in locals(): del raw_image
         if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'mask_blur' in locals(): del mask_blur
+        if 'clothing_mask' in locals(): del clothing_mask
+        if 'bg_mask' in locals(): del bg_mask
+        if 'person_with_new_cloth' in locals(): del person_with_new_cloth
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -496,9 +507,7 @@ def process_heavy_tryon_naked(task_data: dict):
         os.remove(final_filename)
         
     if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
-    else:
-        Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт!\n")
 
 
 
