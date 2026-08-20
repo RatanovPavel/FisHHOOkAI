@@ -387,7 +387,7 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
     return final_mask
 
 
-def process_heavy_tryon_ext(task_data: dict):
+def process_heavy_tryon_naked(task_data: dict):
     global VTON_PIPE  # Используется в режиме Image-to-Image / strength-controlled
     task_id = task_data["task_id"]
     session_id = task_data["session_id"]
