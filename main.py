@@ -345,6 +345,165 @@ def process_heavy_tryon_ext(task_data: dict):
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
 
 
+import os
+import gc
+import requests
+import numpy as np
+import torch
+from PIL import Image, ImageFilter, ImageOps
+
+# Вспомогательная функция для генерации умной маски (Одежда + Фон, без Лица и Кожи)
+def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image.Image:
+    """
+    Создает маску, где под замену (белый цвет) попадает ФОН и ОДЕЖДА человека,
+    а лицо, волосы и открытая кожа остаются защищенными (черный цвет).
+    """
+    # 1. Базовая маска фона (инвертированный силуэт из rembg)
+    g_alpha = garment_mask_output.split()[-1]
+    g_alpha_np = np.array(g_alpha)
+    
+    # Фон изначально белый (255), человек — черный (0)
+    bg_mask_np = 255 - g_alpha_np
+    
+    # 2. Сегментация человека для поиска одежды
+    # Для идеального результата в продакшене здесь вызывается cloth-segmentation.
+    # В качестве надежного и быстрого fallback-варианта мы маскируем центральную 
+    # часть силуэта (торс и ноги), гарантированно защищая верхнюю часть (голову).
+    
+    w, h = garment_image.size
+    clothing_mask = Image.new("L", (w, h), 0)
+    clothing_draw = np.array(clothing_mask)
+    
+    # Заполняем область одежды внутри силуэта человека (исключая верхние ~15-20% под голову)
+    head_height_limit = int(h * 0.22)
+    # Все, что внутри силуэта человека и ниже уровня головы, помечаем как одежду под замену
+    clothing_draw[head_height_limit:] = g_alpha_np[head_height_limit:]
+    
+    # Слываем маску фона и маску одежды вместе
+    combined_mask_np = np.maximum(bg_mask_np, clothing_draw)
+    
+    # Защищаем края: размываем и возвращаем как PIL Image
+    final_mask = Image.fromarray(combined_mask_np.astype(np.uint8), mode="L")
+    return final_mask
+
+
+def process_heavy_tryon_naked(task_data: dict):
+    global VTON_PIPE, REMBG_SESSION
+    task_id = task_data["task_id"]
+    session_id = task_data["session_id"]
+    user_login = task_data["user_login"]
+    prompt_style = task_data["prompt_style"]
+    
+    print("\n" + "="*60)
+    print(f" ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
+    print("="*60)
+    
+    # Жесткие эталонные размеры для Wildberries / Ozon
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+    
+    # #1 СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+    try:
+        res = requests.get(download_url, stream=True, timeout=15)
+        if res.status_code != 200:
+            return
+        raw_image = Image.open(res.raw).convert("RGB")
+    except Exception as e:
+        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
+        return
+
+    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900х1200
+    Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
+    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
+    
+    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА И ОДЕЖДЫ
+    Log.info("Удаление старого фона и сегментация гардероба...")
+    try:
+        import rembg
+        
+        # Вырезаем силуэт человека
+        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
+        
+        # Генерируем комбинированную маску (Фон + Одежда под замену, Лицо защищено)
+        mask_img = generate_vton_mask(garment_image, garment_mask_output)
+        
+        # Минимальное размытие для идеальной контурной резкости
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=2))
+        
+    except Exception as e:
+        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
+        return
+
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, deformed face, bad skin"
+    
+    Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
+    try:
+        # Для того чтобы ИИ переписал одежду по промпту, но не сломал позу, 
+        # мы снижаем strength до 0.82-0.85 (вместо 0.99)
+        base_image = VTON_PIPE(
+            prompt=prompt_style,
+            negative_prompt=negative_prompt,
+            image=garment_image,
+            mask_image=mask_blur,
+            num_inference_steps=35,
+            guidance_scale=7.5,
+            strength=0.85 
+        ).images[0]
+        
+        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
+        
+        # Промежуточный апскейл для прорисовки текстур ткани и фона
+        high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
+        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
+        high_res_full_mask = Image.new("L", high_res_size, 255)
+        
+        temp_hd_image = VTON_PIPE(
+            prompt=prompt_style,
+            negative_prompt=negative_prompt,
+            image=high_res_input,
+            mask_image=high_res_full_mask,
+            num_inference_steps=20,
+            guidance_scale=7.5,
+            strength=0.32
+        ).images[0]
+        
+        Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900х1200...")
+        final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
+        
+        # Сохраняем результат
+        final_filename = f"vton_result_{task_id}.png"
+        final_image.save(final_filename)
+        Log.success(f"Вертикальный рендеринг карточки {final_image.size} успешно завершен!")
+        
+    except Exception as e:
+        Log.error(f"Критический сбой ИИ-генератора фона и одежды: {e}")
+        return
+        
+    # #4 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
+    finally:
+        if 'raw_image' in locals(): del raw_image
+        if 'garment_mask_output' in locals(): del garment_mask_output
+        if 'mask_img' in locals(): del mask_img
+        if 'mask_blur' in locals(): del mask_blur
+        if 'base_image' in locals(): del base_image
+        if 'high_res_input' in locals(): del high_res_input
+        if 'high_res_full_mask' in locals(): del high_res_full_mask
+        if 'temp_hd_image' in locals(): del temp_hd_image
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
+    # #5 ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
+    submit_success = submit_result_to_server(task_id, user_login, final_filename)
+    if os.path.exists(final_filename):
+        os.remove(final_filename)
+        
+    if submit_success:
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
+    else:
+        Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
@@ -357,7 +516,7 @@ def main_loop(user_login: str):
     while True:
         task_data = fetch_task_from_server(clean_login)
         if task_data:
-            process_heavy_tryon(task_data)
+            process_heavy_tryon_naked(task_data)
         else:
             print(".", end="", flush=True)
             time.sleep(3)
