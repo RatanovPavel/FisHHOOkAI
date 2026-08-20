@@ -395,7 +395,7 @@ def process_heavy_tryon_naked(task_data: dict):
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
-    print(f" ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
+    print(f" ЗАПУСК ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (БЕРЕЖНОЕ ИЗМЕНЕНИЕ ЛИЦА): {task_id}")
     print("="*60)
     
     TARGET_WIDTH = 900
@@ -416,33 +416,36 @@ def process_heavy_tryon_naked(task_data: dict):
     Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
     garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
     
-    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ (ФОН + ТОРС, БЕЗ ГОЛОВЫ И КИСТЕЙ РУК)
-    Log.info("Удаление старого фона и сегментация гардероба...")
+    # #3 АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ С ГРАДИЕНТОМ ДЛЯ ЛИЦА
+    Log.info("Удаление старого фона и расчет контролируемой маски лица...")
     try:
         import rembg
         
-        # Получаем полный силуэт человека (альфа-канал)
+        # Получаем силуэт человека
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
         g_alpha_np = np.array(g_alpha)
         
-        # Инвертируем: фон становится белым (255) — под замену
-        bg_mask_np = 255 - g_alpha_np
+        # Фон полностью белый (255) — меняется на 100%
+        mask_np = 255 - g_alpha_np
         
-        # Создаем маску одежды. Вырезаем голову (верхние 25%) и кисти рук (ниже 76%),
-        # чтобы защитить их от мутаций и изменений
-        clothing_draw = np.zeros_like(g_alpha_np)
-        head_limit = int(TARGET_HEIGHT * 0.25)
-        hands_limit = int(TARGET_HEIGHT * 0.76)
+        # Определяем примерную границу головы (верхние 23% силуэта)
+        head_height_limit = int(TARGET_HEIGHT * 0.23)
         
-        # Заполняем область торса (одежды) внутри силуэта человека
-        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+        # Область одежды (ниже головы): меняется сильно, заполняем белым (255)
+        mask_np[head_height_limit:] = np.maximum(mask_np[head_height_limit:], g_alpha_np[head_height_limit:])
         
-        # Объединяем маску фона и маску одежды (все эти зоны будут перезаписаны ИИ)
-        combined_mask_np = np.maximum(bg_mask_np, clothing_draw)
+        # Выделяем область головы и лица
+        face_area_mask = np.zeros_like(g_alpha_np)
+        face_area_mask[:head_height_limit] = g_alpha_np[:head_height_limit]
         
-        # Переводим в PIL и делаем легкое размытие краев для плавного перехода
-        mask_blur = Image.fromarray(combined_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
+        # Накладываем серое значение на зону лица. 
+        # Значение 75 из 255 дает ИИ лишь минимальную свободу для подгонки света,
+        # сохраняя оригинальные черты лица практически нетронутыми.
+        mask_np = np.where(face_area_mask > 0, 75, mask_np)
+        
+        # Превращаем в PIL и размываем границы, чтобы изменения перетекали бесшовно
+        mask_blur = Image.fromarray(mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
         
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
@@ -451,21 +454,21 @@ def process_heavy_tryon_naked(task_data: dict):
     negative_prompt = (
         "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
         "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutated hands, "
-        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy"
+        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy, distorted facial features"
     )
     
     Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения и одежды...")
     try:
-        # Возвращаем твой оригинальный синтаксис вызова пайплайна, который работал без ошибок
+        # Извлекаем картинку через [0] для совместимости с возвращаемым списком IDM-VTON
         final_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
             image=garment_image,
             mask_image=mask_blur,
             num_inference_steps=35,
-            guidance_scale=7.5,
-            strength=0.85 
-        ).images[0]  # Берем первый элемент, как это было в твоей рабочей версии
+            guidance_scale=8.0,
+            strength=0.88 
+        ).images[0]
         
         # Сохраняем результат
         final_filename = f"vton_result_{task_id}.png"
