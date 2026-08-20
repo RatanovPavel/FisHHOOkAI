@@ -92,55 +92,58 @@ def submit_result_to_server(task_id: str, user_login: str, file_path: str):
 
 def process_heavy_tryon(task_data: dict):
     global VTON_PIPE, REMBG_SESSION
-    task_id = task_data["task_id"]
-    session_id = task_data["session_id"]
-    user_login = task_data["user_login"]
-    prompt_style = task_data["prompt_style"]
+    
+    task_id = task_data.get("task_id", "unknown")
+    session_id = task_data.get("session_id", "unknown")
+    user_login = task_data.get("user_login", "unknown")
+    prompt_style = task_data.get("prompt_style", "")
     
     print("\n" + "="*60)
-    Log.success(f"ЗАПУСК НЕЙРОСЕТЕВОГО HI-RES КОНВЕЙЕРА (ДЕТАЛИЗАЦИЯ 4K): {task_id}")
+    Log.success(f"ЗАПУСК НЕЙРОСЕТЕВОГО HI-RES КОНВЕЙЕРА (ОТЛАДКА 4K): {task_id}")
     print("-"*60)
     
     # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
     import requests
     from io import BytesIO
     download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+    
+    Log.info(f"[ОТЛАДКА]: Скачивание исходного изображения по URL: {download_url}")
     try:
         res = requests.get(download_url, stream=True, timeout=15)
-        if res.status_code != 200: return
-        # Загружаем изображение товара и приводим его к базовому квадрату инференса
+        Log.info(f"[ОТЛАДКА]: Ответ сервера: статус-код = {res.status_code}")
+        if res.status_code != 200: 
+            Log.error(f"Сервер вернул ошибку при скачивании исходника: {res.status_code}")
+            return
+            
         garment_image = Image.open(res.raw).convert("RGB").resize((768, 768))
+        Log.info(f"[ОТЛАДКА]: Исходное изображение успешно загружено и приведено к размеру {garment_image.size}")
     except Exception as e:
-        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
+        Log.error(f"Критическая ошибка загрузки изображения с сервера: {e}")
         return
 
     # 2! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
-    Log.info("Удаление старого фона и прецизионный анализ геометрии объекта...")
+    Log.info("Удаление старого фона и анализ геометрии объекта...")
     try:
         import numpy as np
         from PIL import ImageFilter
         
-        # Вырезаем предмет с помощью rembg
         garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
         g_alpha = garment_mask_output.split()[-1]
         
-        # Инвертируем маску, чтобы закрашивать ВСЁ, КРОМЕ самого предмета
         g_alpha_np = np.array(g_alpha)
         mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
-        
-        # Размываем края маски для плавного встраивания теней на столе/в интерьере
         mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=4))
+        
+        Log.info(f"[ОТЛАДКА]: Альфа-маска объекта успешно сгенерирована и инвертирована. Размер: {mask_blur.size}")
     except Exception as e:
         Log.error(f"Ошибка на этапе создания предметной маски: {e}")
         return
 
-    # Жесткий негативный промпт, чтобы на карточках товаров не генерировались буквы и водяные знаки
     negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, human, face, skin"
 
     Log.info("ЭТАП №1: ИИ-движок генерирует базовую композицию кадров...")
-    
     try:
-        # Генерация базовой картинки в стандартном разрешении
+        Log.info(f"[ОТЛАДКА]: Запуск Inpaint-инференса. Промпт: {prompt_style}")
         base_image = VTON_PIPE(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
@@ -151,39 +154,55 @@ def process_heavy_tryon(task_data: dict):
             strength=0.99
         ).images[0]
         
-        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей и ворсинок в 4K)...")
-        
-        # Масштабируем базовую картинку в 2 раза через интерполяцию
+        Log.info(f"[ОТЛАДКА]: Базовая композиция успешно сгенерирована. Размер: {base_image.size}")
+    except Exception as e:
+        Log.error(f"Критический сбой ИИ-генератора фона на ЭТАПЕ №1: {e}")
+        return
+
+    Log.info("ЭТАП №2: Переключение на Img2Img апскейлер для прорисовки ворса и микродеталей...")
+    try:
         width, height = base_image.size
-        high_res_image = base_image.resize((width * 2, height * 2), resample=Image.Resampling.LANCZOS)
+        high_res_size = (width * 2, height * 2)
         
-        # Симметрично увеличиваем маску и исходный четкий товар для второй проходки
-        high_res_mask = mask_blur.resize((width * 2, height * 2), resample=Image.Resampling.NEAREST)
-        high_res_garment = garment_image.resize((width * 2, height * 2), resample=Image.Resampling.LANCZOS)
+        Log.info(f"[ОТЛАДКА]: Масштабирование кадра алгоритмом LANCZOS до размера {high_res_size}")
+        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
         
-        # Запускаем вторую проходку нейросети поверх увеличенной картинки
-        # Небольшая сила (strength=0.35) гарантирует, что композиция и товар не изменятся,
-        # но на пустых пикселях сгенерируются реальные ворсинки ворса, текстура дерева и четкий фон
-        final_image = VTON_PIPE(
+        # Динамически пересобираем пайплайн в режим классического Img2Img для апскейла без маски
+        from diffusers import StableDiffusionImg2ImgPipeline
+        
+        Log.info("[ОТЛАДКА]: Перепривязка весов UNet в режим пространственного апскейла Img2Img...")
+        img2img_pipe = StableDiffusionImg2ImgPipeline(
+            vae=VTON_PIPE.vae,
+            text_encoder=VTON_PIPE.text_encoder,
+            tokenizer=VTON_PIPE.tokenizer,
+            unet=VTON_PIPE.unet,
+            scheduler=VTON_PIPE.scheduler,
+            safety_checker=None,
+            feature_extractor=None,
+            requires_safety_checker=False
+        )
+        
+        Log.info("[ОТЛАДКА]: Запуск второй проходки нейросети для субпиксельной детализации...")
+        final_image = img2img_pipe(
             prompt=prompt_style,
             negative_prompt=negative_prompt,
-            image=high_res_garment,
-            mask_image=high_res_mask,
-            num_inference_steps=20, # Для прорисовки деталей достаточно 20 шагов
+            image=high_res_input,
+            num_inference_steps=20, # 20 шагов достаточно для добавления текстур
             guidance_scale=7.5,
-            strength=0.35          # Маленькая сила для дорисовки только микротекстур
+            strength=0.32          # Оптимальная сила: не меняет форму предмета, но создает звенящую резкость фонов
         ).images[0]
         
-        # Сохраняем результат под системным именем задачи
+        Log.info(f"[ОТЛАДКА]: Финальная 4K карточка успешно отрендерена. Размер: {final_image.size}")
+        
         final_filename = f"vton_result_{task_id}.png"
         final_image.save(final_filename)
         Log.success(" Нейросетевой Hi-Res рендеринг карточки успешно завершен!")
         
     except Exception as e:
-        Log.error(f"Критический сбой ИИ-генератора фона: {e}")
+        Log.error(f"Критический сбой ИИ-детализатора на ЭТАПЕ №2: {e}")
         return
 
-    # 4! БЕЗОПАСНАЯ ОЧИСТКА ОЗУ И ВИДЕОПАМЯТИ НА ЛЕТУ
+    # 4! БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ
     finally:
         if 'garment_mask_output' in locals(): del garment_mask_output
         if 'g_alpha' in locals(): del g_alpha
@@ -191,17 +210,19 @@ def process_heavy_tryon(task_data: dict):
         if 'mask_img' in locals(): del mask_img
         if 'mask_blur' in locals(): del mask_blur
         if 'base_image' in locals(): del base_image
-        if 'high_res_image' in locals(): del high_res_image
-        if 'high_res_mask' in locals(): del high_res_mask
-        if 'high_res_garment' in locals(): del high_res_garment
+        if 'high_res_input' in locals(): del high_res_input
+        if 'img2img_pipe' in locals(): del img2img_pipe
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # 5! ОТПРАВКА ГОТОВОЙ ВЫСОКОДЕТАЛИЗИРОВАННОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
+    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ
+    Log.info(f"[ОТЛАДКА]: Отправка рендера {final_filename} на сервер для пользователя {user_login}")
     submit_success = submit_result_to_server(task_id, user_login, final_filename)
+    
     if os.path.exists(final_filename): 
         os.remove(final_filename)
+        Log.info("[ОТЛАДКА]: Временный локальный файл удален с диска Colab.")
         
     if submit_success:
         Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
