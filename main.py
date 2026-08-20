@@ -127,6 +127,105 @@ def process_heavy_tryon(task_data: dict):
     prompt_style = task_data["prompt_style"]
     
     print("\n" + "="*60)
+    Log.success(f"ЗАПУСК ПРЕМЬЕРНОГО SDXL-КОНВЕЙЕРА (900x1200 FIX): {task_id}")
+    print("-"*60)
+    
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+    
+    # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
+    import requests
+    from io import BytesIO
+    from PIL import ImageOps
+    
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+    try:
+        res = requests.get(download_url, stream=True, timeout=15)
+        if res.status_code != 200: return
+        raw_image = Image.open(res.raw).convert("RGB")
+    except Exception as e:
+        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
+        return
+
+    # 2! УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900x1200
+    Log.info("Адаптация геометрии под эталонные пропорции маркетплейса...")
+    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
+
+    # 3! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
+    Log.info("Прецизионное вырезание фона объекта...")
+    try:
+        import numpy as np
+        from PIL import ImageFilter
+        
+        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
+        g_alpha = garment_mask_output.split()[-1]
+        
+        g_alpha_np = np.array(g_alpha)
+        mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
+        
+        # Минимальное сглаживание краев для бесшовной посадки теней под баночкой
+        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=2))
+    except Exception as e:
+        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
+        return
+
+    # Качественный негативный промпт для SDXL (модели XL очень послушно реагируют на исключения)
+    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, extra lids, second cap, human, face, skin"
+
+    Log.info("ИИ-движок SDXL приступает к высокохудожественному рендерингу окружения...")
+    try:
+        # Инференс на полную мощность SDXL. 40 шагов на XL дают звенящую резкость глянца и стекла
+        final_image = VTON_PIPE(
+            prompt=prompt_style,
+            negative_prompt=negative_prompt,
+            image=garment_image,
+            mask_image=mask_blur,
+            num_inference_steps=40,
+            guidance_scale=8.0,
+            strength=0.99
+        ).images[0] # Забираем готовую картинку напрямую
+        
+        # Жестко фиксируем эталонный размер на выходе
+        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
+        
+        # Сохраняем результат под системным именем задачи
+        final_filename = f"vton_result_{task_id}.png"
+        final_image.save(final_filename)
+        Log.success(f" Высокохудожественный SDXL-рендеринг карточки {final_image.size} завершен!")
+        
+    except Exception as e:
+        Log.error(f"Критический сбой ИИ-генератора SDXL: {e}")
+        return
+
+    # 4! ОЧИСТКА ПАМЯТИ
+    finally:
+        if 'raw_image' in locals(): del raw_image
+        if 'garment_mask_output' in locals(): del garment_mask_output
+        if 'g_alpha' in locals(): del g_alpha
+        if 'g_alpha_np' in locals(): del g_alpha_np
+        if 'mask_img' in locals(): del mask_img
+        if 'mask_blur' in locals(): del mask_blur
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
+    submit_success = submit_result_to_server(task_id, user_login, final_filename)
+    if os.path.exists(final_filename): 
+        os.remove(final_filename)
+        
+    if submit_success:
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен на сервер!\n")
+
+
+def process_heavy_tryon_ext(task_data: dict):
+    global VTON_PIPE, REMBG_SESSION
+    task_id = task_data["task_id"]
+    session_id = task_data["session_id"]
+    user_login = task_data["user_login"]
+    prompt_style = task_data["prompt_style"]
+    
+    print("\n" + "="*60)
     Log.success(f"ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
     print("-"*60)
     
