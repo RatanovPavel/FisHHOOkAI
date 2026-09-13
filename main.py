@@ -389,7 +389,9 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
 
 def process_heavy_tryon_naked(task_data: dict):
     global VTON_PIPE, REMBG_SESSION
-    task_id = task_data["task_id"]
+    print(f"🔍 [DEBUG]: Что прислал сервер: {task_data}")
+    
+    task_id = task_data["task_id"]  # Строка 392, которая падает
     session_id = task_data["session_id"]
     user_login = task_data["user_login"]
     prompt_style = task_data["prompt_style"]
