@@ -520,16 +520,23 @@ def process_heavy_tryon_naked(task_data: dict):
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
     init_vton_models()
-    
+
     print("\n" + "="*60)
     Log.success("ПРОФЕССИОНАЛЬНЫЙ СТАНК FISHHOOK IDM-VTON ЗАПУЩЕН")
     print("="*60)
-    
+
     while True:
+        # 1. Запрашиваем задачу с сервера
         task_data = fetch_task_from_server(clean_login)
-        if task_data:
-            process_heavy_tryon_naked(task_data)
+        
+        # 2. Проверяем, что ответ пришел и сервер подтвердил статус "success"
+        if task_data and task_data.get("status") == "success":
+            Log.info(f"🚀 Найдена активная задача! Начинаем двухэтапную генерацию...")
+            
+            # Передаем весь объект, так как task_id лежит прямо внутри него
+            process_heavy_tryon_naked(task_data) 
         else:
+            # Если задач нет (статус "no_tasks"), плавно печатаем точки ожидания
             print(".", end="", flush=True)
             time.sleep(3)
 
