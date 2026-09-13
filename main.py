@@ -391,10 +391,13 @@ def process_heavy_tryon_naked(task_data: dict):
     global VTON_PIPE, REMBG_SESSION
     print(f"🔍 [DEBUG]: Что прислал сервер: {task_data}")
     
-    task_id = task_data["task_id"]  # Строка 392, которая падает
-    session_id = task_data["session_id"]
-    user_login = task_data["user_login"]
-    prompt_style = task_data["prompt_style"]
+    actual_task = task_data.get("task_data", {})
+    
+    # 🚀 Теперь берем все ключи ИЗ НЕГО:
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+    prompt_style = actual_task["prompt_style"]
     
     print("\n" + "="*60)
     print(f" ЗАПУСК ПОСЛЕДОВАТЕЛЬНОГО SDXL INPAINT КОНВЕЙЕРА (ОДЕЖДА -> ФОН): {task_id}")
