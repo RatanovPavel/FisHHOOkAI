@@ -435,8 +435,16 @@ def process_heavy_tryon_naked(task_data: dict):
         hands_limit = int(TARGET_HEIGHT * 0.76)   # Защита ладоней и пальцев
         
         # Белым цветом выделяем только торс (одежду) внутри силуэта человека
+        # Белым цветом выделяем только торс (одежду) внутри силуэта человека
         clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+        
+        # 🚀 ИСПРАВЛЕНИЕ ИНВЕРСИИ: Теперь лицо, кисти рук и фон станут ЧЕРНЫМИ (0 - защита),
+        # а область одежды станет БЕЛОЙ (255 - для полной перерисовки ИИ!)
+        clothing_draw = 255 - clothing_draw
+
+        # Переводим в PIL картинку с размытием краев (строка 439)
         clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
+
         
         # --- МАСКА №2: ТОЛЬКО ФОН (Весь человек полностью заблокирован, меняется только окружение) ---
         bg_mask_np = 255 - g_alpha_np
