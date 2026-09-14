@@ -533,7 +533,7 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked(task_data):
+def process_heavy_tryon_naked123456(task_data):
     """
     ОТЛАДОЧНАЯ ФУНКЦИЯ: Только строит и отправляет маску одежды на сервер.
     Помогает визуально проверить геометрию без запуска Stable Diffusion.
@@ -643,6 +643,117 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         torch.cuda.empty_cache()
 
+import io
+import os
+import requests
+import numpy as np
+import torch
+from PIL import Image, ImageFilter
+
+def process_heavy_tryon_naked(task_data):
+    """
+    БОЕВАЯ ФУНКЦИЯ: Меняет строго синюю блузку за 1 проход на GPU.
+    Лицо, руки, штаны и оригинальный фон улицы остаются нетронутыми.
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+    prompt_style = actual_task["prompt_style"]
+
+    print(f"\n🚀 [ИИ-ВОРКЕР]: Запуск генерации одежды для задачи {task_id}")
+    
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+
+    # 1. Скачиваем оригинал фото из папки сессии
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source_v2/{user_login}/{task_id}"
+    
+    try:
+        response = requests.get(download_url, stream=True, timeout=30)
+        if response.status_code != 200:
+            print(f"❌ Ошибка скачивания! Сервер вернул код: {response.status_code}")
+            return
+            
+        raw_image = Image.open(io.BytesIO(response.content)).convert("RGB")
+        print(f"🟢 Оригинал успешно скачан. Размер: {raw_image.size}")
+        
+    except Exception as e:
+        print(f"❌ Сбой при получении файла: {e}")
+        return
+
+    # 2. Видеокарта запускает rembg для построения силуэта человека
+    try:
+        global REMBG_SESSION
+        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
+            from rembg import new_session
+            REMBG_SESSION = new_session("u2net")
+            
+        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
+        g_alpha = output_rembg.split()[-1]  
+        g_alpha_np = np.array(g_alpha)
+    except Exception as rem_err:
+        print(f"❌ Ошибка rembg на GPU: {rem_err}")
+        return
+
+    # 3. МАТЕМАТИКА МАСКИ БЛУЗКИ (НАША ИСПРАВЛЕННАЯ РАБОЧАЯ ГЕОМЕТРИЯ)
+    clothing_draw = np.zeros_like(g_alpha_np)
+    
+    # Считаем проценты строго от реальной высоты скачанной картинки (740px)
+    actual_height = raw_image.height 
+    head_limit = int(actual_height * 0.22)   # Четко под шею
+    hands_limit = int(actual_height * 0.48)  # Ровно по пояс брюк
+
+    # Закрашиваем БЕЛЫМ (255) строго область блузки
+    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
+    # Мягко размываем края маски для бесшовной склейки ткани
+    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
+
+    try:
+        # 4. ЧИСТЫЙ ИНФЕРЕНС: ЗАМЕНА ТКАНИ НА ВИДЕОКАРТЕ
+        print("⚡ [GPU SDXL]: Запуск рендеринга новой блузки...")
+        clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
+        
+        # Запускаем SDXL Inpaint строго по маске блузки
+        final_image = VTON_PIPE(
+            prompt=clothing_prompt,
+            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, human, skin, background change, pants change",
+            image=raw_image,
+            mask_image=clothing_mask,
+            num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
+            guidance_scale=7.5,
+            strength=0.80
+        ).images[0] # Забираем готовую картинку из массива результатов
+
+        # 5. СОХРАНЕНИЕ КАРТОЧКИ
+        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+        output_filename = f"vton_result_{task_id}.png"
+        final_image.save(output_filename)
+        print(f"💾 Карточка блузки успешно сгенерирована и сохранена локально")
+
+        # 6. ОТПРАВКА НА СЕРВЕР SKULLA
+        submit_success = submit_result_to_server(task_id, user_login, output_filename)
+        
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+            
+        if submit_success:
+            print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")
+
+    except Exception as e:
+        print(f"❌ Критический сбой конвейера генерации одежды: {e}")
+        import traceback
+        traceback.print_exc()
+        
+    finally:
+        # Жестко вычищаем видеопамять от тяжелых объектов
+        if 'raw_image' in locals(): del raw_image
+        if 'clothing_mask' in locals(): del clothing_mask
+        if 'final_image' in locals(): del final_image
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
