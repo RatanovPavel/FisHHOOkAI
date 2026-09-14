@@ -430,29 +430,25 @@ def process_heavy_tryon_naked(task_data: dict):
         g_alpha_np = np.array(g_alpha)
         
         # --- МАСКА №1: ТОЛЬКО ОДЕЖДА (Лицо, кисти рук и оригинальный фон полностью заблокированы) ---
-        clothing_draw = np.zeros_like(g_alpha_np)
-        head_limit = int(TARGET_HEIGHT * 0.25)    # Защита головы и шеи
-        hands_limit = int(TARGET_HEIGHT * 0.76)   # Защита ладоней и пальцев
+        # 1. Создаем базовый холст: заливаем его БЕЛЫМ (255). В логике SDXL Inpaint белый — это полная защита.
+        clothing_draw = np.full_like(g_alpha_np, 255)
         
-        # 1. Создаем полностью ЧЕРНЫЙ холст (нули) — это базовая защита всего изображения
-        clothing_draw = np.zeros_like(g_alpha_np)
-        
-        # 2. Берем кусок БЕЛОГО силуэта человека (255) строго в диапазоне от головы до рук.
-        # Теперь на черном холсте БЕЛОЙ останется ТОЛЬКО область одежды!
-        # Лицо (выше head_limit), руки (ниже hands_limit) и весь фон вокруг останутся ЧЕРНЫМИ (0).
-        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-        
-        # ⚠️ ВНИМАНИЕ: Строку "clothing_draw = 255 - clothing_draw" здесь писать НЕ НАДО!
-        # Мы оставляем маску прямой: Черный цвет (0) — защита, Белый (255) — замена одежды.
+        head_limit = int(TARGET_HEIGHT * 0.25)  # Защита головы и шеи
+        hands_limit = int(TARGET_HEIGHT * 0.76)  # Защита ладоней и пальцев
 
-        # 3. Переводим массив в PIL изображение с мягким размытием краев ткани
+        # 2. Вырезаем область торса (одежду) по контуру силуэта и делаем её ЧЕРНОЙ (0).
+        # Для SDXL Inpaint черный цвет — это зона, которую нужно стереть и сгенерировать!
+        # При этом лицо и руки остаются белыми (защищенными)
+        clothing_draw[head_limit:hands_limit] = 255 - g_alpha_np[head_limit:hands_limit]
+
+        # Перевод массива в PIL изображение с мягким размытием краев ткани
         clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
-
-        
         # --- МАСКА №2: ТОЛЬКО ФОН (Весь человек полностью заблокирован, меняется только окружение) ---
+        # Здесь оставляем вашу верную логику: человек черный (0 - защита), фон белый (255 - замена)
         bg_mask_np = 255 - g_alpha_np
         bg_mask = Image.fromarray(bg_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
+
         
     except Exception as e:
         Log.error(f"Ошибка на этапе подготовки масок сегментации: {e}")
