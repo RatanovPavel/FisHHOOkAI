@@ -430,6 +430,10 @@ def process_heavy_tryon_naked(task_data: dict):
         g_alpha_np = np.array(g_alpha)
         
         # --- МАСКА №1: ТОЛЬКО ОДЕЖДА (Лицо, кисти рук и оригинальный фон полностью заблокированы) ---
+        clothing_draw = np.zeros_like(g_alpha_np)
+        head_limit = int(TARGET_HEIGHT * 0.25)    # Защита головы и шеи
+        hands_limit = int(TARGET_HEIGHT * 0.76)   # Защита ладоней и пальцев
+        
         # 1. Создаем полностью ЧЕРНЫЙ холст (нули) — это базовая защита всего изображения
         clothing_draw = np.zeros_like(g_alpha_np)
         
@@ -444,13 +448,6 @@ def process_heavy_tryon_naked(task_data: dict):
         # 3. Переводим массив в PIL изображение с мягким размытием краев ткани
         clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
-        
-        # 🚀 ИСПРАВЛЕНИЕ ИНВЕРСИИ: Теперь лицо, кисти рук и фон станут ЧЕРНЫМИ (0 - защита),
-        # а область одежды станет БЕЛОЙ (255 - для полной перерисовки ИИ!)
-        clothing_draw = 255 - clothing_draw
-
-        # Переводим в PIL картинку с размытием краев (строка 439)
-        clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
         
         # --- МАСКА №2: ТОЛЬКО ФОН (Весь человек полностью заблокирован, меняется только окружение) ---
