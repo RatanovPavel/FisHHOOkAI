@@ -387,7 +387,7 @@ def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image
     return final_mask
 
 
-def process_heavy_tryon_naked(task_data: dict):
+def process_heavy_tryon_naked_777(task_data: dict):
     global VTON_PIPE, REMBG_SESSION
     print(f"🔍 [DEBUG]: Что прислал сервер: {task_data}")
     
@@ -527,6 +527,91 @@ def process_heavy_tryon_naked(task_data: dict):
         Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
 
 
+import io
+import os
+import requests
+import numpy as np
+from PIL import Image, ImageFilter
+
+def process_heavy_tryon_naked(task_data):
+    """
+    ОТЛАДОЧНАЯ ФУНКЦИЯ: Только строит и отправляет маску одежды на сервер.
+    Помогает визуально проверить геометрию без запуска Stable Diffusion.
+    """
+    # 1. Распаковываем данные задачи, пришедшие от сервера
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+
+    print(f"\n🔬 [ДЕБАГ МАСКИ]: Запуск режима визуализации для задачи {task_id}")
+    
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+
+    # 2. Скачиваем оригинал фото из папки сессии через твой рабочий эндпоинт
+    download_url = f"{SERVER_URL}/studio/fishhook/download_source_v2/{user_login}/{task_id}"
+    
+    try:
+        response = requests.get(download_url, stream=True, timeout=30)
+        if response.status_code != 200:
+            print(f"❌ Ошибка скачивания! Сервер вернул код: {response.status_code}")
+            return
+            
+        raw_image = Image.open(io.BytesIO(response.content)).convert("RGB")
+        print(f"🟢 Оригинал успешно скачан. Размер: {raw_image.size}")
+        
+    except Exception as e:
+        print(f"❌ Сбой при получении файла: {e}")
+        return
+
+    # 3. Видеокарта запускает rembg для построения базового силуэта человека
+    print("✂️ [GPU REMBG]: Вырезаем силуэт человека...")
+    try:
+        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
+            from rembg import new_session
+            global REMBG_SESSION
+            REMBG_SESSION = new_session("u2net")
+            
+        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
+        g_alpha = output_rembg.split()[-1]  # Альфа-канал: человек белый (255), фон черный (0)
+        g_alpha_np = np.array(g_alpha)
+    except Exception as rem_err:
+        print(f"❌ Ошибка rembg на GPU: {rem_err}")
+        return
+
+    # 4. МАТЕМАТИКА МАСКИ ОДЕЖДЫ (Строим то, что хотим проверить)
+    # Создаем абсолютно ЧЕРНЫЙ холст (нули)
+    clothing_draw = np.zeros_like(g_alpha_np)
+    
+    # Задаем твои анатомические лимиты по высоте холста
+    head_limit = int(TARGET_HEIGHT * 0.25)   # Линия шеи
+    hands_limit = int(TARGET_HEIGHT * 0.76)  # Линия начала бедер
+
+    # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
+    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
+    # Переводим массив в черно-белую картинку PIL (БЕЗ размытия краев, чтобы видеть четкие границы)
+    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
+    # 5. СОХРАНЯЕМ МАСКУ КАК ИТОГОВЫЙ РЕЗУЛЬТАТ
+    # Приводим к размеру карточки и временно подменяем финальное изображение файлом маски!
+    final_image = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+    output_filename = f"vton_result_{task_id}.png"
+    final_image.save(output_filename)
+    print(f"💾 Маска сохранена локально под именем: {output_filename}")
+
+    # 6. ОТПРАВЛЯЕМ КАРТИНКУ МАСКИ НА СЕРВЕР SKULLA
+    # Скрипт использует твой готовый метод submit_result_to_server, чтобы выплюнуть маску на сайт
+    print("📤 Отправка файла маски на сервер для визуального анализа...")
+    submit_success = submit_result_to_server(output_filename, task_id, user_login)
+    
+    # Очищаем временный файл с диска Колаба
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+        
+    if submit_success:
+        print(f"🏁 [ТЕСТ ЗАВЕРШЕН]: Маска успешно улетела на сервер. Проверяй экран студии!")
 
 
 
