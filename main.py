@@ -718,7 +718,7 @@ def process_heavy_tryon_naked(task_data):
         # Запускаем SDXL Inpaint строго по маске блузки
         final_image = VTON_PIPE(
             prompt=clothing_prompt,
-            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, human, skin, background change, pants change",
+            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, background change",
             image=raw_image,
             mask_image=clothing_mask,
             num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
