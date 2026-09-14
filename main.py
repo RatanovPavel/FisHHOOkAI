@@ -721,9 +721,9 @@ def process_heavy_tryon_naked(task_data):
             negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, background change",
             image=raw_image,
             mask_image=clothing_mask,
-            num_inference_steps=45, # 35 шагов дадут отличную текстуру ткани
+            num_inference_steps=25, # 35 шагов дадут отличную текстуру ткани
             guidance_scale=8.5,
-            strength=0.95
+            strength=0.999
         ).images[0] # Забираем готовую картинку из массива результатов
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
