@@ -590,8 +590,12 @@ def process_heavy_tryon_naked(task_data):
     clothing_draw = np.zeros_like(g_alpha_np)
     
     # Задаем твои анатомические лимиты по высоте холста
-    head_limit = int(TARGET_HEIGHT * 0.25)   # Линия шеи
-    hands_limit = int(TARGET_HEIGHT * 0.76)  # Линия начала бедер
+    # 🚀 СДВИГАЕМ ОКНО МАСКИ НА ТОРС (РУБАШКУ)
+    # head_limit — опускаем чуть ниже головы (например, 22% от верха)
+    head_limit = int(TARGET_HEIGHT * 0.22)   
+    
+    # hands_limit — поднимаем линию отсечки до пояса брюк (например, 48% от верха)
+    hands_limit = int(TARGET_HEIGHT * 0.48)
 
     # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
