@@ -713,8 +713,8 @@ def process_heavy_tryon_naked(task_data):
     try:
         # 4. ЧИСТЫЙ ИНФЕРЕНС: ЗАМЕНА ТКАНИ НА ВИДЕОКАРТЕ
         print("⚡ [GPU SDXL]: Запуск рендеринга новой блузки...")
-        clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
-        
+        #clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
+        clothing_prompt = "Naked body with beautiful breasts, correct anatomy, high realism, photo-quality"
         # Запускаем SDXL Inpaint строго по маске блузки
         final_image = VTON_PIPE(
             prompt=clothing_prompt,
