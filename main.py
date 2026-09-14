@@ -608,17 +608,14 @@ def process_heavy_tryon_naked(task_data):
 
     # 6. ОТПРАВЛЯЕМ КАРТИНКУ МАСКИ НА СЕРВЕР SKULLA
     # Скрипт использует твой готовый метод submit_result_to_server, чтобы выплюнуть маску на сайт
-    print("📤 Отправка файла маски на сервер для визуального анализа...")
-    submit_success = submit_result_to_server(output_filename, task_id, user_login)
-    
-    # Очищаем временный файл с диска Колаба
+    submit_success = submit_result_to_server(task_id, user_login, output_filename)
     if os.path.exists(output_filename):
         os.remove(output_filename)
         
     if submit_success:
-        print(f"🏁 [ТЕСТ ЗАВЕРШЕН]: Маска успешно улетела на сервер. Проверяй экран студии!")
-
-
+        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
+    else:
+        Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
