@@ -568,17 +568,20 @@ def process_heavy_tryon_naked(task_data):
     # 3. Видеокарта запускает rembg для построения базового силуэта человека
     print("✂️ [GPU REMBG]: Вырезаем силуэт человека...")
     try:
+        # 🔥 СТРОКА СЮДА: Объявляем глобальную переменную на СЕЙ ПЕРВОЙ строчке блока!
+        global REMBG_SESSION
+        
         if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
             from rembg import new_session
-            global REMBG_SESSION
             REMBG_SESSION = new_session("u2net")
             
         output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  # Альфа-канал: человек белый (255), фон черный (0)
+        g_alpha = output_rembg.split()[-1]  # Альфа-канал
         g_alpha_np = np.array(g_alpha)
     except Exception as rem_err:
         print(f"❌ Ошибка rembg на GPU: {rem_err}")
         return
+
 
     # 4. МАТЕМАТИКА МАСКИ ОДЕЖДЫ (Строим то, что хотим проверить)
     # Создаем абсолютно ЧЕРНЫЙ холст (нули)
