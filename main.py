@@ -585,44 +585,64 @@ def process_heavy_tryon_naked(task_data):
         return
 
 
-    # 4. МАТЕМАТИКА МАСКИ ОДЕЖДЫ (Строим то, что хотим проверить)
-    # Создаем абсолютно ЧЕРНЫЙ холст (нули)
-    clothing_draw = np.zeros_like(g_alpha_np)
-    
-    # 🚀 СЧИТАЕМ ПРОЦЕНТЫ ОТ РЕАЛЬНОЙ ВЫСОТЫ СКАЧАННОЙ КАРТИНКИ
-    # Вытаскиваем фактическую высоту фото (в данном случае это будет 740)
-    actual_height = raw_image.height 
-    
-    # head_limit — 22% от верха (для этой фотки это ~162px, четко под шею)
-    head_limit = int(actual_height * 0.22)   
-    
-    # hands_limit — 48% от верха (для этой фотки это ~355px, ровно по ремень брюк)
-    hands_limit = int(actual_height * 0.48)  
-
-    # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
-    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-
-
-    # Переводим массив в черно-белую картинку PIL (БЕЗ размытия краев, чтобы видеть четкие границы)
-    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
-
-    # 5. СОХРАНЯЕМ МАСКУ КАК ИТОГОВЫЙ РЕЗУЛЬТАТ
-    # Приводим к размеру карточки и временно подменяем финальное изображение файлом маски!
-    final_image = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-    output_filename = f"vton_result_{task_id}.png"
-    final_image.save(output_filename)
-    print(f"💾 Маска сохранена локально под именем: {output_filename}")
-
-    # 6. ОТПРАВЛЯЕМ КАРТИНКУ МАСКИ НА СЕРВЕР SKULLA
-    # Скрипт использует твой готовый метод submit_result_to_server, чтобы выплюнуть маску на сайт
-    submit_success = submit_result_to_server(task_id, user_login, output_filename)
-    if os.path.exists(output_filename):
-        os.remove(output_filename)
+        # --- МАСКА: ТОЛЬКО БЛУЗКА (НАША ИСПРАВЛЕННАЯ РАБОЧАЯ ГЕОМЕТРИЯ) ---
+        clothing_draw = np.zeros_like(g_alpha_np)
         
-    if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
-    else:
-        Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
+        # Считаем проценты от РЕАЛЬНОЙ высоты скачанной картинки
+        actual_height = raw_image.height 
+        head_limit = int(actual_height * 0.22)   
+        hands_limit = int(actual_height * 0.48)  
+
+        # Закрашиваем БЕЛЫМ строго торс (блузку)
+        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
+        # Мягко размываем края маски для бесшовной склейки ткани
+        clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
+
+        # --- ЧИСТЫЙ ИНФЕРЕНС: ЗАМЕНА ТКАНИ НА ВИДЕОКАРТЕ ---
+        Log.info("⚡ [GPU SDXL]: Запуск рендеринга новой блузки...")
+        clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
+        
+        # Запускаем SDXL Inpaint строго по маске блузки
+        final_image = VTON_PIPE(
+            prompt=clothing_prompt,
+            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, human, skin, background change, pants change",
+            image=raw_image,
+            mask_image=clothing_mask,
+            num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
+            guidance_scale=7.5,
+            strength=0.80
+        ).images[0] # Забираем готовую картинку из массива результатов
+
+        # --- СОХРАНЕНИЕ КАРТОЧКИ ---
+        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+        output_filename = f"vton_result_{task_id}.png"
+        final_image.save(output_filename)
+        Log.success(f"💾 Карточка блузки сгенерирована за 1 проход на GPU и сохранена как {output_filename}")
+
+        # Отправляем готовый результат обратно на сервер Skulla
+        submit_success = submit_result_to_server(task_id, user_login, output_filename)
+        
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+            
+        if submit_success:
+            Log.success(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")
+
+    except Exception as e:
+        Log.error(f"Критический сбой конвейера генерации одежды: {e}")
+        import traceback
+        traceback.print_exc()
+        
+    finally:
+        # Жестко вычищаем видеопамять от тяжелых объектов
+        if 'raw_image' in locals(): del raw_image
+        if 'clothing_mask' in locals(): del clothing_mask
+        if 'final_image' in locals(): del final_image
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
