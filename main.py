@@ -550,7 +550,9 @@ def process_heavy_tryon_naked(task_data):
     TARGET_HEIGHT = 1200
 
     # 2. Скачиваем оригинал фото из папки сессии через твой рабочий эндпоинт
-    download_url = f"{SERVER_URL}/studio/fishhook/download_source_v2/{user_login}/{task_id}"
+        # Добавили /api перед /studio, чтобы точно попасть в роут сервера Skulla
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source_v2/{user_login}/{task_id}"
+
     
     try:
         response = requests.get(download_url, stream=True, timeout=30)
