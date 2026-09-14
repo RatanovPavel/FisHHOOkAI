@@ -589,16 +589,19 @@ def process_heavy_tryon_naked(task_data):
     # Создаем абсолютно ЧЕРНЫЙ холст (нули)
     clothing_draw = np.zeros_like(g_alpha_np)
     
-    # Задаем твои анатомические лимиты по высоте холста
-    # 🚀 СДВИГАЕМ ОКНО МАСКИ НА ТОРС (РУБАШКУ)
-    # head_limit — опускаем чуть ниже головы (например, 22% от верха)
-    head_limit = int(TARGET_HEIGHT * 0.22)   
+    # 🚀 СЧИТАЕМ ПРОЦЕНТЫ ОТ РЕАЛЬНОЙ ВЫСОТЫ СКАЧАННОЙ КАРТИНКИ
+    # Вытаскиваем фактическую высоту фото (в данном случае это будет 740)
+    actual_height = raw_image.height 
     
-    # hands_limit — поднимаем линию отсечки до пояса брюк (например, 48% от верха)
-    hands_limit = int(TARGET_HEIGHT * 0.48)
+    # head_limit — 22% от верха (для этой фотки это ~162px, четко под шею)
+    head_limit = int(actual_height * 0.22)   
+    
+    # hands_limit — 48% от верха (для этой фотки это ~355px, ровно по ремень брюк)
+    hands_limit = int(actual_height * 0.48)  
 
     # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
 
     # Переводим массив в черно-белую картинку PIL (БЕЗ размытия краев, чтобы видеть четкие границы)
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
