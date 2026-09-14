@@ -667,7 +667,7 @@ def process_heavy_tryon_naked(task_data):
     TARGET_HEIGHT = 1200
 
     # 1. Скачиваем оригинал фото из папки сессии
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source_v2/{user_login}/{task_id}"
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
     
     try:
         response = requests.get(download_url, stream=True, timeout=30)
