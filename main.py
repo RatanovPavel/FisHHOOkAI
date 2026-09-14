@@ -723,7 +723,7 @@ def process_heavy_tryon_naked(task_data):
             mask_image=clothing_mask,
             num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
             guidance_scale=8.5,
-            strength=0.999
+            strength=0.98
         ).images[0] # Забираем готовую картинку из массива результатов
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
