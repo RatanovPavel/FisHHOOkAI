@@ -701,7 +701,11 @@ def process_heavy_tryon_naked(task_data):
     
     # Считаем проценты строго от реальной высоты скачанной картинки (740px)
     actual_height = raw_image.height 
+<<<<<<< HEAD
     head_limit = int(actual_height * 0.32)   # Четко под шею
+=======
+    head_limit = int(actual_height * 0.22)   # Четко под шею
+>>>>>>> 0ad1155e6864f1578c5a126227cc115cb7d2ea9e
     hands_limit = int(actual_height * 0.98)  # Ровно по пояс брюк
 
     # Закрашиваем БЕЛЫМ (255) строго область блузки
