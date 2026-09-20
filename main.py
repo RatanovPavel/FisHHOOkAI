@@ -699,17 +699,15 @@ def process_heavy_tryon_naked(task_data):
     # 3. МАТЕМАТИКА МАСКИ БЛУЗКИ (НАША ИСПРАВЛЕННАЯ РАБОЧАЯ ГЕОМЕТРИЯ)
     clothing_draw = np.zeros_like(g_alpha_np)
     
-    # Считаем проценты строго от реальной высоты скачанной картинки (740px)
+        
+    # Считаем проценты от РЕАЛЬНОЙ высоты скачанной картинки (740px)
     actual_height = raw_image.height 
-<<<<<<< HEAD
-    head_limit = int(actual_height * 0.32)   # Четко под шею
-=======
     head_limit = int(actual_height * 0.22)   # Четко под шею
->>>>>>> 0ad1155e6864f1578c5a126227cc115cb7d2ea9e
-    hands_limit = int(actual_height * 0.98)  # Ровно по пояс брюк
+    hands_limit = int(actual_height * 0.48)  # Ровно по пояс брюк
 
     # Закрашиваем БЕЛЫМ (255) строго область блузки
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
 
     # Мягко размываем края маски для бесшовной склейки ткани
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
