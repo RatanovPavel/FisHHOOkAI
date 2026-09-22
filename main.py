@@ -766,9 +766,8 @@ from PIL import Image, ImageFilter
 
 def process_heavy_tryon_naked(task_data):
     """
-    НОВАЯ ФУНКЦИЯ V3 (На основе oneperson):
-    Скачивает сразу пару файлов (person.png и garment.png)
-    и запускает ИИ-наложение физической вещи на модель.
+    НОВАЯ ФУНКЦИЯ V3: Полностью построена на базе твоей рабочей oneperson.
+    Использует ту же сетевую структуру, но скачивает два файла сессии.
     """
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
@@ -776,22 +775,23 @@ def process_heavy_tryon_naked(task_data):
     user_login = actual_task["user_login"]
     prompt_style = actual_task["prompt_style"]
 
-    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Запуск сквозной примерки по паре файлов для задачи {task_id}")
+    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Конвейер примерки запущен для задачи {task_id}")
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
 
     # ----------------------------------------------------
-    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (person.png) - Строго как в oneperson
+    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (Строго по твоей рабочей схеме!)
     # ----------------------------------------------------
-    download_person_url = f"{SERVER_URL}/api/studio/static/{session_id}/person.png"
+    # Твой проверенный рабочий URL, но на конце запрашиваем person.png
+    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
     try:
         print(f"📥 Скачивание фото модели: {download_person_url}")
         res_p = requests.get(download_person_url, stream=True, timeout=30)
         
-        # Резервный откат на случай, если прилетела старая задача V2
+        # Если это старый тест V2, то person.png не будет, скачиваем по умолчанию
         if res_p.status_code == 404:
-            download_person_url = f"{SERVER_URL}/api/studio/static/{session_id}/original.png"
-            print(f"🔄 Режим V2 обнаружен (original.png): {download_person_url}")
+            download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
+            print(f"🔄 Откат к стандартному исходнику сессии: {download_person_url}")
             res_p = requests.get(download_person_url, stream=True, timeout=30)
 
         if res_p.status_code != 200:
@@ -805,10 +805,10 @@ def process_heavy_tryon_naked(task_data):
         return
 
     # ----------------------------------------------------
-    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (garment.png) - Дополнительный шаг V3
+    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (Для режима V3)
     # ----------------------------------------------------
     garment_image = None
-    download_garment_url = f"{SERVER_URL}/api/studio/static/{session_id}/garment.png"
+    download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
     try:
         print(f"📥 Скачивание фото одежды: {download_garment_url}")
         res_g = requests.get(download_garment_url, stream=True, timeout=30)
@@ -822,7 +822,7 @@ def process_heavy_tryon_naked(task_data):
         print(f"⚠️ Ошибка при получении одежды по сети: {e}")
 
     # ----------------------------------------------------
-    # 3. СЕГМЕНТАЦИЯ И ТВОРЧЕСТВО МАСКИ - Твоя эталонная логика из oneperson
+    # 3. СЕГМЕНТАЦИЯ СИЛУЭТА И МАСКА БЛУЗКИ (Твоя эталонная математика 0.22 - 0.48)
     # ----------------------------------------------------
     try:
         global REMBG_SESSION
@@ -838,13 +838,9 @@ def process_heavy_tryon_naked(task_data):
         return
 
     clothing_draw = np.zeros_like(g_alpha_np)
-    
-    # Твои рабочие динамические лимиты высоты:
     actual_height = raw_image.height 
     head_limit = int(actual_height * 0.22)   
     hands_limit = int(actual_height * 0.48)  
-    
-    # Закрашиваем белым строго блузку
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
@@ -852,12 +848,9 @@ def process_heavy_tryon_naked(task_data):
     # 4. ЗАПУСК ИИ-ИНФЕРЕНСА (ПРИМЕРКА)
     # ----------------------------------------------------
     try:
-        # Если фото шмотки успешно скачалось, запускаем наложение физической вещи
         if garment_image:
             print("⚡ [GPU VTON]: Перенос текстуры и кроя garment.png на модель...")
-            
-            # Сюда встанет вызов специализированного VTON-пайплайна примерки.
-            # Пока CatVTON/IDM-VTON не инициализированы, подмешиваем вещь через промпт:
+            # Используем твой рабочий текстовый пайплайн, подмешивая контекст скачанной вещи
             clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment photo"
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
@@ -869,7 +862,6 @@ def process_heavy_tryon_naked(task_data):
                 strength=0.80
             ).images
         else:
-            # Чистый текстовый откат V2, если картинки одежды не было
             print("⚡ [GPU SDXL]: Картинка вещи отсутствует. Рендеринг по промпту...")
             clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
             final_image = VTON_PIPE(
@@ -900,7 +892,6 @@ def process_heavy_tryon_naked(task_data):
         print(f"❌ Критический сбой конвейера примерки: {e}")
         
     finally:
-        # Сброс памяти
         if 'raw_image' in locals(): del raw_image
         if 'clothing_mask' in locals(): del clothing_mask
         if 'garment_image' in locals(): del garment_image
@@ -909,6 +900,7 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         import torch
         torch.cuda.empty_cache()
+
 
 
 
