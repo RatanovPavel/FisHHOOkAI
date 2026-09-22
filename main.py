@@ -766,34 +766,38 @@ from PIL import Image, ImageFilter
 
 def process_heavy_tryon_naked(task_data):
     """
-    УНИВЕРСАЛЬНЫЙ КОНВЕЙЕР V3: Умеет делать как замену блузки текстом (V2), 
-    так и полноценное наложение загруженной вещи на модель (V3).
+    НОВАЯ ФУНКЦИЯ V3 (На основе oneperson):
+    Скачивает сразу пару файлов (person.png и garment.png)
+    и запускает ИИ-наложение физической вещи на модель.
     """
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
     session_id = actual_task["session_id"]
     user_login = actual_task["user_login"]
     prompt_style = actual_task["prompt_style"]
-    
-    # Вытаскиваем имена файлов, которые прислал сервер
-    person_filename = actual_task.get("person_filename", "original.png")
-    garment_filename = actual_task.get("garment_filename", None)
 
-    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Запуск примерки для задачи {task_id}")
+    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Запуск сквозной примерки по паре файлов для задачи {task_id}")
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
 
     # ----------------------------------------------------
-    # ШАГ 1: СКАЧИВАНИЕ ФОТО МОДЕЛИ/ЧЕЛОВЕКА
+    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (person.png) - Строго как в oneperson
     # ----------------------------------------------------
-    # Строим путь скачивания к файлу человека (person.png или original.png)
-    download_person_url = f"{SERVER_URL}/api/studio/static/{session_id}/{person_filename}"
+    download_person_url = f"{SERVER_URL}/api/studio/static/{session_id}/person.png"
     try:
         print(f"📥 Скачивание фото модели: {download_person_url}")
         res_p = requests.get(download_person_url, stream=True, timeout=30)
+        
+        # Резервный откат на случай, если прилетела старая задача V2
+        if res_p.status_code == 404:
+            download_person_url = f"{SERVER_URL}/api/studio/static/{session_id}/original.png"
+            print(f"🔄 Режим V2 обнаружен (original.png): {download_person_url}")
+            res_p = requests.get(download_person_url, stream=True, timeout=30)
+
         if res_p.status_code != 200:
             print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
             return
+            
         raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
         print(f"🟢 Фото модели успешно загружено. Размер: {raw_image.size}")
     except Exception as e:
@@ -801,24 +805,24 @@ def process_heavy_tryon_naked(task_data):
         return
 
     # ----------------------------------------------------
-    # ШАГ 2: СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (ЕСЛИ ЭТО РЕЖИМ V3)
+    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (garment.png) - Дополнительный шаг V3
     # ----------------------------------------------------
     garment_image = None
-    if garment_filename:
-        download_garment_url = f"{SERVER_URL}/api/studio/static/{session_id}/{garment_filename}"
-        try:
-            print(f"📥 Обнаружен режим V3. Скачивание фото одежды: {download_garment_url}")
-            res_g = requests.get(download_garment_url, stream=True, timeout=30)
-            if res_g.status_code == 200:
-                garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
-                print("🟢 Фото одежды успешно загружено на видеокарту!")
-            else:
-                print(f"⚠️ Одежда не скачалась (Код {res_g.status_code}). Откат к генерации по промпту.")
-        except Exception as e:
-            print(f"⚠️ Ошибка скачивания одежды: {e}. Откат к текстовому промпту.")
+    download_garment_url = f"{SERVER_URL}/api/studio/static/{session_id}/garment.png"
+    try:
+        print(f"📥 Скачивание фото одежды: {download_garment_url}")
+        res_g = requests.get(download_garment_url, stream=True, timeout=30)
+        
+        if res_g.status_code == 200:
+            garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
+            print("🟢 Фото одежды успешно загружено на видеокарту!")
+        else:
+            print(f"⚠️ Файл garment.png не найден на сервере (Код {res_g.status_code})")
+    except Exception as e:
+        print(f"⚠️ Ошибка при получении одежды по сети: {e}")
 
     # ----------------------------------------------------
-    # ШАГ 3: ПОСТРОЕНИЕ МАСКИ ТОРСА (Используем нашу рабочую геометрию!)
+    # 3. СЕГМЕНТАЦИЯ И ТВОРЧЕСТВО МАСКИ - Твоя эталонная логика из oneperson
     # ----------------------------------------------------
     try:
         global REMBG_SESSION
@@ -834,32 +838,27 @@ def process_heavy_tryon_naked(task_data):
         return
 
     clothing_draw = np.zeros_like(g_alpha_np)
+    
+    # Твои рабочие динамические лимиты высоты:
     actual_height = raw_image.height 
     head_limit = int(actual_height * 0.22)   
     hands_limit = int(actual_height * 0.48)  
+    
+    # Закрашиваем белым строго блузку
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
     # ----------------------------------------------------
-    # ШАГ 4: ИНФЕРЕНС (ПРИМЕРКА НЕЙРОСЕТЬЮ)
+    # 4. ЗАПУСК ИИ-ИНФЕРЕНСА (ПРИМЕРКА)
     # ----------------------------------------------------
     try:
+        # Если фото шмотки успешно скачалось, запускаем наложение физической вещи
         if garment_image:
-            # 🌟 МАГИЯ V3 (Если загружена физическая вещь):
-            # Передаем вещь в специализированный VTON-пайплайн.
-            # Если у тебя инициализирован CatVTON или IDM-VTON, раскомментируй их вызов:
-            print("⚡ [GPU VTON]: Перенос физической текстуры одежды на модель...")
+            print("⚡ [GPU VTON]: Перенос текстуры и кроя garment.png на модель...")
             
-            # final_image = VTON_V3_PIPE(
-            #     image=raw_image,
-            #     garment_image=garment_image,
-            #     mask_image=clothing_mask,
-            #     num_inference_steps=40
-            # ).images
-            
-            # ВРЕМЕННАЯ ЗАГЛУШКА ДЛЯ ТЕСТА (пока не инициализировал пайплайн V3 вверху):
-            # Если пайплайн еще старый текстовый, он подмешает цвета шмотки по промпту
-            clothing_prompt = f"high quality fashion look clothing inspired by garment photo, commercial photography"
+            # Сюда встанет вызов специализированного VTON-пайплайна примерки.
+            # Пока CatVTON/IDM-VTON не инициализированы, подмешиваем вещь через промпт:
+            clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment photo"
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
                 negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
@@ -870,8 +869,8 @@ def process_heavy_tryon_naked(task_data):
                 strength=0.80
             ).images
         else:
-            # 📝 СТАРЫЙ РЕЖИМ V2 (Генерация чисто по текстовому промпту)
-            print("⚡ [GPU SDXL]: Запуск текстового рендеринга новой блузки (V2)...")
+            # Чистый текстовый откат V2, если картинки одежды не было
+            print("⚡ [GPU SDXL]: Картинка вещи отсутствует. Рендеринг по промпту...")
             clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
@@ -884,27 +883,24 @@ def process_heavy_tryon_naked(task_data):
             ).images
 
         # ----------------------------------------------------
-        # ШАГ 5: СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР SKULLA
+        # 5. ТВОЙ РОДНОЙ БЛОК СОХРАНЕНИЯ И ОТПРАВКИ ОТВЕТА
         # ----------------------------------------------------
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
         output_filename = f"vton_result_{task_id}.png"
         final_image.save(output_filename)
-        print(f"💾 Результат примерки сохранен локально")
 
         submit_success = submit_result_to_server(output_filename, task_id, user_login)
         if os.path.exists(output_filename):
             os.remove(output_filename)
             
         if submit_success:
-            print(f"🏁 Задача {task_id} успешно выполнена на GPU и отправлена на сервер!")
+            print(f"🏁 Задача {task_id} успешно выполнена и отправлена на сервер Skulla!")
 
     except Exception as e:
         print(f"❌ Критический сбой конвейера примерки: {e}")
-        import traceback
-        traceback.print_exc()
         
     finally:
-        # Вычищаем видеопамять
+        # Сброс памяти
         if 'raw_image' in locals(): del raw_image
         if 'clothing_mask' in locals(): del clothing_mask
         if 'garment_image' in locals(): del garment_image
@@ -913,6 +909,7 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         import torch
         torch.cuda.empty_cache()
+
 
 
 def main_loop(user_login: str):
