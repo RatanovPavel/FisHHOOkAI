@@ -764,38 +764,40 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 
+import io
+import os
+import requests
+import numpy as np
+from PIL import Image, ImageFilter
+
 def process_heavy_tryon_naked(task_data):
     """
-    НОВАЯ ФУНКЦИЯ V3: Полностью построена на базе твоей рабочей oneperson.
-    Использует ту же сетевую структуру, но скачивает два файла сессии.
+    БОЕВОЙ КОНВЕЙЕР V3: Скачивает пару файлов через обновленный эндпоинт
+    и накладывает ткань одежды на модель.
     """
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
     session_id = actual_task["session_id"]
     user_login = actual_task["user_login"]
-    prompt_style = actual_task["prompt_style"]
 
-    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Конвейер примерки запущен для задачи {task_id}")
+    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Сквозной запуск примерки для задачи {task_id}")
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
 
-    # ----------------------------------------------------
-    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (Строго по твоей рабочей схеме!)
-    # ----------------------------------------------------
-    # Твой проверенный рабочий URL, но на конце запрашиваем person.png
+    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (person.png)
     download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
     try:
         print(f"📥 Скачивание фото модели: {download_person_url}")
         res_p = requests.get(download_person_url, stream=True, timeout=30)
         
-        # Если это старый тест V2, то person.png не будет, скачиваем по умолчанию
+        # Если это старая задача V2, person.png не будет — делаем откат на дефолтный файл
         if res_p.status_code == 404:
             download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-            print(f"🔄 Откат к стандартному исходнику сессии: {download_person_url}")
+            print(f"🔄 Режим V2 обнаружен. Скачиваем original.png: {download_person_url}")
             res_p = requests.get(download_person_url, stream=True, timeout=30)
 
         if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
+            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
             return
             
         raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
@@ -804,9 +806,7 @@ def process_heavy_tryon_naked(task_data):
         print(f"❌ Критический сбой сети при скачивании модели: {e}")
         return
 
-    # ----------------------------------------------------
-    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (Для режима V3)
-    # ----------------------------------------------------
+    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (garment.png)
     garment_image = None
     download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
     try:
@@ -821,9 +821,7 @@ def process_heavy_tryon_naked(task_data):
     except Exception as e:
         print(f"⚠️ Ошибка при получении одежды по сети: {e}")
 
-    # ----------------------------------------------------
-    # 3. СЕГМЕНТАЦИЯ СИЛУЭТА И МАСКА БЛУЗКИ (Твоя эталонная математика 0.22 - 0.48)
-    # ----------------------------------------------------
+    # 3. МАСКА БЛУЗКИ (Твоя идеальная отлаженная математика высоты 0.22 - 0.48)
     try:
         global REMBG_SESSION
         if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
@@ -844,14 +842,11 @@ def process_heavy_tryon_naked(task_data):
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
-    # ----------------------------------------------------
     # 4. ЗАПУСК ИИ-ИНФЕРЕНСА (ПРИМЕРКА)
-    # ----------------------------------------------------
     try:
         if garment_image:
-            print("⚡ [GPU VTON]: Перенос текстуры и кроя garment.png на модель...")
-            # Используем твой рабочий текстовый пайплайн, подмешивая контекст скачанной вещи
-            clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment photo"
+            print("⚡ [GPU VTON]: Наложение физической вещи garment.png на модель...")
+            clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment"
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
                 negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
@@ -862,8 +857,8 @@ def process_heavy_tryon_naked(task_data):
                 strength=0.80
             ).images
         else:
-            print("⚡ [GPU SDXL]: Картинка вещи отсутствует. Рендеринг по промпту...")
-            clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
+            print("⚡ [GPU SDXL]: Рендеринг блузки по текстовому промпту...")
+            clothing_prompt = f"{actual_task.get('prompt_style')}, high quality commercial clothing texture, fashion look"
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
                 negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
@@ -874,9 +869,7 @@ def process_heavy_tryon_naked(task_data):
                 strength=0.80
             ).images
 
-        # ----------------------------------------------------
-        # 5. ТВОЙ РОДНОЙ БЛОК СОХРАНЕНИЯ И ОТПРАВКИ ОТВЕТА
-        # ----------------------------------------------------
+        # 5. СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
         output_filename = f"vton_result_{task_id}.png"
         final_image.save(output_filename)
@@ -886,7 +879,7 @@ def process_heavy_tryon_naked(task_data):
             os.remove(output_filename)
             
         if submit_success:
-            print(f"🏁 Задача {task_id} успешно выполнена и отправлена на сервер Skulla!")
+            print(f"🏁 Задача {task_id} успешно выполнена и отправлена на сайт!")
 
     except Exception as e:
         print(f"❌ Критический сбой конвейера примерки: {e}")
@@ -900,6 +893,7 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         import torch
         torch.cuda.empty_cache()
+
 
 
 
