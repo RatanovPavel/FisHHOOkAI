@@ -847,27 +847,33 @@ def process_heavy_tryon_naked(task_data):
         if garment_image:
             print("⚡ [GPU VTON]: Наложение физической вещи garment.png на модель...")
             clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment"
+            
+            # 🚀 ДОБАВИЛИ [0] В КОНЦЕ СТРОКИ:
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
                 negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
                 image=raw_image,
                 mask_image=clothing_mask,
-                num_inference_steps=35,
+                num_inference_steps=28, # Как на твоем скрине
                 guidance_scale=7.5,
                 strength=0.80
-            ).images
+            ).images[0] # 👈 Достаем саму картинку PIL из списка!
+            
         else:
             print("⚡ [GPU SDXL]: Рендеринг блузки по текстовому промпту...")
             clothing_prompt = f"{actual_task.get('prompt_style')}, high quality commercial clothing texture, fashion look"
+            
+            # 🚀 И СЮДА ТОЖЕ ДОБАВИЛИ:
             final_image = VTON_PIPE(
                 prompt=clothing_prompt,
                 negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
                 image=raw_image,
                 mask_image=clothing_mask,
-                num_inference_steps=35,
+                num_inference_steps=28,
                 guidance_scale=7.5,
                 strength=0.80
-            ).images
+            ).images[0] # 👈 Достаем саму картинку PIL из списка!
+
 
         # 5. СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
