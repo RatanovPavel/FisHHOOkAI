@@ -875,17 +875,20 @@ def process_heavy_tryon_naked(task_data):
             ).images[0] # 👈 Достаем саму картинку PIL из списка!
 
 
-        # 5. СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР
+        # 5. СОХРАНЕНИЕ КАРТОЧКИ
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
         output_filename = f"vton_result_{task_id}.png"
         final_image.save(output_filename)
+        print(f"💾 Карточка блузки успешно сгенерирована и сохранена локально")
 
-        submit_success = submit_result_to_server(output_filename, task_id, user_login)
+        # 6. ОТПРАВКА НА СЕРВЕР SKULLA
+        submit_success = submit_result_to_server(task_id, user_login, output_filename)
+        
         if os.path.exists(output_filename):
             os.remove(output_filename)
             
         if submit_success:
-            print(f"🏁 Задача {task_id} успешно выполнена и отправлена на сайт!")
+            print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")            
 
     except Exception as e:
         print(f"❌ Критический сбой конвейера примерки: {e}")
