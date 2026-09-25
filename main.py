@@ -801,7 +801,7 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked(task_data):
+def process_heavy_tryon_naked_(task_data):
     """
     БОЕВАЯ ФУНКЦИЯ V3 (CatVTON):
     Скачивает person.png и garment.png, строит маску 0.22-0.48
@@ -930,6 +930,90 @@ def process_heavy_tryon_naked(task_data):
         import torch
         torch.cuda.empty_cache()
 
+
+import io
+import os
+import requests
+import numpy as np
+import rembg
+from PIL import Image, ImageFilter
+
+def process_heavy_tryon_naked(task_data):
+    """
+    ОТЛАДОЧНАЯ ФУНКЦИЯ V3: Только строит и отправляет маску на сервер Skulla.
+    Помогает визуально проверить геометрию в новом окружении T4 без запуска ИИ.
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+
+    print(f"\n🔬 [ДЕБАГ МАСКИ V3]: Режим визуализации для задачи {task_id}")
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+
+    # 1. Скачиваем фото модели через твой универсальный роут скачивания
+    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
+    try:
+        print(f"📥 Скачивание фото модели: {download_person_url}")
+        res_p = requests.get(download_person_url, stream=True, timeout=30)
+        
+        if res_p.status_code != 200:
+            print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
+            return
+            
+        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
+        print(f"🟢 Фото успешно загружено. Размер: {raw_image.size}")
+    except Exception as e:
+        print(f"❌ Сбой при получении файла: {e}")
+        return
+
+    # 2. Видеокарта запускает rembg для построения силуэта человека
+    print("✂️ [GPU REMBG]: Вырезаем силуэт человека на новой либе 1.19.0...")
+    try:
+        global REMBG_SESSION
+        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
+            from rembg import new_session
+            REMBG_SESSION = new_session("u2net")
+            
+        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
+        g_alpha = output_rembg.split()[-1]  # Альфа-канал: человек белый (255), фон черный (0)
+        g_alpha_np = np.array(g_alpha)
+        print("✅ Силуэт успешно построен силами видеокарты!")
+    except Exception as rem_err:
+        print(f"❌ Ошибка сегментации rembg на GPU: {rem_err}")
+        return
+
+    # 3. МАТЕМАТИКА МАСКИ ТОРСА (Наши сдвинутые лимиты 0.28 - 0.52)
+    clothing_draw = np.zeros_like(g_alpha_np)
+    actual_height = raw_image.height 
+    
+    # Жесткая защита подбородка и лица модели
+    head_limit = int(actual_height * 0.28)   
+    hands_limit = int(actual_height * 0.52)  
+
+    # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
+    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+
+    # Переводим массив в черно-белую картинку PIL (БЕЗ размытия, чтобы видеть чистые границы)
+    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
+    # 4. СОХРАНЯЕМ МАСКУ КАК ИТОГОВЫЙ РЕЗУЛЬТАТ ДЛЯ СТЕНДА
+    final_image = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+    output_filename = f"vton_result_{task_id}.png"
+    final_image.save(output_filename)
+    print(f"💾 Маска сохранена локально под именем: {output_filename}")
+
+    # 5. ОТПРАВЛЯЕМ КАРТИНКУ МАСКИ НА СЕРВЕР SKULLA
+    print("📤 Отправка файла маски на сервер для визуального анализа...")
+    # 6. ОТПРАВКА НА СЕРВЕР SKULLA
+    submit_success = submit_result_to_server(task_id, user_login, output_filename)
+    
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+        
+    if submit_success:
+        print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")  
 
 
 def main_loop(user_login: str):
