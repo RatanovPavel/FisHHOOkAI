@@ -942,7 +942,7 @@ import numpy as np
 import rembg
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked(task_data):
+def process_heavy_tryon_naked_mask(task_data):
     """
     ОТЛАДОЧНАЯ ФУНКЦИЯ V3: Только строит и отправляет маску на сервер Skulla.
     Помогает визуально проверить геометрию в новом окружении T4 без запуска ИИ.
