@@ -92,6 +92,9 @@ def init_vton_models_stablediffusion():
         
     Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
 
+import os
+# Жестко говорим системе: "Видеть только первую видеокарту GPU 0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 # Если скрипт запущен внутри Google Colab, автоматически подключаем пути CatVTON
 if os.path.exists("/content/CatVTON_repo"):
     sys.path.append("/content/CatVTON_repo")
