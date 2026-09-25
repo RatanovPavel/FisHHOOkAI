@@ -801,7 +801,7 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked_(task_data):
+def process_heavy_tryon_naked(task_data):
     """
     БОЕВАЯ ФУНКЦИЯ V3 (CatVTON):
     Скачивает person.png и garment.png, строит маску 0.22-0.48
@@ -875,32 +875,36 @@ def process_heavy_tryon_naked_(task_data):
     # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
     # ----------------------------------------------------
     try:
-        if garment_image:
-            print("⚡ [GPU CatVTON]: Сшиваем узоры и крой красной блузки внутрь маски торса...")
-            
-            # 🚀 ИСПРАВЛЕНО: Передали аргументы строго по паспорту CatVTON!
-            # И не забываем вытащить нулевой элемент [0], так как на выходе список!
-            final_image = VTON_V3_PIPE(
-                image=raw_image,                  # Фото модели
-                condition_image=garment_image,    # Фото красной блузки
-                mask=clothing_mask,               # Наша идеальная маска блузки
-                num_inference_steps=40
-            )[0]
-            
+        print("⚡ [GPU CatVTON]: Сшиваем узоры красной блузки внутрь маски...")
+        
+        # 🚀 ИСПРАВЛЕНИЕ: Импортируем утилиты изменения размера из репозитория CatVTON
+        from utils import resize_and_crop, resize_and_padding
+        
+        # Задаем фиксированный рабочий стандарт CatVTON (768 по ширине, 1024 по высоте)
+        VTON_SIZE = (768, 1024)
+        
+        # Хирургически подгоняем модель, маску и одежду под единую матрицу
+        person_scaled = resize_and_crop(raw_image, VTON_SIZE)
+        mask_scaled = resize_and_crop(clothing_mask, VTON_SIZE)
+        garment_scaled = resize_and_padding(garment_image, VTON_SIZE) # Добавит аккуратные поля для шмотки!
+
+        # Фиксируем генератор
+        generator = torch.Generator(device="cuda").manual_seed(42)
+        
+        # Передаем в пайплайн ИДЕАЛЬНО СИНХРОНИЗИРОВАННЫЕ картинки
+        result_output = VTON_V3_PIPE(
+            image=person_scaled,
+            condition_image=garment_scaled,
+            mask=mask_scaled,
+            num_inference_steps=40,
+            generator=generator
+        )
+        
+        # Достаем готовую картинку PIL
+        if hasattr(result_output, "images"):
+            final_image = result_output.images[0] if isinstance(result_output.images, list) else result_output.images
         else:
-            print("⚡ [GPU SDXL]: Картинка вещи отсутствует. Рендеринг по промпту...")
-            clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
-            final_image = VTON_PIPE(
-                prompt=clothing_prompt,
-                negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
-                image=raw_image,
-                mask_image=clothing_mask,
-                num_inference_steps=28,
-                guidance_scale=7.5,
-                strength=0.80
-            ).images[0]
-
-
+            final_image = result_output[0] if isinstance(result_output, list) else result_output
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
