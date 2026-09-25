@@ -868,18 +868,35 @@ def process_heavy_tryon_naked(task_data):
     # Делаем маску бинарной, с небольшим размытием краев для бесшовной склейки рукавов
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
+    # ----------------------------------------------------
     # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
+    # ----------------------------------------------------
     try:
-        print("⚡ [GPU CatVTON]: Сшиваем узоры и крой красной блузки внутрь маски торса...")
-        
-        # Инференс CatVTON принимает три PIL холста. Текст больше не нужен!
-        # Вытаскиваем нулевой элемент [0], так как на выходе всегда список
-        final_image = VTON_V3_PIPE(
-            image=raw_image,
-            garment_image=garment_image,
-            mask_image=clothing_mask,
-            num_inference_steps=40 # 40 шагов дают идеальную четкость складок
-        ).images[0]
+        if garment_image:
+            print("⚡ [GPU CatVTON]: Сшиваем узоры и крой красной блузки внутрь маски торса...")
+            
+            # 🚀 ИСПРАВЛЕНО: Передали аргументы строго по паспорту CatVTON!
+            # И не забываем вытащить нулевой элемент [0], так как на выходе список!
+            final_image = VTON_V3_PIPE(
+                image=raw_image,                  # Фото модели
+                condition_image=garment_image,    # Фото красной блузки
+                mask=clothing_mask,               # Наша идеальная маска блузки
+                num_inference_steps=40
+            )[0]
+            
+        else:
+            print("⚡ [GPU SDXL]: Картинка вещи отсутствует. Рендеринг по промпту...")
+            clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
+            final_image = VTON_PIPE(
+                prompt=clothing_prompt,
+                negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
+                image=raw_image,
+                mask_image=clothing_mask,
+                num_inference_steps=28,
+                guidance_scale=7.5,
+                strength=0.80
+            ).images[0]
+
 
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
