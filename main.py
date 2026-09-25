@@ -875,37 +875,36 @@ def process_heavy_tryon_naked(task_data):
     # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
     # ----------------------------------------------------
     try:
-        print("⚡ [GPU CatVTON]: Сшиваем узоры красной блузки внутрь маски...")
-        
-        # 🚀 ИСПРАВЛЕНИЕ: Импортируем утилиты изменения размера из репозитория CatVTON
-        from utils import resize_and_crop, resize_and_padding
-        
-        # Задаем фиксированный рабочий стандарт CatVTON (768 по ширине, 1024 по высоте)
-        VTON_SIZE = (768, 1024)
-        
-        # Хирургически подгоняем модель, маску и одежду под единую матрицу
-        person_scaled = resize_and_crop(raw_image, VTON_SIZE)
-        mask_scaled = resize_and_crop(clothing_mask, VTON_SIZE)
-        garment_scaled = resize_and_padding(garment_image, VTON_SIZE) # Добавит аккуратные поля для шмотки!
+        if garment_image:
+            print("⚡ [GPU CatVTON]: Сшиваем узоры красной блузки внутрь маски...")
+            
+            # 🚀 ЖЕСТКИЙ ФИКС: Импортируем torch прямо здесь, локально!
+            import torch
+            
+            # Официальная нормализация размеров от авторов CatVTON
+            from utils import resize_and_crop, resize_and_padding
+            VTON_SIZE = (768, 1024)
+            
+            person_scaled = resize_and_crop(raw_image, VTON_SIZE)
+            mask_scaled = resize_and_crop(clothing_mask, VTON_SIZE)
+            garment_scaled = resize_and_padding(garment_image, VTON_SIZE)
 
-        # Фиксируем генератор
-        generator = torch.Generator(device="cuda").manual_seed(42)
-        
-        # Передаем в пайплайн ИДЕАЛЬНО СИНХРОНИЗИРОВАННЫЕ картинки
-        result_output = VTON_V3_PIPE(
-            image=person_scaled,
-            condition_image=garment_scaled,
-            mask=mask_scaled,
-            num_inference_steps=40,
-            generator=generator
-        )
-        
-        
-        # Достаем готовую картинку PIL
-        if hasattr(result_output, "images"):
-            final_image = result_output.images[0] if isinstance(result_output.images, list) else result_output.images
-        else:
-            final_image = result_output[0] if isinstance(result_output, list) else result_output
+            # Теперь эта строка выполнится идеально!
+            generator = torch.Generator(device="cuda").manual_seed(42)
+            
+            result_output = VTON_V3_PIPE(
+                image=person_scaled,
+                condition_image=garment_scaled,
+                mask=mask_scaled,
+                num_inference_steps=40,
+                generator=generator
+            )
+            
+            if hasattr(result_output, "images"):
+                final_image = result_output.images if isinstance(result_output.images, list) else result_output.images
+            else:
+                final_image = result_output if isinstance(result_output, list) else result_output
+
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
