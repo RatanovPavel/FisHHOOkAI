@@ -900,6 +900,7 @@ def process_heavy_tryon_naked(task_data):
             generator=generator
         )
         
+        
         # Достаем готовую картинку PIL
         if hasattr(result_output, "images"):
             final_image = result_output.images[0] if isinstance(result_output.images, list) else result_output.images
