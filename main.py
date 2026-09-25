@@ -62,7 +62,7 @@ def init_vton_models_good():
     Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
 
 
-def init_vton_models():
+def init_vton_models_stablediffusion():
     """Загружает тяжелую коммерческую модель SDXL Inpainting напрямую в VRAM"""
     global VTON_PIPE, REMBG_SESSION
     
@@ -92,7 +92,29 @@ def init_vton_models():
         
     Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
 
+import torch
+from huggingface_hub import snapshot_download
+# Импортируем родной пайплайн CatVTON (убедись, что папка model скачана в проект)
+from model.pipeline import CatVTONPipeline
+from utils import init_weight_dtype
+def init_vton_models():
 
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
+
+    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    global VTON_V3_PIPE
+    # Загружаем базовый инпаинт чекпоинт и накатываем веса внимания CatVTON
+    VTON_V3_PIPE = CatVTONPipeline(
+        base_ckpt="booksforcharlie/stable-diffusion-inpainting",
+        attn_ckpt="zhengchong/CatVTON",
+        attn_ckpt_version="mix",
+        weight_dtype=init_weight_dtype("fp16"),
+        use_tf32=True,
+        device=DEVICE,
+        skip_safety_check=True
+    )
+
+    print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
 
 def fetch_task_from_server(user_login: str):
     clean_login = user_login.lower().strip()
@@ -772,15 +794,16 @@ from PIL import Image, ImageFilter
 
 def process_heavy_tryon_naked(task_data):
     """
-    БОЕВОЙ КОНВЕЙЕР V3: Скачивает пару файлов через обновленный эндпоинт
-    и накладывает ткань одежды на модель.
+    БОЕВАЯ ФУНКЦИЯ V3 (CatVTON):
+    Скачивает person.png и garment.png, строит маску 0.22-0.48
+    и сажает реальную вещь на модель без изменения лица.
     """
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
     session_id = actual_task["session_id"]
     user_login = actual_task["user_login"]
 
-    print(f"\n🚀 [ИИ-ВОРКЕР V3]: Сквозной запуск примерки для задачи {task_id}")
+    print(f"\n🚀 [CatVTON CONVEYER]: Запуск физической примерки для задачи {task_id}")
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
 
@@ -790,38 +813,33 @@ def process_heavy_tryon_naked(task_data):
         print(f"📥 Скачивание фото модели: {download_person_url}")
         res_p = requests.get(download_person_url, stream=True, timeout=30)
         
-        # Если это старая задача V2, person.png не будет — делаем откат на дефолтный файл
-        if res_p.status_code == 404:
-            download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-            print(f"🔄 Режим V2 обнаружен. Скачиваем original.png: {download_person_url}")
-            res_p = requests.get(download_person_url, stream=True, timeout=30)
-
         if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
+            print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
             return
             
         raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
-        print(f"🟢 Фото модели успешно загружено. Размер: {raw_image.size}")
+        print(f"🟢 Фото модели загружено. Размер: {raw_image.size}")
     except Exception as e:
-        print(f"❌ Критический сбой сети при скачивании модели: {e}")
+        print(f"❌ Сбой сети при скачивании модели: {e}")
         return
 
-    # 2. СКАЧИВАНИЕ ФОТО ОДЕЖДЫ (garment.png)
-    garment_image = None
+    # 2. СКАЧИВАНИЕ ФОТО КРАСНОЙ БЛУЗКИ (garment.png)
     download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
     try:
         print(f"📥 Скачивание фото одежды: {download_garment_url}")
         res_g = requests.get(download_garment_url, stream=True, timeout=30)
         
-        if res_g.status_code == 200:
-            garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
-            print("🟢 Фото одежды успешно загружено на видеокарту!")
-        else:
-            print(f"⚠️ Файл garment.png не найден на сервере (Код {res_g.status_code})")
+        if res_g.status_code != 200:
+            print(f"❌ Критично: Файл garment.png не найден! Сбой режима V3.")
+            return
+            
+        garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
+        print("🟢 Фото красной блузки успешно загружено на видеокарту!")
     except Exception as e:
-        print(f"⚠️ Ошибка при получении одежды по сети: {e}")
+        print(f"❌ Сбой сети при скачивании одежды: {e}")
+        return
 
-    # 3. МАСКА БЛУЗКИ (Твоя идеальная отлаженная математика высоты 0.22 - 0.48)
+    # 3. НАША ЭТАЛОННАЯ МАСКА ТОРСА (0.22 - 0.48)
     try:
         global REMBG_SESSION
         if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
@@ -832,47 +850,30 @@ def process_heavy_tryon_naked(task_data):
         g_alpha = output_rembg.split()[-1]  
         g_alpha_np = np.array(g_alpha)
     except Exception as rem_err:
-        print(f"❌ Ошибка rembg на GPU: {rem_err}")
+        print(f"❌ Ошибка rembg: {rem_err}")
         return
 
     clothing_draw = np.zeros_like(g_alpha_np)
     actual_height = raw_image.height 
-    head_limit = int(actual_height * 0.22)   
-    hands_limit = int(actual_height * 0.48)  
+    head_limit = int(actual_height * 0.22)   # Четко под подбородок/шею
+    hands_limit = int(actual_height * 0.48)  # По линию пояса брюк
     clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+    
+    # Делаем маску бинарной, с небольшим размытием краев для бесшовной склейки рукавов
     clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
 
-    # 4. ЗАПУСК ИИ-ИНФЕРЕНСА (ПРИМЕРКА)
+    # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
     try:
-        if garment_image:
-            print("⚡ [GPU VTON]: Наложение физической вещи garment.png на модель...")
-            clothing_prompt = f"high quality commercial clothing texture, fashion look, exact match to garment"
-            
-            # 🚀 ДОБАВИЛИ [0] В КОНЦЕ СТРОКИ:
-            final_image = VTON_PIPE(
-                prompt=clothing_prompt,
-                negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
-                image=raw_image,
-                mask_image=clothing_mask,
-                num_inference_steps=28, # Как на твоем скрине
-                guidance_scale=7.5,
-                strength=0.80
-            ).images[0] # 👈 Достаем саму картинку PIL из списка!
-            
-        else:
-            print("⚡ [GPU SDXL]: Рендеринг блузки по текстовому промпту...")
-            clothing_prompt = f"{actual_task.get('prompt_style')}, high quality commercial clothing texture, fashion look"
-            
-            # 🚀 И СЮДА ТОЖЕ ДОБАВИЛИ:
-            final_image = VTON_PIPE(
-                prompt=clothing_prompt,
-                negative_prompt="deformed hands, extra fingers, mutated hands, bad skin, face mutation, background change, pants change",
-                image=raw_image,
-                mask_image=clothing_mask,
-                num_inference_steps=28,
-                guidance_scale=7.5,
-                strength=0.80
-            ).images[0] # 👈 Достаем саму картинку PIL из списка!
+        print("⚡ [GPU CatVTON]: Сшиваем узоры и крой красной блузки внутрь маски торса...")
+        
+        # Инференс CatVTON принимает три PIL холста. Текст больше не нужен!
+        # Вытаскиваем нулевой элемент [0], так как на выходе всегда список
+        final_image = VTON_V3_PIPE(
+            image=raw_image,
+            garment_image=garment_image,
+            mask_image=clothing_mask,
+            num_inference_steps=40 # 40 шагов дают идеальную четкость складок
+        ).images[0]
 
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
@@ -902,8 +903,6 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         import torch
         torch.cuda.empty_cache()
-
-
 
 
 
