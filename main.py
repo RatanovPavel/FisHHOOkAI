@@ -92,6 +92,12 @@ def init_vton_models_stablediffusion():
         
     Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
 
+# Если скрипт запущен внутри Google Colab, автоматически подключаем пути CatVTON
+if os.path.exists("/content/CatVTON_repo"):
+    sys.path.append("/content/CatVTON_repo")
+    print("🎯 [SYSTEM PATH]: Пути репозитория CatVTON успешно подключены!")
+
+# Дальше идут твои стандартные импорты без изменений:
 import torch
 from huggingface_hub import snapshot_download
 # Импортируем родной пайплайн CatVTON (убедись, что папка model скачана в проект)
