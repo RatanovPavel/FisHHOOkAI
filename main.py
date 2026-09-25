@@ -900,10 +900,18 @@ def process_heavy_tryon_naked(task_data):
                 generator=generator
             )
             
+            # 🚀 НАДЁЖНЫЙ ФИКС ВЫТАСКИВАНИЯ КАРТИНКИ:
+            # 1. Если это объект с атрибутом images, берем его содержимое
             if hasattr(result_output, "images"):
-                final_image = result_output.images if isinstance(result_output.images, list) else result_output.images
+                raw_output = result_output.images
             else:
-                final_image = result_output if isinstance(result_output, list) else result_output
+                raw_output = result_output
+
+            # 2. Если на этом этапе у нас всё ещё список (массив) — берем из него нулевой элемент!
+            if isinstance(raw_output, list):
+                final_image = raw_output[0]
+            else:
+                final_image = raw_output
 
 
         # 5. СОХРАНЕНИЕ КАРТОЧКИ
