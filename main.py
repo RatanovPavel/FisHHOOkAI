@@ -1354,16 +1354,24 @@ def process_heavy_tryon_naked(task_data):
         head_limit = int(VTON_HEIGHT * 0.38)
         hands_limit = int(VTON_HEIGHT * 0.62)
     else:
+        # Находим макушку (y_min_f) и стопы (y_max_f)
         y_min_f, _ = final_white_pixels.min(axis=0)
         y_max_f, _ = final_white_pixels.max(axis=0)
         scaled_person_height = y_max_f - y_min_f
         
-        # Наша отлаженная эталонная геометрия от макушки
+        # 🎯 РАСШИРЕННЫЙ РАСЧЕТ ПОД ДЛИННЫЙ РУКАВ И ДЛИННЫЙ ПОДОЛ:
+        # Верх — строго под подбородок (18% от макушки)
         head_limit = int(y_min_f + scaled_person_height * 0.18)
-        hands_limit = int(y_min_f + scaled_person_height * 0.46)
+        
+        # Нижняя граница — опускаем до середины бёдер (56% от макушки вместо 0.46)
+        # Это даст рубашке длину, как на исходной раскладке!
+        hands_limit = int(y_min_f + scaled_person_height * 0.56)
 
+    # 🚀 СУПЕР-ФИКС: Копируем силуэт человека ПОЛНОСТЬЮ (вместе с голыми руками!) 
+    # строго в этом диапазоне высоты, не вырезая бока.
     clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
     mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
 
     # ПОДГОТОВКА КАРТИНКИ ОДЕЖДЫ (РЕЗАЙЗ ПОД ЕДИНЫЙ РАЗМЕР ХОЛСТА)
     garment_scaled = garment_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
