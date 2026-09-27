@@ -1067,7 +1067,7 @@ import numpy as np
 import rembg
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked(task_data):
+def process_heavy_tryon_naked_debugmask(task_data):
     """
     УМНАЯ ОПТИМИЗИРОВАННАЯ МАСКА V3:
     1. Находит силуэт человека на оригинале ОДИН раз.
@@ -1226,6 +1226,206 @@ def process_heavy_tryon_naked(task_data):
         
     if submit_success:
         print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")            
+
+import io
+import os
+import requests
+import numpy as np
+import rembg
+import torch
+from PIL import Image, ImageFilter
+
+def process_heavy_tryon_naked(task_data):
+    """
+    ФИНАЛЬНЫЙ БОЕВОЙ КОНВЕЙЕР V3 (CatVTON):
+    1. Находит силуэт человека и синхронно масштабирует маску и фото под 3/4 высоты кадра.
+    2. Вырезает идеальную маску торса по нашей проверенной геометрии (0.18 - 0.46 от макушки).
+    3. Запускает CatVTON для сквозного переноса кроя и ткани garment.png.
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+
+    print(f"\n🚀 [CatVTON PRODUCTION V3]: Запуск примерки для задачи {task_id}")
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+    VTON_WIDTH = 768
+    VTON_HEIGHT = 1024
+
+    # 1. Скачиваем фото модели
+    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
+    try:
+        res_p = requests.get(download_person_url, stream=True, timeout=30)
+        if res_p.status_code != 200:
+            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
+            return
+        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
+        orig_w, orig_h = raw_image.size
+    except Exception as e:
+        print(f"❌ Сбой сети при скачивании модели: {e}")
+        return
+
+    # 2. Скачиваем фото одежды (garment.png)
+    download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
+    try:
+        res_g = requests.get(download_garment_url, stream=True, timeout=30)
+        if res_g.status_code != 200:
+            print(f"❌ Критично: Файл garment.png не найден на сервере!")
+            return
+        garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
+    except Exception as e:
+        print(f"❌ Сбой сети при скачивании одежды: {e}")
+        return
+
+    # ----------------------------------------------------
+    # ШАГ 1: ЕДИНСТВЕННЫЙ ЗАПУСК REMBG НА ИСХОДНИКЕ
+    # ----------------------------------------------------
+    try:
+        global REMBG_SESSION
+        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
+            from rembg import new_session
+            REMBG_SESSION = new_session("u2net")
+            
+        orig_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
+        g_alpha = orig_rembg.split()[-1]  
+        orig_alpha_np = np.array(g_alpha)
+    except Exception as rem_err:
+        print(f"❌ Ошибка rembg: {rem_err}")
+        return
+
+    # Твой умный расчет масштабирования силуэта
+    white_pixels = np.argwhere(orig_alpha_np > 10)
+    if len(white_pixels) == 0:
+        print("⚠️ Человек на фото не обнаружен! Стандартный ресайз.")
+        person_scaled = raw_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
+        alpha_scaled = g_alpha.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.NEAREST)
+    else:
+        y_min, x_min = white_pixels.min(axis=0)
+        y_max, x_max = white_pixels.max(axis=0)
+        
+        current_person_height = y_max - y_min
+        center_y = (y_min + y_max) // 2
+        center_x = (x_min + x_max) // 2
+
+        # ----------------------------------------------------
+        # ШАГ 2: СИНХРОННЫЙ УМНЫЙ РЕСАЙЗ ФОТО И МАСКИ ДО КРОПА
+        # ----------------------------------------------------
+        desired_person_height = int(VTON_HEIGHT * 0.75) 
+        scale = desired_person_height / current_person_height
+        
+        new_w = int(orig_w * scale)
+        new_h = int(orig_h * scale)
+        
+        resized_raw = raw_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        resized_alpha = g_alpha.resize((new_w, new_h), Image.Resampling.NEAREST)
+        
+        new_center_y = int(center_y * scale)
+        new_center_x = int(center_x * scale)
+        
+        crop_top = new_center_y - (VTON_HEIGHT // 2)
+        crop_left = new_center_x - (VTON_WIDTH // 2)
+        
+        person_scaled = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(0, 0, 0))
+        alpha_scaled = Image.new("L", (VTON_WIDTH, VTON_HEIGHT), color=0)
+        
+        src_left = max(0, crop_left)
+        src_top = max(0, crop_top)
+        src_right = min(new_w, crop_left + VTON_WIDTH)
+        src_bottom = min(new_h, crop_top + VTON_HEIGHT)
+        
+        dst_left = max(0, -crop_left)
+        dst_top = max(0, -crop_top)
+        
+        cropped_person = resized_raw.crop((src_left, src_top, src_right, src_bottom))
+        cropped_alpha = resized_alpha.crop((src_left, src_top, src_right, src_bottom))
+        
+        person_scaled.paste(cropped_person, (dst_left, dst_top))
+        alpha_scaled.paste(cropped_alpha, (dst_left, dst_top))
+
+    # ----------------------------------------------------
+    # ШАГ 3: ДИНАМИЧЕСКИЙ РАСЧЕТ НАШЕЙ ИДЕАЛЬНОЙ МАСКИ ТОРСА
+    # ----------------------------------------------------
+    g_alpha_final_np = np.array(alpha_scaled)
+    clothing_draw = np.zeros_like(g_alpha_final_np)
+    
+    final_white_pixels = np.argwhere(g_alpha_final_np > 10)
+    if len(final_white_pixels) == 0:
+        head_limit = int(VTON_HEIGHT * 0.38)
+        hands_limit = int(VTON_HEIGHT * 0.62)
+    else:
+        y_min_f, _ = final_white_pixels.min(axis=0)
+        y_max_f, _ = final_white_pixels.max(axis=0)
+        scaled_person_height = y_max_f - y_min_f
+        
+        # Наша отлаженная эталонная геометрия от макушки
+        head_limit = int(y_min_f + scaled_person_height * 0.18)
+        hands_limit = int(y_min_f + scaled_person_height * 0.46)
+
+    clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
+    mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
+    # ПОДГОТОВКА КАРТИНКИ ОДЕЖДЫ (РЕЗАЙЗ ПОД ЕДИНЫЙ РАЗМЕР ХОЛСТА)
+    garment_scaled = garment_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
+
+    # ----------------------------------------------------
+    # ШАГ 4: ЗАПУСК НЕЙРОСЕТИ ОРИГИНАЛЬНОГО CatVTON
+    # ----------------------------------------------------
+    try:
+        print("⚡ [GPU CatVTON]: Запуск сшивания физической ткани блузки...")
+        import torch
+        
+        # Фиксируем генератор на GPU
+        generator = torch.Generator(device="cuda").manual_seed(42)
+        
+        # Вызываем CatVTON строго по паспорту авторов без текстового мусора
+        result_output = VTON_V3_PIPE(
+            image=person_scaled,
+            condition_image=garment_scaled,
+            mask=mask_scaled,
+            num_inference_steps=40,
+            generator=generator
+        )
+        
+        if hasattr(result_output, "images"):
+            raw_output = result_output.images
+        else:
+            raw_output = result_output
+
+        if isinstance(raw_output, list):
+            final_image = raw_output[0]
+        else:
+            final_image = raw_output
+
+        # ----------------------------------------------------
+        # ШАГ 5: СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР SKULLA
+        # ----------------------------------------------------
+        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+        output_filename = f"vton_result_{task_id}.png"
+        final_image.save(output_filename)
+
+        print(f"📥 [УСПЕХ]: Фото сгенерировано. Отправка на бэкенд...")
+        submit_success = submit_result_to_server(task_id, user_login, output_filename)
+        
+        if os.path.exists(output_filename):
+            os.remove(output_filename)
+            
+        if submit_success:
+            print(f"🏁 [ПРОДУКТ ГОТОВ V3]: Новая вещь надета. Задача {task_id} завершена!")
+
+    except Exception as e:
+        print(f"❌ Критический сбой CatVTON: {e}")
+        import traceback
+        traceback.print_exc()
+        
+    finally:
+        if 'raw_image' in locals(): del raw_image
+        if 'clothing_mask' in locals(): del clothing_mask
+        if 'garment_image' in locals(): del garment_image
+        if 'final_image' in locals(): del final_image
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
 
 
 def main_loop(user_login: str):
