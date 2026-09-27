@@ -1344,7 +1344,7 @@ def process_heavy_tryon_naked(task_data):
         alpha_scaled.paste(cropped_alpha, (dst_left, dst_top))
 
     # ----------------------------------------------------
-    # ШАГ 3: ДИНАМИЧЕСКИЙ РАСЧЕТ НАШЕЙ ИДЕАЛЬНОЙ МАСКИ ТОРСА
+    # ШАГ 3: РАСШИРЕННЫЙ РАСЧЕТ МАСКИ ПОД ДЛИННЫЙ РУКАВ И ПОДОЛ
     # ----------------------------------------------------
     g_alpha_final_np = np.array(alpha_scaled)
     clothing_draw = np.zeros_like(g_alpha_final_np)
@@ -1354,23 +1354,24 @@ def process_heavy_tryon_naked(task_data):
         head_limit = int(VTON_HEIGHT * 0.38)
         hands_limit = int(VTON_HEIGHT * 0.62)
     else:
-        # Находим макушку (y_min_f) и стопы (y_max_f)
         y_min_f, _ = final_white_pixels.min(axis=0)
         y_max_f, _ = final_white_pixels.max(axis=0)
         scaled_person_height = y_max_f - y_min_f
         
-        # 🎯 РАСШИРЕННЫЙ РАСЧЕТ ПОД ДЛИННЫЙ РУКАВ И ДЛИННЫЙ ПОДОЛ:
-        # Верх — строго под подбородок (18% от макушки)
+        # Начинаем строго под подбородком (18% от макушки)
         head_limit = int(y_min_f + scaled_person_height * 0.18)
         
-        # Нижняя граница — опускаем до середины бёдер (56% от макушки вместо 0.46)
-        # Это даст рубашке длину, как на исходной раскладке!
+        # 🚀 УДЛИНЯЕМ ПОДОЛ: Опускаем нижнюю границу до середины бёдер (56% вместо 0.46)
+        # Это даст красной блузке место, чтобы закончиться во всю длину!
         hands_limit = int(y_min_f + scaled_person_height * 0.56)
 
-    # 🚀 СУПЕР-ФИКС: Копируем силуэт человека ПОЛНОСТЬЮ (вместе с голыми руками!) 
-    # строго в этом диапазоне высоты, не вырезая бока.
+    # 🚀 СУПЕР-ФИКС ДЛЯ ДЛИННЫХ РУКАВОВ: 
+    # Закрашиваем весь силуэт человека целиком в этом диапазоне высоты.
+    # Поскольку руки девушки опущены вдоль тела, они целиком попадут в эту зону, 
+    # и ИИ сможет перерисовать голые предплечья в ткань длинного рукава!
     clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
     mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
 
 
     # ПОДГОТОВКА КАРТИНКИ ОДЕЖДЫ (РЕЗАЙЗ ПОД ЕДИНЫЙ РАЗМЕР ХОЛСТА)
