@@ -1173,19 +1173,38 @@ def process_heavy_tryon_naked(task_data):
         print(f"🎯 Синхронная автоподгонка завершена. Маска масштабирована без повторного запуска rembg!")
 
     # ----------------------------------------------------
-    # ШАГ 3: ЖЕСТКОЕ НЛОЖЕНИЕ МАСКИ ТОРСА ПО НАШЕМУ СТАНДАРТУ
+    # ШАГ 3: ДИНАМИЧЕСКОЕ НАЛОЖЕНИЕ МАСКИ ТОРСА ОТ РОСТА ЧЕЛОBЕКА
     # ----------------------------------------------------
-    # Переводим готовую масштабированную маску в массив NumPy для наложения среза
     g_alpha_final_np = np.array(alpha_scaled)
     clothing_draw = np.zeros_like(g_alpha_final_np)
     
-    # Тело зафиксировано по центру на 75% высоты кадра. Применяем жесткие лимиты:
-    head_limit = int(VTON_HEIGHT * 0.38)   # 38% от верха кадра (под подбородок)
-    hands_limit = int(VTON_HEIGHT * 0.62)  # 62% от верха кадра (по пояс)
+    # 🚀 ИСПРАВЛЕНО: Находим точные границы уже СКАЛИРОВАННОГО человека на новом холсте 1024px
+    final_white_pixels = np.argwhere(g_alpha_final_np > 10)
+    
+    if len(final_white_pixels) == 0:
+        # Если что-то пошло не так, оставляем аварийный дефолт
+        head_limit = int(VTON_HEIGHT * 0.38)
+        hands_limit = int(VTON_HEIGHT * 0.62)
+    else:
+        # Находим макушку (y_min_f) и стопы (y_max_f) отмасштабированного силуэта
+        y_min_f, _ = final_white_pixels.min(axis=0)
+        y_max_f, _ = final_white_pixels.max(axis=0)
+        
+        # Чистый рост человека на холсте в пикселях
+        scaled_person_height = y_max_f - y_min_f
+        
+        # 🎯 ХИРУРГИЧЕСКИЙ РАСЧЕТ ТОРСА:
+        # Шея начнется строго на 18% ниже макушки
+        head_limit = int(y_min_f + scaled_person_height * 0.18)
+        # Пояс закончится строго на 46% ниже макушки (выше бедер и юбки)
+        hands_limit = int(y_min_f + scaled_person_height * 0.46)
+        
+        print(f"📐 Рост на холсте: {scaled_person_height}px. Динамическая маска: {head_limit}px - {hands_limit}px")
 
     # Вырезаем область блузки строго внутри отмасштабированного силуэта
     clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
     mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
 
     # Сборка тестового красного оверлея
     red_layer = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(255, 0, 0))
