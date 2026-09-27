@@ -1060,78 +1060,141 @@ import numpy as np
 import rembg
 from PIL import Image, ImageFilter
 
+import io
+import os
+import requests
+import numpy as np
+import rembg
+from PIL import Image, ImageFilter
+
 def process_heavy_tryon_naked(task_data):
     """
-    ИЗОЛИРОВАННАЯ ФУНКЦИЯ ОТЛАДКИ МАСКИ V3:
-    Только строит маску на холсте CatVTON, накладывает красный оверлей
-    и сразу шлет результат на сервер, полностью пропуская ИИ.
+    УМНАЯ ОПТИМИЗИРОВАННАЯ МАСКА V3:
+    1. Находит силуэт человека на оригинале ОДИН раз.
+    2. Синхронно масштабирует и фото, и маску так, чтобы человек занимал ровно 3/4 высоты кадра.
+    3. Отсекает жесткие лимиты торса и шлет красный оверлей на сервер.
     """
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
     session_id = actual_task["session_id"]
     user_login = actual_task["user_login"]
 
-    print(f"\n🔬 [СИСТЕМНАЯ ОТЛАДКА МАСКИ]: Обработка геометрии для задачи {task_id}")
+    print(f"\n🔬 [УМНАЯ ОПТИМИЗИРОВАННАЯ МАСКА]: Задача {task_id}")
     TARGET_WIDTH = 900
     TARGET_HEIGHT = 1200
+    VTON_WIDTH = 768
+    VTON_HEIGHT = 1024
 
     # 1. Скачиваем фото модели
     download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
     try:
-        print(f"📥 Скачивание фото модели: {download_person_url}")
         res_p = requests.get(download_person_url, stream=True, timeout=30)
         if res_p.status_code != 200:
             print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
             return
         raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
+        orig_w, orig_h = raw_image.size
     except Exception as e:
         print(f"❌ Сбой сети при скачивании: {e}")
         return
 
-    # 2. ПОДГОТОВКА И СИНХРОНИЗАЦИЯ РАЗМЕРОВ ПОД СТАНДАРТ CatVTON (768x1024)
-    # Делаем ресайз ДО расчетов, чтобы координаты никогда не переворачивались и не плыли!
-    VTON_SIZE = (768, 1024)
-    person_scaled = raw_image.resize(VTON_SIZE, Image.Resampling.LANCZOS)
-
-    # 3. Видеокарта вырезает силуэт человека прямо на сжатом холсте
-    print("✂️ [GPU REMBG]: Вырезаем силуэт на целевом разрешении...")
+    # ----------------------------------------------------
+    # ШАГ 1: ЕДИНСТВЕННЫЙ ЗАПУСК REMBG НА ИСХОДНИКЕ
+    # ----------------------------------------------------
     try:
         global REMBG_SESSION
         if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
             from rembg import new_session
             REMBG_SESSION = new_session("u2net")
             
-        output_rembg = rembg.remove(person_scaled, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  # Человек белый, фон черный
-        g_alpha_np = np.array(g_alpha)
+        orig_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
+        g_alpha = orig_rembg.split()[-1]  # Достаем PIL-картинку альфа-канала оригинального силуэта
+        orig_alpha_np = np.array(g_alpha)
     except Exception as rem_err:
         print(f"❌ Ошибка rembg: {rem_err}")
         return
 
-    # 4. МАТЕМАТИКА МАСКИ ТОРСА (Расчет идет строго по высоте 1024px)
-    clothing_draw = np.zeros_like(g_alpha_np)
-    
-    # Задаем чистые отсечки сверху вниз:
-    head_limit = int(1024 * 0.28)   # 28% от верха (ниже подбородка)
-    hands_limit = int(1024 * 0.52)  # 52% от верха (по пояс платья)
+    # Находим крайние координаты человека по оригинальному силуэту
+    white_pixels = np.argwhere(orig_alpha_np > 10)
+    if len(white_pixels) == 0:
+        print("⚠️ Человек на фото не обнаружен! Стандартный ресайз.")
+        person_scaled = raw_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
+        mask_scaled = g_alpha.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.NEAREST)
+    else:
+        y_min, x_min = white_pixels.min(axis=0)
+        y_max, x_max = white_pixels.max(axis=0)
+        
+        current_person_height = y_max - y_min
+        center_y = (y_min + y_max) // 2
+        center_x = (x_min + x_max) // 2
 
-    # Вырезаем область блузки
-    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+        # ----------------------------------------------------
+        # ШАГ 2: ВЫЧИСЛЯЕМ МАСШТАБ (3/4 от 1024 = 768)
+        # ----------------------------------------------------
+        desired_person_height = int(VTON_HEIGHT * 0.75) 
+        scale = desired_person_height / current_person_height
+        
+        new_w = int(orig_w * scale)
+        new_h = int(orig_h * scale)
+        
+        # Масштабируем ОДНОВРЕМЕННО и оригинал, и оригинальную маску rembg
+        resized_raw = raw_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        resized_alpha = g_alpha.resize((new_w, new_h), Image.Resampling.NEAREST) # Для маски строго NEAREST
+        
+        # Пересчитываем координаты центра на новом масштабе
+        new_center_y = int(center_y * scale)
+        new_center_x = int(center_x * scale)
+        
+        # Границы кропа для вырезания холста 768x1024
+        crop_top = new_center_y - (VTON_HEIGHT // 2)
+        crop_left = new_center_x - (VTON_WIDTH // 2)
+        
+        # Создаем пустые холсты нужного размера для CatVTON
+        person_scaled = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(0, 0, 0))
+        alpha_scaled = Image.new("L", (VTON_WIDTH, VTON_HEIGHT), color=0)
+        
+        # Вычисляем пересечение геометрии для безопасного кропа и вставки
+        src_left = max(0, crop_left)
+        src_top = max(0, crop_top)
+        src_right = min(new_w, crop_left + VTON_WIDTH)
+        src_bottom = min(new_h, crop_top + VTON_HEIGHT)
+        
+        dst_left = max(0, -crop_left)
+        dst_top = max(0, -crop_top)
+        
+        # Синхронно вырезаем кусок из фото и кусок из маски rembg
+        cropped_person = resized_raw.crop((src_left, src_top, src_right, src_bottom))
+        cropped_alpha = resized_alpha.crop((src_left, src_top, src_right, src_bottom))
+        
+        # Вставляем вырезанные куски по центру наших холстов 768x1024
+        person_scaled.paste(cropped_person, (dst_left, dst_top))
+        alpha_scaled.paste(cropped_alpha, (dst_left, dst_top))
+        
+        print(f"🎯 Синхронная автоподгонка завершена. Маска масштабирована без повторного запуска rembg!")
+
+    # ----------------------------------------------------
+    # ШАГ 3: ЖЕСТКОЕ НЛОЖЕНИЕ МАСКИ ТОРСА ПО НАШЕМУ СТАНДАРТУ
+    # ----------------------------------------------------
+    # Переводим готовую масштабированную маску в массив NumPy для наложения среза
+    g_alpha_final_np = np.array(alpha_scaled)
+    clothing_draw = np.zeros_like(g_alpha_final_np)
+    
+    # Тело зафиксировано по центру на 75% высоты кадра. Применяем жесткие лимиты:
+    head_limit = int(VTON_HEIGHT * 0.38)   # 38% от верха кадра (под подбородок)
+    hands_limit = int(VTON_HEIGHT * 0.62)  # 62% от верха кадра (по пояс)
+
+    # Вырезаем область блузки строго внутри отмасштабированного силуэта
+    clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
     mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
 
-    # 5. СБОРКА ТЕСТОВОГО КРАСНОГО ОВЕРЛЕЯ ДЛЯ ФРОНТЕНДА
-    print("🎨 Наложение полупрозрачной тестовой маски на оригинал...")
-    # Создаем красный холст
-    red_layer = Image.new("RGB", VTON_SIZE, color=(255, 0, 0))
-    # Задаем прозрачность красного цвета (100 из 255)
+    # Сборка тестового красного оверлея
+    red_layer = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(255, 0, 0))
     alpha_mask = mask_scaled.point(lambda p: 100 if p > 10 else 0)
-    # Склеиваем сжатый оригинал с красным слоем
     overlay_image = Image.composite(red_layer, person_scaled, alpha_mask)
 
     # Приводим к финальному размеру отображения на сайте
     final_preview = overlay_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
     
-    # Сохраняем картинку «рентгена» на диск
     output_filename = f"vton_result_{task_id}.png"
     final_preview.save(output_filename)
 
