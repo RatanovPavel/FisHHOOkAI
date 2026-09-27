@@ -801,7 +801,7 @@ import requests
 import numpy as np
 from PIL import Image, ImageFilter
 
-def process_heavy_tryon_naked(task_data):
+def process_heavy_tryon_naked_catvton(task_data):
     """
     БОЕВАЯ ФУНКЦИЯ V3 (CatVTON):
     Скачивает person.png и garment.png, строит маску 0.22-0.48
@@ -1052,6 +1052,98 @@ def process_heavy_tryon_naked_mask(task_data):
         
     if submit_success:
         print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")  
+
+import io
+import os
+import requests
+import numpy as np
+import rembg
+from PIL import Image, ImageFilter
+
+def process_heavy_tryon_naked(task_data):
+    """
+    ИЗОЛИРОВАННАЯ ФУНКЦИЯ ОТЛАДКИ МАСКИ V3:
+    Только строит маску на холсте CatVTON, накладывает красный оверлей
+    и сразу шлет результат на сервер, полностью пропуская ИИ.
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+
+    print(f"\n🔬 [СИСТЕМНАЯ ОТЛАДКА МАСКИ]: Обработка геометрии для задачи {task_id}")
+    TARGET_WIDTH = 900
+    TARGET_HEIGHT = 1200
+
+    # 1. Скачиваем фото модели
+    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
+    try:
+        print(f"📥 Скачивание фото модели: {download_person_url}")
+        res_p = requests.get(download_person_url, stream=True, timeout=30)
+        if res_p.status_code != 200:
+            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
+            return
+        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
+    except Exception as e:
+        print(f"❌ Сбой сети при скачивании: {e}")
+        return
+
+    # 2. ПОДГОТОВКА И СИНХРОНИЗАЦИЯ РАЗМЕРОВ ПОД СТАНДАРТ CatVTON (768x1024)
+    # Делаем ресайз ДО расчетов, чтобы координаты никогда не переворачивались и не плыли!
+    VTON_SIZE = (768, 1024)
+    person_scaled = raw_image.resize(VTON_SIZE, Image.Resampling.LANCZOS)
+
+    # 3. Видеокарта вырезает силуэт человека прямо на сжатом холсте
+    print("✂️ [GPU REMBG]: Вырезаем силуэт на целевом разрешении...")
+    try:
+        global REMBG_SESSION
+        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
+            from rembg import new_session
+            REMBG_SESSION = new_session("u2net")
+            
+        output_rembg = rembg.remove(person_scaled, session=REMBG_SESSION)
+        g_alpha = output_rembg.split()[-1]  # Человек белый, фон черный
+        g_alpha_np = np.array(g_alpha)
+    except Exception as rem_err:
+        print(f"❌ Ошибка rembg: {rem_err}")
+        return
+
+    # 4. МАТЕМАТИКА МАСКИ ТОРСА (Расчет идет строго по высоте 1024px)
+    clothing_draw = np.zeros_like(g_alpha_np)
+    
+    # Задаем чистые отсечки сверху вниз:
+    head_limit = int(1024 * 0.28)   # 28% от верха (ниже подбородка)
+    hands_limit = int(1024 * 0.52)  # 52% от верха (по пояс платья)
+
+    # Вырезаем область блузки
+    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+    mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+
+    # 5. СБОРКА ТЕСТОВОГО КРАСНОГО ОВЕРЛЕЯ ДЛЯ ФРОНТЕНДА
+    print("🎨 Наложение полупрозрачной тестовой маски на оригинал...")
+    # Создаем красный холст
+    red_layer = Image.new("RGB", VTON_SIZE, color=(255, 0, 0))
+    # Задаем прозрачность красного цвета (100 из 255)
+    alpha_mask = mask_scaled.point(lambda p: 100 if p > 10 else 0)
+    # Склеиваем сжатый оригинал с красным слоем
+    overlay_image = Image.composite(red_layer, person_scaled, alpha_mask)
+
+    # Приводим к финальному размеру отображения на сайте
+    final_preview = overlay_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+    
+    # Сохраняем картинку «рентгена» на диск
+    output_filename = f"vton_result_{task_id}.png"
+    final_preview.save(output_filename)
+
+    # 6. ОТПРАВКА НА СЕРВЕР SKULLA
+    print(f"📤 Отправка кадра геометрии {output_filename} на бэкенд...")
+    submit_success = submit_result_to_server(task_id, user_login, output_filename)
+    
+    if os.path.exists(output_filename):
+        os.remove(output_filename)
+        
+    if submit_success:
+        print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")            
 
 
 def main_loop(user_login: str):
