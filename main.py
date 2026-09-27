@@ -914,11 +914,37 @@ def process_heavy_tryon_naked(task_data):
                 final_image = raw_output
 
 
-        # 5. СОХРАНЕНИЕ КАРТОЧКИ
+        # ----------------------------------------------------
+        # 5. БЛОК СБОРА И НАЛОЖЕНИЯ ПОЛУПРОЗРАЧНОЙ МАСКИ (ДЛЯ ОТЛАДКИ)
+        # ----------------------------------------------------
+        # Приводим финальную ИИ-картинку к нашему целевому размеру
         final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        output_filename = f"vton_result_{task_id}.png"
-        final_image.save(output_filename)
-        print(f"💾 Карточка блузки успешно сгенерирована и сохранена локально")
+        
+        try:
+            print("🎨 [ОТЛАДКА МАСКИ]: Накладываем полупрозрачный красный слой на финальное фото...")
+            
+            # 1. Приводим оригинальную черно-белую маску к размеру финального кадра
+            debug_mask = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
+            
+            # 2. Создаем полностью КРАСНЫЙ холст такого же размера (RGB: 255, 0, 0)
+            red_layer = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 0, 0))
+            
+            # 3. Делаем маску полупрозрачной: берем ее белые пиксели и задаем им прозрачность ~100 из 255 (около 40% видимости)
+            alpha_mask = debug_mask.point(lambda p: 100 if p > 10 else 0)
+            
+            # 4. Склеиваем финальную картинку с красным холстом по прозрачной маске
+            # Там, где маска была белой, появится красный полупрозрачный фильтр. Где черной — останется ИИ-картинка.
+            overlay_image = Image.composite(red_layer, final_image, alpha_mask)
+            
+            # Сохраняем именно картинку с оверлеем, чтобы глазами увидеть зону изменений на сайте!
+            output_filename = f"vton_result_{task_id}.png"
+            overlay_image.save(output_filename)
+            print("✅ Отладочный оверлей успешно сохранен на диск.")
+            
+        except Exception as overlay_err:
+            print(f"⚠️ Ошибка создания отладочного оверлея: {overlay_err}. Сохраняем чистый результат.")
+            output_filename = f"vton_result_{task_id}.png"
+            final_image.save(output_filename)
 
         # 6. ОТПРАВКА НА СЕРВЕР SKULLA
         submit_success = submit_result_to_server(task_id, user_login, output_filename)
