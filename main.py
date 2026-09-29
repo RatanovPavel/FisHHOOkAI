@@ -103,11 +103,14 @@ def init_vton_models_stablediffusion():
 
 # Дальше идут твои стандартные импорты без изменений:
 import torch
-from huggingface_hub import snapshot_download
+#from huggingface_hub import snapshot_download
 # Импортируем родной пайплайн CatVTON (убедись, что папка model скачана в проект)
-from model.pipeline import CatVTONPipeline
-from utils import init_weight_dtype
+#from model.pipeline import CatVTONPipeline
+#from utils import init_weight_dtype
 def init_vton_models():
+    from huggingface_hub import snapshot_download
+    from model.pipeline import CatVTONPipeline
+    from utils import init_weight_dtype
 
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
 
