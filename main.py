@@ -111,7 +111,7 @@ def init_vton_models():
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
 
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    global VTON_V3_PIPE
+    global VTON_V3_PIPE, VIDEO_PIPE
     # Загружаем базовый инпаинт чекпоинт и накатываем веса внимания CatVTON
     VTON_V3_PIPE = CatVTONPipeline(
         base_ckpt="booksforcharlie/stable-diffusion-inpainting",
@@ -122,6 +122,20 @@ def init_vton_models():
         device=DEVICE,
         skip_safety_check=True
     )
+
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка видео-движка Stable Video Diffusion...")
+    try:
+        # Загружаем SVD-XT (версия на 25 кадров для повышенной плавности)
+        VIDEO_PIPE = StableVideoDiffusionPipeline.from_pretrained(
+            "stabilityai/stable-video-diffusion-img2vid-xt",
+            torch_dtype=torch.float16,
+            variant="fp16"
+        )
+        # Включаем микро-оптимизации, чтобы видео-модель влезла в память T4
+        VIDEO_PIPE.enable_model_cpu_offload()
+        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов к оживлению кадров!")
+    except Exception as e:
+        print(f"❌ Сбой при сборке видео-пайплайна: {e}")
 
     print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
 
@@ -1436,6 +1450,92 @@ def process_heavy_tryon_naked(task_data):
         gc.collect()
         torch.cuda.empty_cache()
 
+import io
+import os
+import requests
+import imageio
+import torch
+from PIL import Image
+
+def process_video_animation(task_data):
+    """
+    БОЕВАЯ ВИДЕО-ФУНКЦИЯ: Скачивает готовый результат примерки vton_result 
+    и генерирует из него плавный MP4 видеоролик на GPU.
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+
+    print(f"\n🎬 [ИИ-ОЖИВЛЕНИЕ]: Запуск генерации видео для задачи {task_id}")
+
+    # 1. Скачиваем нашу готовую картинку в красной блузке с сервера Skulla
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=vton_result_{task_id}.png"
+    try:
+        print(f"📥 Скачивание кадра для анимации: {download_url}")
+        res = requests.get(download_url, stream=True, timeout=30)
+        if res.status_code != 200:
+            print(f"❌ Сервер не отдал картинку. Код: {res.status_code}")
+            return
+        input_image = Image.open(io.BytesIO(res.content)).convert("RGB")
+        
+        # SVD требует, чтобы размеры были строго кратны 64. Идеальный стандарт: 576x1024
+        input_image = input_image.resize((576, 1024), Image.Resampling.LANCZOS)
+    except Exception as e:
+        print(f"❌ Сбой сети при подготовке кадра: {e}")
+        return
+
+    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ НА ВИДЕОКАРТЕ
+    try:
+        global VIDEO_PIPE
+        print("⚡ [GPU SVD]: Расчет оптических потоков и движения кадров...")
+        
+        # Сид для фиксации физики движения
+        generator = torch.Generator(device="cuda").manual_seed(42)
+        
+        # Запускаем инференс видео
+        video_frames = VIDEO_PIPE(
+            image=input_image,
+            height=1024,
+            width=576,
+            num_frames=25,            # Генерируем 25 последовательных кадров
+            decode_chunk_size=8,      # Оптимизация памяти, чтоб не вылетел кудахтер
+            motion_bucket_id=127,     # Скорость и амплитуда движения (от 1 до 255)
+            fps=7,                    # Скорость воспроизведения
+            generator=generator
+        ).frames[0]                   # Забираем массив сгенерированных кадров
+
+        # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
+        output_video_name = f"vton_video_{task_id}.mp4"
+        
+        # Конвертируем PIL-кадры в формат numpy и собираем в MP4 через imageio
+        print(f"💾 Упаковка {len(video_frames)} кадров в контейнер MP4...")
+        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
+        for frame in video_frames:
+            writer.append_data(np.array(frame))
+        writer.close()
+
+        # 4. ОТПРАВКА ГОТОВОГО MP4 НА СЕРВЕР SKULLA
+        print(f"📤 Отправка промо-ролика {output_video_name} на бэкенд...")
+        #submit_success = submit_result_to_server(output_video_name, task_id, user_login)
+        submit_success = submit_result_to_server(task_id, user_login, output_video_name)
+        
+        if os.path.exists(output_video_name):
+            os.remove(output_video_name)
+            
+        if submit_success:
+            print(f"🏁 [ПОБЕДА]: Видеоролик успешно отправлен на сайт. Задача {task_id} закрыта!")
+
+    except Exception as e:
+        print(f"❌ Критический сбой видео-конвейера: {e}")
+        
+    finally:
+        if 'input_image' in locals(): del input_image
+        if 'video_frames' in locals(): del video_frames
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
@@ -1450,11 +1550,17 @@ def main_loop(user_login: str):
         task_data = fetch_task_from_server(clean_login)
         
         # 2. Проверяем, что ответ пришел и сервер подтвердил статус "success"
+        # Если сервер отдал задачу
         if task_data and task_data.get("status") == "success":
-            Log.info(f"🚀 Найдена активная задача! Начинаем двухэтапную генерацию...")
+            style = task_data.get("task_data", {}).get("prompt_style", "")
             
-            # Передаем весь объект, так как task_id лежит прямо внутри него
-            process_heavy_tryon_naked(task_data) 
+            # 🚀 ЕСЛИ С ФРОНТА ПРИЛЕТЕЛ КЛЮЧ АНИМАЦИИ — ВКЛЮЧАЕМ ВИДЕО-КОНВЕЙЕР!
+            if style == "animate_video":
+                process_video_animation(task_data)
+            else:
+                # Иначе гоним нашу стандартную идеальную примерку одежды V3
+                process_heavy_tryon_naked(task_data)
+
         else:
             # Если задач нет (статус "no_tasks"), плавно печатаем точки ожидания
             print(".", end="", flush=True)
