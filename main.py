@@ -1,6 +1,15 @@
-import os
-import gc
 import sys
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
+    sys.path.append("/content/CatVTON_repo")
+    print("🎯 [SYSTEM PATH]: Пути репозитория CatVTON успешно подключены на Старте!")
+
+# Далее идут остальные импорты и блоки try-except для IDm_VTON
+
+
+import gc
 import time
 import torch
 import requests
@@ -91,14 +100,6 @@ def init_vton_models_stablediffusion():
         VTON_PIPE.enable_sequential_cpu_offload()
         
     Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
-
-import os
-# Жестко говорим системе: "Видеть только первую видеокарту GPU 0"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-# Если скрипт запущен внутри Google Colab, автоматически подключаем пути CatVTON
-if os.path.exists("/content/CatVTON_repo"):
-    sys.path.append("/content/CatVTON_repo")
-    print("🎯 [SYSTEM PATH]: Пути репозитория CatVTON успешно подключены!")
 
 # Дальше идут твои стандартные импорты без изменений:
 import torch
