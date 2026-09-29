@@ -108,12 +108,19 @@ import torch
 #from model.pipeline import CatVTONPipeline
 #from utils import init_weight_dtype
 def init_vton_models():
-    from huggingface_hub import snapshot_download
-    from model.pipeline import CatVTONPipeline
-    from utils import init_weight_dtype
+    import sys
+    import os
+    if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
+        sys.path.append("/content/CatVTON_repo")
+        print("🎯 [INIT GPU]: Пути CatVTON_repo успешно подключены внутри функции!")
 
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
-
+    
+    # Твои рабочие локальные импорты теперь выполнятся идеально!
+    from model.pipeline import CatVTONPipeline
+    from utils import init_weight_dtype
+    from diffusers import StableVideoDiffusionPipeline
+    
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     global VTON_V3_PIPE, VIDEO_PIPE
     # Загружаем базовый инпаинт чекпоинт и накатываем веса внимания CatVTON
