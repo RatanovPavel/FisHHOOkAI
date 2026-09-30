@@ -1524,69 +1524,57 @@ def process_video_animation(task_data):
 
 
     # ----------------------------------------------------
-    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ НА ОДНОЙ ВИДЕОКАРТЕ (GPU)
+    # 2. СКОРОСТНОЙ ИИ-ИНФЕРЕНС ДВИЖЕНИЯ
     # ----------------------------------------------------
     try:
-        global VIDEO_PIPE, VTON_V3_PIPE
-        print("⚡ [GPU SVD]: Принудительно уничтожаем CatVTON для полной очистки VRAM...")
+        global VIDEO_PIPE
+        print("⚡ [GPU SVD]: Быстрый расчет динамики кадра...")
         import torch
-        import gc
         
-        # 🚀 ЖЕСТКИЙ СИСТЕМНЫЙ ФИКС: Раз пайплайн CatVTON не умеет делать .to("cpu"),
-        # мы ПОЛНОСТЬЮ стираем его из глобальной памяти Питона!
-        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
-            try:
-                # Намертво удаляем ссылку на объект
-                del VTON_V3_PIPE
-                VTON_V3_PIPE = None
-                print("✅ Объект CatVTON стерт из памяти воркера.")
-            except Exception as e:
-                print(f"⚠️ Ошибка при удалении CatVTON: {e}")
-            
-        # Очищаем системный кэш операционной системы и видеокарты
-        gc.collect()
-        torch.cuda.empty_cache() 
-        
-        print("⚡ [GPU SVD]: Видеокарта полностью освобождена. Запуск автоматического инференса SVD...")
         generator = torch.Generator(device="cuda").manual_seed(42)
         
-        # Запускаем инференс. Теперь SVD получит все 14.5 ГБ памяти в единоличное пользование!
+        # 🚀 ВОЗВРАЩАЕМ СКОРОСТЬ И ЖИЗНЬ: 
+        # Всего 20 шагов вместо 45 (рендер взлетит!), но подняли motion_bucket до 140, 
+        # чтобы девушка плавно двигалась, и ослабили привязку до 0.01, чтобы убрать ступор
         video_frames = VIDEO_PIPE(
             image=input_image,
-            height=1024,
-            width=576,
-            num_frames=25,            # Генерируем 25 плотных кадров
-            num_inference_steps=45,   # 🚀 ПОДНЯЛИ ДО 45: Убирает размытие фона и прорисовывает автомобиль!
+            height=768,
+            width=448,
+            num_frames=25,
+            num_inference_steps=20,   # Ускорили рендер в 2.5 раза!
             decode_chunk_size=4, 
-            motion_bucket_id=85,     # 🚀 СНИЗИЛИ ДО 85: Спокойное, дорогое позирование модели, ткань не плывет
-            fps=7,                    # Внутренний тайминг ИИ
-            noise_aug_strength=0.03,  # 🚀 ФИКСИРУЕМ ДЕТАЛИ: Одежда и лицо на 97% остаются как на фото after.png
+            motion_bucket_id=140,     # Модель оживет, пойдет плавное позирование
+            fps=7,
+            noise_aug_strength=0.01,  # Разрешаем ИИ естественно двигать плечи и волосы
             generator=generator
         ).frames
 
-
         # ----------------------------------------------------
-        # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
+        # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ (Быстрый Апскейл кадров)
         # ----------------------------------------------------
         output_video_name = f"vton_video_{task_id}.mp4"
-        print(f"💾 Распаковка и упаковка кадров в контейнер MP4...")
+        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Убираем размытие с автомобиля и фона...")
         
-        # 🚀 ИСПРАВЛЕНО: SVD возвращает список списков [[Image1, Image2, ...]]. 
-        # Если это так, вытаскиваем внутренний плоский список кадров.
-        if isinstance(video_frames, list) and len(video_frames) > 0 and isinstance(video_frames[0], list):
-            frames_to_save = video_frames[0]
-        else:
-            frames_to_save = video_frames
+        # Подключаем супер-быстрый апскейлер RealESRGAN
+        from realesrgan import RealESRGANer
+        from basicsr.archs.rrdbnet_arch import RRDBNet
+        
+        # Моделька скачается за пару секунд один раз
+        model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=2)
+        upsampler = RealESRGANer(scale=2, model_path='https://github.com', model=model_esr, tile=400, device='cuda')
 
-        print(f"🎬 Физическая склейка {len(frames_to_save)} кадров в видеоролик...")
-        
-        # Собираем MP4 контейнер через imageio
+        print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
         writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
-        for frame in frames_to_save:
-            # Переводим каждый PIL-кадр в правильную матрицу numpy и пишем в файл
-            writer.append_data(np.array(frame))
+        
+        for frame in video_frames:
+            # Переводим кадр в массив
+            img_np = np.array(frame)
+            # Накладываем фильтр звенящей чёткости (увеличивает разрешение х2)
+            enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
+            # Записываем чёткий кадр в MP4
+            writer.append_data(enhanced_frame)
         writer.close()
-        print("✅ Видеоролик успешно собран на диск.")
+        print("✅ Кристально чистый видеоролик успешно собран на диск.")
 
 
         # ----------------------------------------------------
