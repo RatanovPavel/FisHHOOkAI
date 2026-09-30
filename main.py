@@ -1517,7 +1517,7 @@ def process_video_animation(task_data):
         input_image = Image.open(io.BytesIO(res.content)).convert("RGB")
         
         # SVD требует, чтобы размеры были строго кратны 64. Идеальный стандарт: 576x1024
-        input_image = input_image.resize((576, 1024), Image.Resampling.LANCZOS)
+        input_image = input_image.resize((448, 768), Image.Resampling.LANCZOS)
     except Exception as e:
         print(f"❌ Сбой сети при подготовке кадра: {e}")
         return
