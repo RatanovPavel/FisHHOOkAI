@@ -143,7 +143,10 @@ def init_vton_models():
             variant="fp16"
         )
         # Включаем микро-оптимизации, чтобы видео-модель влезла в память T4
-        VIDEO_PIPE.enable_model_cpu_offload()
+        VIDEO_PIPE.enable_model_cpu_offload()             # Умная выгрузка слоев
+        VIDEO_PIPE.unet.enable_forward_chunking()         # Режет обработку UNet на куски
+        VIDEO_PIPE.vae.enable_slicing()                   # Режет декодирование кадров VAE на микро-слайсы
+                
         print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов к оживлению кадров!")
     except Exception as e:
         print(f"❌ Сбой при сборке видео-пайплайна: {e}")
