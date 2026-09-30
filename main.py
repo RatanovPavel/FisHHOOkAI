@@ -1555,10 +1555,12 @@ def process_video_animation(task_data):
             image=input_image,
             height=1024,
             width=576,
-            num_frames=25,
+            num_frames=25,            # Генерируем 25 плотных кадров
+            num_inference_steps=45,   # 🚀 ПОДНЯЛИ ДО 45: Убирает размытие фона и прорисовывает автомобиль!
             decode_chunk_size=4, 
-            motion_bucket_id=127,
-            fps=7,
+            motion_bucket_id=85,     # 🚀 СНИЗИЛИ ДО 85: Спокойное, дорогое позирование модели, ткань не плывет
+            fps=7,                    # Внутренний тайминг ИИ
+            noise_aug_strength=0.03,  # 🚀 ФИКСИРУЕМ ДЕТАЛИ: Одежда и лицо на 97% остаются как на фото after.png
             generator=generator
         ).frames
 
@@ -1579,7 +1581,7 @@ def process_video_animation(task_data):
         print(f"🎬 Физическая склейка {len(frames_to_save)} кадров в видеоролик...")
         
         # Собираем MP4 контейнер через imageio
-        writer = imageio.get_writer(output_video_name, fps=7, format='FFMPEG', mode='I')
+        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
         for frame in frames_to_save:
             # Переводим каждый PIL-кадр в правильную матрицу numpy и пишем в файл
             writer.append_data(np.array(frame))
