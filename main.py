@@ -1532,38 +1532,41 @@ def process_video_animation(task_data):
     # ----------------------------------------------------
     try:
         global VIDEO_PIPE, VTON_V3_PIPE
-        print("⚡ [GPU SVD]: Включаем рокировку памяти. Отключаем CatVTON...")
+        print("⚡ [GPU SVD]: Включаем рокировку памяти. Разгружаем GPU...")
         import torch
-        
-        # 🚀 СДВИГ ПАМЯТИ В ВИДЕО-ФУНКЦИИ: Убираем CatVTON на CPU, а SVD поднимаем на GPU!
-        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
-            try: VTON_V3_PIPE.to("cpu")
-            except: pass
-            
-        if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is not None:
-            try: VIDEO_PIPE.to("cuda")
-            except: pass
-
-            
-        # Принудительно выметаем из видеокарты все хвосты CatVTON
         import gc
+        
+        # 1. Сначала принудительно убираем CatVTON с видеокарты в обычную RAM
+        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
+            try:
+                VTON_V3_PIPE.to("cpu")
+                print("✅ CatVTON успешно перемещен в оперативную память.")
+            except Exception as e:
+                print(f"⚠️ Не удалось переместить CatVTON: {e}")
+            
+        # 2. 🚀 ЖЕСТКИЙ СБРОС: Полностью очищаем видеопамять от хвостов предыдущей сессии
         gc.collect()
         torch.cuda.empty_cache() 
         
-        print("⚡ [GPU SVD]: Видеокарта полностью очищена. Начинаем расчет движения кадров...")
+        print("⚡ [GPU SVD]: Видеокарта полностью очищена. Запуск автоматического инференса SVD...")
+        
+        # 🚀 ИСПРАВЛЕНО: УДАЛИЛИ СТРОКУ VIDEO_PIPE.to("cuda")! 
+        # Пайплайн сам начнет использовать GPU благодаря ранее включенному enable_model_cpu_offload()
+        
         generator = torch.Generator(device="cuda").manual_seed(42)
         
-        # Наш оптимизированный вызов SVD, который теперь влезет со свистом:
+        # Запускаем сам инференс. Теперь он пойдет по кусочкам и уложится в память без OOM!
         video_frames = VIDEO_PIPE(
             image=input_image,
             height=1024,
             width=576,
             num_frames=25,
-            decode_chunk_size=8,
+            decode_chunk_size=4, # Снизили до 4 для еще большей экономии памяти при декодировании
             motion_bucket_id=127,
             fps=7,
             generator=generator
         ).frames
+
 
 
         # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
