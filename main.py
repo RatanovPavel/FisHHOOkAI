@@ -1470,20 +1470,25 @@ from PIL import Image
 
 def process_video_animation(task_data):
     """
-    БОЕВАЯ ВИДЕО-ФУНКЦИЯ: Скачивает готовый результат примерки vton_result 
+    БОЕВАЯ ВИДЕО-ФУНКЦИЯ: Скачивает готовый результат примерки родительской задачи 
     и генерирует из него плавный MP4 видеоролик на GPU.
     """
     actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
+    task_id = actual_task["task_id"]           # Это ID видео-задачи (нужен для сохранения MP4)
     session_id = actual_task["session_id"]
     user_login = actual_task["user_login"]
+    
+    # 🚀 ЖЕСТКИЙ ФИКС: Вытаскиваем ID родительской задачи примерки одежды!
+    # Если сервер его не прислал (мало ли), откатываемся на обычный task_id
+    parent_task_id = actual_task.get("parent_task_id", task_id)
 
     print(f"\n🎬 [ИИ-ОЖИВЛЕНИЕ]: Запуск генерации видео для задачи {task_id}")
 
-    # 1. Скачиваем нашу готовую картинку в красной блузке с сервера Skulla
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=vton_result_{task_id}.png"
+    # 🚀 ИСПРАВЛЕНО: Запрашиваем файл vton_result_task_..., который ТОЧНО лежит на сервере!
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=vton_result_{parent_task_id}.png"
+    
     try:
-        print(f"📥 Скачивание кадра для анимации: {download_url}")
+        print(f"📥 Скачивание родительского кадра для анимации: {download_url}")
         res = requests.get(download_url, stream=True, timeout=30)
         if res.status_code != 200:
             print(f"❌ Сервер не отдал картинку. Код: {res.status_code}")

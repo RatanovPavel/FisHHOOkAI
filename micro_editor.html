@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Фишхук ИИ — Виртуальный Гардероб V3</title>
-    <!-- Подключаем стабильный Tailwind CSS -->
+    <title>Фишхук ИИ — Виртуальный Гардероб V3 + Анимация</title>
     <script src="/static/tailwind.min.js"></script>
     <style>
         .custom-scroll::-webkit-scrollbar { width: 3px; }
@@ -18,66 +17,60 @@
         
         <!-- Заголовок -->
         <div class="text-center space-y-1">
-            <h1 class="text-[11px] font-black uppercase tracking-widest text-emerald-400">FishHook VTON v3.0</h1>
-            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Виртуальная примерка: Наложение одежды на модель</p>
+            <h1 class="text-[11px] font-black uppercase tracking-widest text-emerald-400">FishHook VTON v3.5</h1>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Примерка одежды + Живая ИИ-Анимация видео</p>
         </div>
         
-        <!-- СЛОТ 1: ЗАГРУЗКА МОДЕЛИ/ЧЕЛОВЕКА -->
-        <div class="space-y-1.5">
+        <!-- СЛОТ 1: ЗАГРУЗКА МОДЕЛИ -->
+        <div class="space-y-1.5" id="slotPerson">
             <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Фото человека или модели</label>
             <div class="relative group border border-dashed border-slate-800 hover:border-slate-700 rounded-lg p-3 transition-all bg-slate-950/40 text-center cursor-pointer">
                 <input type="file" id="personFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                <div id="personPlaceholder" class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                    Выбрать фото человека 👤
-                </div>
+                <div id="personPlaceholder" class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Выбрать фото человека 👤</div>
             </div>
         </div>
 
         <!-- СЛОТ 2: ЗАГРУЗКА ОДЕЖДЫ -->
-        <div class="space-y-1.5">
-            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Фото вещи (на белом фоне или раскладка)</label>
+        <div class="space-y-1.5" id="slotGarment">
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Фото вещи</label>
             <div class="relative group border border-dashed border-slate-800 hover:border-slate-700 rounded-lg p-3 transition-all bg-slate-950/40 text-center cursor-pointer">
                 <input type="file" id="garmentFileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                <div id="garmentPlaceholder" class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">
-                    Выбрать фото одежды 👕
-                </div>
+                <div id="garmentPlaceholder" class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Выбрать фото одежды 👕</div>
             </div>
         </div>
 
-        <!-- Поля метаданных -->
-        <div class="grid grid-cols-2 gap-3 text-[9px] font-mono text-slate-500">
-            <div class="bg-slate-950/60 p-2 border border-slate-900 rounded">
-                ЛОГИН: <span class="text-slate-300 font-bold">RATANOV_PAVEL</span>
-            </div>
-            <div class="bg-slate-950/60 p-2 border border-slate-900 rounded text-right">
-                РЕЖИМ: <span class="text-purple-400 font-bold">ГАРДЕРОБ V3</span>
-            </div>
-        </div>
-
-        <!-- Кнопка запуска процесса -->
+        <!-- Кнопка запуска основной примерки -->
         <button id="startProcessBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black uppercase tracking-widest text-[10px] py-3 rounded-lg shadow-lg transition-all cursor-pointer">
             Надеть одежду на модель
+        </button>
+
+        <!-- Кнопка оживления (Изначально скрыта) -->
+        <button id="animateVideoBtn" class="hidden w-full bg-purple-500 hover:bg-purple-600 text-slate-950 font-black uppercase tracking-widest text-[10px] py-3 rounded-lg shadow-lg transition-all cursor-pointer shadow-[0_0_15px_rgba(168,85,247,0.3)]">
+            🎬 Оживить модель (Сделать живое видео)
         </button>
 
         <!-- Интерактивный лоадер статусов -->
         <div id="asyncLoader" class="hidden space-y-3 p-4 bg-slate-950/80 border border-slate-900 rounded-lg">
             <div class="flex justify-between items-center text-[10px]">
-                <span class="text-slate-500 uppercase font-black tracking-widest">Статус ИИ-Конвейера:</span>
+                <span class="text-slate-500 uppercase font-black tracking-widest" id="loaderTitle">Статус ИИ-Конвейера:</span>
                 <span id="asyncStatusText" class="text-yellow-400 font-black uppercase tracking-widest animate-pulse">Передача...</span>
             </div>
             <div class="w-full bg-slate-900 h-1 rounded-full overflow-hidden border border-slate-950">
-                <div id="asyncProgressBar" class="bg-emerald-400 h-full w-0 transition-all duration-700 shadow-[0_0_8px_#10b981]"></div>
+                <div id="asyncProgressBar" class="bg-emerald-400 h-full w-0 transition-all duration-700"></div>
             </div>
-            <div id="asyncLoaderDetails" class="text-[9px] text-slate-400 font-medium font-mono text-center bg-slate-900/30 p-2 border border-slate-900/60 rounded custom-scroll max-h-[50px] overflow-y-auto">
+            <div id="asyncLoaderDetails" class="text-[9px] text-slate-400 font-medium font-mono text-center bg-slate-900/30 p-2 border border-slate-900/60 rounded max-h-[50px] overflow-y-auto custom-scroll">
                 Инициализация...
             </div>
         </div>
 
-        <!-- Блок вывода готового результата -->
+        <!-- Блок вывода РЕЗУЛЬТАТА (Холст 3) -->
         <div id="resultBlock" class="hidden space-y-3">
-            <div class="text-[9px] font-black text-center text-emerald-400 uppercase tracking-widest">✨ Примерка успешно завершена!</div>
+            <div id="resultTitle" class="text-[9px] font-black text-center text-emerald-400 uppercase tracking-widest">✨ Примерка успешно завершена!</div>
             <div class="border border-slate-900 rounded-lg overflow-hidden bg-slate-950/40 p-2">
+                <!-- Картинка для фото -->
                 <img id="resultPreview" src="" class="w-full h-auto rounded border border-slate-900 shadow-xl" alt="Результат">
+                <!-- Видеоплеер для анимации (Изначально скрыт) -->
+                <video id="resultVideo" controls autoplay loop muted class="hidden w-full h-auto rounded border border-slate-900 shadow-xl"></video>
             </div>
         </div>
     </div>
@@ -88,7 +81,10 @@
         const personPlaceholder = document.getElementById("personPlaceholder");
         const garmentPlaceholder = document.getElementById("garmentPlaceholder");
         
-        // Красивое отображение выбранных файлов
+        let lastSessionId = null;
+        let lastTaskId = null;
+        const userLogin = "RATANOV_PAVEL";
+
         personInput.onchange = () => {
             if (personInput.files.length > 0) {
                 personPlaceholder.innerText = `👤 ЧЕЛОВЕК: ${personInput.files[0].name.toUpperCase()}`;
@@ -103,106 +99,169 @@
             }
         };
 
-        // Главная функция клика по кнопке
+        // --- КЛИК 1: НАДЕТЬ ОДЕЖДУ (СТАНДАРТНЫЙ КОНВЕЙЕР V3) ---
         document.getElementById("startProcessBtn").onclick = async () => {
             const btn = document.getElementById("startProcessBtn");
+            const animBtn = document.getElementById("animateVideoBtn");
             const loader = document.getElementById("asyncLoader");
             const statusText = document.getElementById("asyncStatusText");
             const progressBar = document.getElementById("asyncProgressBar");
             const details = document.getElementById("asyncLoaderDetails");
             const resultBlock = document.getElementById("resultBlock");
             const resultPreview = document.getElementById("resultPreview");
+            const resultVideo = document.getElementById("resultVideo");
 
             if (personInput.files.length === 0 || garmentInput.files.length === 0) {
-                alert("Ошибка: Необходимо выбрать ОДНОВРЕМЕННО фото человека и фото одежды!");
+                alert("Ошибка: Выберите фото человека и фото одежды!");
                 return;
             }
 
-            // Блокируем интерфейс, включаем лоадер
             btn.disabled = true;
             btn.classList.add("opacity-40", "cursor-not-allowed");
+            animBtn.classList.add("hidden");
             resultBlock.classList.add("hidden");
+            resultVideo.classList.add("hidden");
+            resultPreview.classList.remove("hidden");
             loader.classList.remove("hidden");
             
+            progressBar.className = "bg-emerald-400 h-full w-0 transition-all duration-700 shadow-[0_0_8px_#10b981]";
             statusText.innerText = "ОТПРАВКА...";
             statusText.className = "text-yellow-400 font-black uppercase tracking-widest animate-pulse";
             progressBar.style.width = "15%";
-            details.innerText = "Передача обоих изображений (Модели и Вещи) в папку сессии на сервер skulla.ru...";
+            details.innerText = "Передача изображений в сессию на сервер skulla.ru...";
 
-            const userLogin = "RATANOV_PAVEL";
             const formData = new FormData();
-            // Упаковываем ОБА физических файла по правильным ключам
             formData.append("file_person", personInput.files[0]);
             formData.append("file_garment", garmentInput.files[0]);
             formData.append("user_login", userLogin);
 
             try {
-                // Отправляем на новый асинхронный роут V3 (выполнится мгновенно)
-                const response = await fetch('/studio/upload_tryon_v3', {
-                    method: 'POST',
-                    body: formData
-                });
-                
+                const response = await fetch('/api/studio/upload_tryon_v3', { method: 'POST', body: formData });
                 const data = await response.json();
 
                 if (data.status === "processing_started") {
-                    const taskId = data.task_id;
-                    const sessionId = data.session_id;
+                    lastTaskId = data.task_id;
+                    lastSessionId = data.session_id;
                     
-                    statusText.innerText = "В ОЧЕРЕДИ...";
                     progressBar.style.width = "35%";
-                    details.innerHTML = `Сессия <span class="text-slate-200 font-bold">${sessionId}</span> создана.<br>Оба файла успешно разложены. Ждем подхвата Колабом...`;
+                    details.innerText = "Ждем подхвата Колабом...";
 
-                    // Асинхронный цикл опроса статуса задачи
                     const statusChecker = setInterval(async () => {
                         try {
-                            const statusResponse = await fetch(`/api/studio/fishhook/check_task/${userLogin}/${taskId}`);
+                            const statusResponse = await fetch(`/api/studio/fishhook/check_task/${userLogin}/${lastTaskId}`);
                             const statusData = await statusResponse.json();
 
                             if (statusData.status === "pending") {
                                 statusText.innerText = "ОЖИДАНИЕ GPU...";
                                 statusText.className = "text-blue-400 font-black uppercase tracking-widest animate-pulse";
                                 progressBar.style.width = "55%";
-                                details.innerText = "Воркер в Колабе скачивает оригиналы человека и вещи на видеокарту...";
                             } 
                             else if (statusData.status === "processing") {
                                 statusText.innerText = "ПРИМЕРКА ИИ...";
                                 statusText.className = "text-purple-400 font-black uppercase tracking-widest animate-pulse";
-                                progressBar.style.width = "80%" ;
-                                details.innerHTML = "Нейросеть VTON анализирует позу человека и бесшовно переносит текстуру ткани...";
-                            } else if (statusData.status === "completed") {
+                                progressBar.style.width = "80%";
+                            } 
+                            else if (statusData.status === "completed") {
                                 clearInterval(statusChecker);
                                 
                                 statusText.innerText = "ГОТОВО ✨";
                                 statusText.className = "text-emerald-400 font-black uppercase tracking-widest";
                                 progressBar.style.width = "100%";
-                                details.innerText = "Карточка виртуальной примерки успешно собрана!";
+                                details.innerText = "Одежда успешно надета!";
                                 
                                 if (statusData.result_url) {
                                     resultPreview.src = statusData.result_url;
                                     resultBlock.classList.remove("hidden");
+                                    // 🚀 ПОКАЗЫВАЕМ КНОПКУ АНИМАЦИИ!
+                                    animBtn.classList.remove("hidden");
                                 }
 
                                 btn.disabled = false;
                                 btn.classList.remove("opacity-40", "cursor-not-allowed");
                             }
-                        } catch (err) {
-                            console.error("Ошибка при проверке статуса ИИ:", err);
+                        } catch (err) { 
+                            console.error(err); 
                         }
                     }, 3000);
-                } else {
-                    throw new Error(data.message || "Неверный ответ сервера");
                 }
+            } catch (error) { 
+                console.error(error); 
+            }
+        };
 
-            } catch (error) {
-                console.error("Критический сбой конвейера:", error);
-                statusText.innerText = "СБОЙ ИИ ❌";
-                statusText.className = "text-red-500 font-black uppercase tracking-widest";
-                progressBar.style.width = "0%";
-                details.innerText = `Ошибка соединения: ${error.message}`;
-                
-                btn.disabled = false;
-                btn.classList.remove("opacity-40", "cursor-not-allowed");
+        // --- КЛИК 2: ОЖИВИТЬ ИИ (ЗАПУСК ВИДЕО-КОНВЕЙЕРА SVD) ---
+        document.getElementById("animateVideoBtn").onclick = async () => {
+            const animBtn = document.getElementById("animateVideoBtn");
+            const loader = document.getElementById("asyncLoader");
+            const statusText = document.getElementById("asyncStatusText");
+            const progressBar = document.getElementById("asyncProgressBar");
+            const details = document.getElementById("asyncLoaderDetails");
+            const resultPreview = document.getElementById("resultPreview");
+            const resultVideo = document.getElementById("resultVideo");
+            const resultTitle = document.getElementById("resultTitle");
+
+            animBtn.disabled = true;
+            animBtn.classList.add("opacity-40", "cursor-not-allowed");
+            
+            // Включаем лоадер в фиолетовом видео-режиме
+            loader.classList.remove("hidden");
+            document.getElementById("loaderTitle").innerText = "ВИДЕО-КОНВЕЙЕР:";
+            progressBar.className = "bg-purple-500 h-full w-0 transition-all duration-700 shadow-[0_0_8px_#a855f7]";
+            statusText.innerText = "ЗАПРОС ВИДЕО...";
+            statusText.className = "text-purple-400 font-black uppercase tracking-widest animate-pulse";
+            progressBar.style.width = "20%";
+            details.innerText = "Сервер создает анимированную задачу для Stable Video Diffusion...";
+
+            // Отправляем специальный асинхронный запрос на создание видео-задачи
+            try {
+                // Мы передаем серверу текущую готовую сессию и команду 'animate_video'
+                const response = await fetch(`/api/studio/fishhook/create_video_task/${userLogin}/${lastSessionId}/${lastTaskId}`);
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    const videoTaskId = data.video_task_id;
+                    progressBar.style.width = "40%";
+                    details.innerText = "Воркер в Колабе скачивает кадр примерки и запускает рендеринг видео...";
+
+                    // Запускаем опрос статуса видео-задачи
+                    const videoChecker = setInterval(async () => {
+                        try {
+                            const statusResponse = await fetch(`/api/studio/fishhook/check_task/${userLogin}/${videoTaskId}`);
+                            const statusData = await statusResponse.json();
+
+                            if (statusData.status === "pending" || statusData.status === "processing") {
+                                statusText.innerText = "РЕНДЕР MP4...";
+                                statusText.className = "text-purple-400 font-black uppercase tracking-widest animate-pulse";
+                                progressBar.style.width = "75%";
+                                details.innerText = "ИИ рассчитывает физику движения ткани и волос (25 кадров на GPU)...";
+                            } 
+                            else if (statusData.status === "completed") {
+                                clearInterval(videoChecker);
+                                
+                                statusText.innerText = "ЖИВОЕ ВИДЕО ✨";
+                                statusText.className = "text-purple-400 font-black uppercase tracking-widest";
+                                progressBar.style.width = "100%";
+                                details.innerText = "Видеоролик успешно собран!";
+                                
+                                if (statusData.result_url) {
+                                    // Прячем статичную картинку, включаем плеер и скармливаем ему ссылку на MP4
+                                    resultPreview.classList.add("hidden");
+                                    resultVideo.src = statusData.result_url;
+                                    resultVideo.classList.remove("hidden");
+                                    resultTitle.innerText = "🎬 Промо-ролик для маркетплейса готов!";
+                                    resultTitle.className = "text-[9px] font-black text-center text-purple-400 uppercase tracking-widest";
+                                }
+
+                                animBtn.disabled = false;
+                                animBtn.classList.remove("opacity-40", "cursor-not-allowed");
+                            }
+                        } catch (err) { 
+                            console.error(err); 
+                        }
+                    }, 3000);
+                }
+            } catch (err) { 
+                console.error(err); 
             }
         };
     </script>
