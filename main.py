@@ -1616,6 +1616,16 @@ def process_video_animation(task_data):
             print(f"⚠️ [СБОЙ СЕТИ]: Сервер не принял файл. Ролик ОСТАВЛЕН на диске воркера под именем {output_video_name}")
 
 
+    except Exception as e:
+        print(f"❌ Критический сбой видео-конвейера: {e}")
+        
+    finally:
+        if 'input_image' in locals(): del input_image
+        if 'video_frames' in locals(): del video_frames
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache()
+
         
 
 
