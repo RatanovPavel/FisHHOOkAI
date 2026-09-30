@@ -1413,24 +1413,18 @@ def process_heavy_tryon_naked(task_data):
     # ----------------------------------------------------
     try:
         if garment_image:
-            print("⚡ [GPU CatVTON]: Включаем рокировку памяти. Активация CatVTON на CUDA...")
+            print("⚡ [GPU CatVTON]: Проверка готовности пайплайна примерки...")
             import torch
             
-             # 🚀 СДВИГ ПАМЯТИ: Скидываем видео-движок на CPU, а CatVTON поднимаем на GPU!
-            if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is not None:
-                try: VIDEO_PIPE.to("cpu")
-                except: pass
+            # 🚀 ДОПИСЫВАЕМ СЮДА: Если прошлым шагом была анимация и CatVTON стерт — собираем его заново!
+            global VTON_V3_PIPE
+            if 'VTON_V3_PIPE' not in globals() or VTON_V3_PIPE is None:
+                print("🔄 Пайплайн CatVTON отсутствует в памяти. Пересобираем движок примерки одежды...")
+                # Вызываем твою готовую глобальную функцию инициализации моделей
+                init_vton_models()
                 
-            if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
-                try: VTON_V3_PIPE.to("cuda")
-                except: pass
+            # Дальше идет твой стандартный рабочий код подготовки размеров и инференса CatVTON...
 
-                
-            torch.cuda.empty_cache() # Чистим остаточный мусор
-
-            # Дальше идет твой стандартный рабочий код подготовки размеров и инференса...
-            from utils import resize_and_crop, resize_and_padding
-            # ...
 
         print("⚡ [GPU CatVTON]: Запуск сшивания физической ткани блузки...")
         import torch
@@ -1527,46 +1521,45 @@ def process_video_animation(task_data):
         print(f"❌ Сбой сети при подготовке кадра: {e}")
         return
 
+
     # ----------------------------------------------------
     # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ НА ОДНОЙ ВИДЕОКАРТЕ (GPU)
     # ----------------------------------------------------
     try:
         global VIDEO_PIPE, VTON_V3_PIPE
-        print("⚡ [GPU SVD]: Включаем рокировку памяти. Разгружаем GPU...")
+        print("⚡ [GPU SVD]: Принудительно уничтожаем CatVTON для полной очистки VRAM...")
         import torch
         import gc
         
-        # 1. Сначала принудительно убираем CatVTON с видеокарты в обычную RAM
+        # 🚀 ЖЕСТКИЙ СИСТЕМНЫЙ ФИКС: Раз пайплайн CatVTON не умеет делать .to("cpu"),
+        # мы ПОЛНОСТЬЮ стираем его из глобальной памяти Питона!
         if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
             try:
-                VTON_V3_PIPE.to("cpu")
-                print("✅ CatVTON успешно перемещен в оперативную память.")
+                # Намертво удаляем ссылку на объект
+                del VTON_V3_PIPE
+                VTON_V3_PIPE = None
+                print("✅ Объект CatVTON стерт из памяти воркера.")
             except Exception as e:
-                print(f"⚠️ Не удалось переместить CatVTON: {e}")
+                print(f"⚠️ Ошибка при удалении CatVTON: {e}")
             
-        # 2. 🚀 ЖЕСТКИЙ СБРОС: Полностью очищаем видеопамять от хвостов предыдущей сессии
+        # Очищаем системный кэш операционной системы и видеокарты
         gc.collect()
         torch.cuda.empty_cache() 
         
-        print("⚡ [GPU SVD]: Видеокарта полностью очищена. Запуск автоматического инференса SVD...")
-        
-        # 🚀 ИСПРАВЛЕНО: УДАЛИЛИ СТРОКУ VIDEO_PIPE.to("cuda")! 
-        # Пайплайн сам начнет использовать GPU благодаря ранее включенному enable_model_cpu_offload()
-        
+        print("⚡ [GPU SVD]: Видеокарта полностью освобождена. Запуск автоматического инференса SVD...")
         generator = torch.Generator(device="cuda").manual_seed(42)
         
-        # Запускаем сам инференс. Теперь он пойдет по кусочкам и уложится в память без OOM!
+        # Запускаем инференс. Теперь SVD получит все 14.5 ГБ памяти в единоличное пользование!
         video_frames = VIDEO_PIPE(
             image=input_image,
             height=1024,
             width=576,
             num_frames=25,
-            decode_chunk_size=4, # Снизили до 4 для еще большей экономии памяти при декодировании
+            decode_chunk_size=4, 
             motion_bucket_id=127,
             fps=7,
             generator=generator
         ).frames
-
 
 
         # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
