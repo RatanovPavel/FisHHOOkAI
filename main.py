@@ -1416,13 +1416,15 @@ def process_heavy_tryon_naked(task_data):
             print("⚡ [GPU CatVTON]: Включаем рокировку памяти. Активация CatVTON на CUDA...")
             import torch
             
-            # 🚀 СДВИГ ПАМЯТИ: Скидываем видео-движок на CPU, а CatVTON поднимаем на GPU!
-            if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is None:
+             # 🚀 СДВИГ ПАМЯТИ: Скидываем видео-движок на CPU, а CatVTON поднимаем на GPU!
+            if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is not None:
                 try: VIDEO_PIPE.to("cpu")
                 except: pass
                 
-            if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is None:
-                VTON_V3_PIPE.to("cuda")
+            if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
+                try: VTON_V3_PIPE.to("cuda")
+                except: pass
+
                 
             torch.cuda.empty_cache() # Чистим остаточный мусор
 
@@ -1533,14 +1535,15 @@ def process_video_animation(task_data):
         print("⚡ [GPU SVD]: Включаем рокировку памяти. Отключаем CatVTON...")
         import torch
         
-        # 🚀 СДВИГ ПАМЯТИ: Намертво убираем CatVTON в обычную оперативку (освобождаем 13 ГБ VRAM!)
-        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is None:
+        # 🚀 СДВИГ ПАМЯТИ В ВИДЕО-ФУНКЦИИ: Убираем CatVTON на CPU, а SVD поднимаем на GPU!
+        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
             try: VTON_V3_PIPE.to("cpu")
             except: pass
             
-        # Поднимаем видео-движок из оперативки прямо в очищенную видеокарту!
-        if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is None:
-            VIDEO_PIPE.to("cuda")
+        if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is not None:
+            try: VIDEO_PIPE.to("cuda")
+            except: pass
+
             
         # Принудительно выметаем из видеокарты все хвосты CatVTON
         import gc
