@@ -1563,36 +1563,58 @@ def process_video_animation(task_data):
         ).frames
 
 
+        # ----------------------------------------------------
         # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
+        # ----------------------------------------------------
         output_video_name = f"vton_video_{task_id}.mp4"
+        print(f"💾 Распаковка и упаковка кадров в контейнер MP4...")
         
-        # Конвертируем PIL-кадры в формат numpy и собираем в MP4 через imageio
-        print(f"💾 Упаковка {len(video_frames)} кадров в контейнер MP4...")
-        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
-        for frame in video_frames:
+        # 🚀 ИСПРАВЛЕНО: SVD возвращает список списков [[Image1, Image2, ...]]. 
+        # Если это так, вытаскиваем внутренний плоский список кадров.
+        if isinstance(video_frames, list) and len(video_frames) > 0 and isinstance(video_frames[0], list):
+            frames_to_save = video_frames[0]
+        else:
+            frames_to_save = video_frames
+
+        print(f"🎬 Физическая склейка {len(frames_to_save)} кадров в видеоролик...")
+        
+        # Собираем MP4 контейнер через imageio
+        writer = imageio.get_writer(output_video_name, fps=7, format='FFMPEG', mode='I')
+        for frame in frames_to_save:
+            # Переводим каждый PIL-кадр в правильную матрицу numpy и пишем в файл
             writer.append_data(np.array(frame))
         writer.close()
+        print("✅ Видеоролик успешно собран на диск.")
 
-        # 4. ОТПРАВКА ГОТОВОГО MP4 НА СЕРВЕР SKULLA
+
+        # ----------------------------------------------------
+        # 4. ОТПРАВКА НА СЕРВЕР SKULLA И ЛОКАЛЬНОЕ СОХРАНЕНИЕ
+        # ----------------------------------------------------
+        # Создаем в корне Колаба папку /content/vton_outputs/, если её ещё нет
+        save_dir = "/content/vton_outputs"
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+            
+        # Формируем надежный путь для вечного хранения на диске Колаба
+        permanent_video_path = os.path.join(save_dir, output_video_name)
+        
+        # Копируем созданный ролик в нашу архивную папку перед отправкой
+        import shutil
+        shutil.copyfile(output_video_name, permanent_video_path)
+        print(f"💾 [АРХИВ]: Копия ролика сохранена на диск Колаба: {permanent_video_path}")
+
         print(f"📤 Отправка промо-ролика {output_video_name} на бэкенд...")
-        #submit_success = submit_result_to_server(output_video_name, task_id, user_login)
         submit_success = submit_result_to_server(task_id, user_login, output_video_name)
         
-        if os.path.exists(output_video_name):
-            os.remove(output_video_name)
-            
+        # 🚀 ИСПРАВЛЕНО: Удаляем временный файл в корне проекта ТОЛЬКО если отправка прошла успешно!
+        # Если сервер упадет, файл останется лежать в корне воркера для подстраховки.
         if submit_success:
-            print(f"🏁 [ПОБЕДА]: Видеоролик успешно отправлен на сайт. Задача {task_id} закрыта!")
+            #if os.path.exists(output_video_name):
+                #os.remove(output_video_name)
+            print(f"🏁 [ПОБЕДА]: Видеоролик успешно доставлен на сайт. Задача {task_id} закрыта!")
+        else:
+            print(f"⚠️ [СБОЙ СЕТИ]: Сервер не принял файл. Ролик ОСТАВЛЕН на диске воркера под именем {output_video_name}")
 
-    except Exception as e:
-        print(f"❌ Критический сбой видео-конвейера: {e}")
-        
-    finally:
-        if 'input_image' in locals(): del input_image
-        if 'video_frames' in locals(): del video_frames
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
 
         
 
