@@ -136,20 +136,21 @@ def init_vton_models():
 
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка видео-движка Stable Video Diffusion...")
     try:
-        # Загружаем SVD-XT (версия на 25 кадров для повышенной плавности)
         VIDEO_PIPE = StableVideoDiffusionPipeline.from_pretrained(
             "stabilityai/stable-video-diffusion-img2vid-xt",
             torch_dtype=torch.float16,
             variant="fp16"
         )
-        # Включаем микро-оптимизации, чтобы видео-модель влезла в память T4
-        VIDEO_PIPE.enable_model_cpu_offload()             # Умная выгрузка слоев
-        VIDEO_PIPE.unet.enable_forward_chunking()         # Режет обработку UNet на куски
-        VIDEO_PIPE.vae.enable_slicing()                   # Режет декодирование кадров VAE на микро-слайсы
-                
-        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов к оживлению кадров!")
+        
+        # 🚀 ЖЕСТКИЙ ФИКС: Заменяем enable_model_cpu_offload на enable_sequential_cpu_offload
+        VIDEO_PIPE.enable_sequential_cpu_offload() # Режет веса на микро-слои!
+        
+        VIDEO_PIPE.unet.enable_forward_chunking()
+        VIDEO_PIPE.vae.enable_slicing()
+        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов и оптимизирован под T4!")
     except Exception as e:
         print(f"❌ Сбой при сборке видео-пайплайна: {e}")
+
 
     print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
 
