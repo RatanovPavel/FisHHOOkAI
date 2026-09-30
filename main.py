@@ -1504,25 +1504,43 @@ def process_video_animation(task_data):
         print(f"❌ Сбой сети при подготовке кадра: {e}")
         return
 
-    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ НА ВИДЕОКАРТЕ
+    # ----------------------------------------------------
+    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ НА ОДНОЙ ВИДЕОКАРТЕ (GPU)
+    # ----------------------------------------------------
     try:
-        global VIDEO_PIPE
-        print("⚡ [GPU SVD]: Расчет оптических потоков и движения кадров...")
+        global VIDEO_PIPE, VTON_V3_PIPE
+        print("⚡ [GPU SVD]: Включаем рокировку памяти. Отключаем CatVTON...")
+        import torch
         
-        # Сид для фиксации физики движения
+        # 🚀 СДВИГ ПАМЯТИ: Намертво убираем CatVTON в обычную оперативку (освобождаем 13 ГБ VRAM!)
+        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is None:
+            try: VTON_V3_PIPE.to("cpu")
+            except: pass
+            
+        # Поднимаем видео-движок из оперативки прямо в очищенную видеокарту!
+        if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is None:
+            VIDEO_PIPE.to("cuda")
+            
+        # Принудительно выметаем из видеокарты все хвосты CatVTON
+        import gc
+        gc.collect()
+        torch.cuda.empty_cache() 
+        
+        print("⚡ [GPU SVD]: Видеокарта полностью очищена. Начинаем расчет движения кадров...")
         generator = torch.Generator(device="cuda").manual_seed(42)
         
-        # Запускаем инференс видео
+        # Наш оптимизированный вызов SVD, который теперь влезет со свистом:
         video_frames = VIDEO_PIPE(
             image=input_image,
             height=1024,
             width=576,
-            num_frames=25,            # Генерируем 25 последовательных кадров
-            decode_chunk_size=8,      # Оптимизация памяти, чтоб не вылетел кудахтер
-            motion_bucket_id=127,     # Скорость и амплитуда движения (от 1 до 255)
-            fps=7,                    # Скорость воспроизведения
+            num_frames=25,
+            decode_chunk_size=8,
+            motion_bucket_id=127,
+            fps=7,
             generator=generator
-        ).frames[0]                   # Забираем массив сгенерированных кадров
+        ).frames
+
 
         # 3. СБОРКА И СОХРАНЕНИЕ ФАЙЛА MP4
         output_video_name = f"vton_video_{task_id}.mp4"
