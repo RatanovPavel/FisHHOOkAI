@@ -1408,7 +1408,28 @@ def process_heavy_tryon_naked(task_data):
     # ----------------------------------------------------
     # ШАГ 4: ЗАПУСК НЕЙРОСЕТИ ОРИГИНАЛЬНОГО CatVTON
     # ----------------------------------------------------
+    # ----------------------------------------------------
+    # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
+    # ----------------------------------------------------
     try:
+        if garment_image:
+            print("⚡ [GPU CatVTON]: Включаем рокировку памяти. Активация CatVTON на CUDA...")
+            import torch
+            
+            # 🚀 СДВИГ ПАМЯТИ: Скидываем видео-движок на CPU, а CatVTON поднимаем на GPU!
+            if 'VIDEO_PIPE' in globals() and VIDEO_PIPE is None:
+                try: VIDEO_PIPE.to("cpu")
+                except: pass
+                
+            if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is None:
+                VTON_V3_PIPE.to("cuda")
+                
+            torch.cuda.empty_cache() # Чистим остаточный мусор
+
+            # Дальше идет твой стандартный рабочий код подготовки размеров и инференса...
+            from utils import resize_and_crop, resize_and_padding
+            # ...
+
         print("⚡ [GPU CatVTON]: Запуск сшивания физической ткани блузки...")
         import torch
         
