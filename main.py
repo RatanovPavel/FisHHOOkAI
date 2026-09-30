@@ -1485,7 +1485,7 @@ def process_video_animation(task_data):
     print(f"\n🎬 [ИИ-ОЖИВЛЕНИЕ]: Запуск генерации видео для задачи {task_id}")
 
     # 🚀 ИСПРАВЛЕНО: Запрашиваем файл vton_result_task_..., который ТОЧНО лежит на сервере!
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=vton_result_{parent_task_id}.png"
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename={parent_task_id}.png"
     
     try:
         print(f"📥 Скачивание родительского кадра для анимации: {download_url}")
