@@ -1555,6 +1555,8 @@ def process_video_animation(task_data):
         gc.collect()
         torch.cuda.empty_cache()
 
+        
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
