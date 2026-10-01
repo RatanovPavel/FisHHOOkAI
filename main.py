@@ -1578,7 +1578,8 @@ def process_video_animation(task_data):
 
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
-
+        
+        # Конфигурируем неубиваемый кодек H.264
         writer = imageio.get_writer(
             output_video_name, 
             fps=12, 
@@ -1589,22 +1590,25 @@ def process_video_animation(task_data):
             macro_block_size=8
         )
         
-        
-        # Импортируем OpenCV для быстрой и правильной смены каналов цвета
         import cv2
         
         for frame in video_frames:
-            # Переводим PIL-кадр в массив numpy
+            # 1. Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
             
-            # Накладываем фильтр чёткости RealESRGAN
+            # 2. Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            # 🚀 СУПЕР-ФИКС ЧЁРНОГО ЭКРАНА: 
-            # 1. Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов одежды и кожи
+            # 🚀 СУПЕР-ФИКС ГЕОМЕТРИИ (Исправляет полоску в 50 пикселей):
+            # Если ИИ-модель вернула каналы цвета первыми (например, 3 x H x W), 
+            # мы принудительно разворачиваем матрицу в стандартный формат (H x W x 3)
+            if enhanced_frame.shape[0] == 3 or enhanced_frame.shape[0] == 4:
+                enhanced_frame = np.transpose(enhanced_frame, (1, 2, 0))
+            
+            # 3. Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов одежды и кожи
             rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
             
-            # 2. Гарантируем, что кадр имеет правильный тип данных uint8 (от 0 до 255)
+            # 4. Принудительно фиксируем правильный тип данных картинки (целые числа от 0 до 255)
             final_frame_np = rgb_frame.astype(np.uint8)
             
             # Записываем чёткий, цветной и правильно отформатированный кадр в MP4
@@ -1612,6 +1616,7 @@ def process_video_animation(task_data):
             
         writer.close()
         print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
+
 
 
         # ----------------------------------------------------
