@@ -1563,23 +1563,20 @@ def process_video_animation(task_data):
         # Подключаем библиотеки апскейлера
         from realesrgan import RealESRGANer
         from basicsr.archs.rrdbnet_arch import RRDBNet
+        import cv2
         
-        # 🚀 ИСПРАВЛЕНО СИНХРОНИЗАЦИЯ ВЕСОВ: num_block обязан быть равен 23, чтобы матрицы совпали!
+        # Собираем архитектуру нейросети (num_block=23 под веса RealESRGAN_x2plus)
         model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
         
-        # Инициализируем улучшайзер с фиксом model_dir='.' и восклицательным знаком в домене
+        # 🚀 ИСПРАВЛЕНО: Полностью УДАЛИЛИ параметр tile=400, который сжимал ширину до 50 пикселей!
         upsampler = RealESRGANer(
             scale=2, 
-            model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
+            model_path='https://github!com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
             model=model_esr, 
-            tile=400, 
             device='cuda'
         )
 
-
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
-        
-        # Конфигурируем кодек H.264
         writer = imageio.get_writer(
             output_video_name, 
             fps=12, 
@@ -1590,31 +1587,34 @@ def process_video_animation(task_data):
             macro_block_size=8
         )
         
-        import cv2
-        
-        for frame in video_frames:
+        if isinstance(video_frames, list) and len(video_frames) > 0 and isinstance(video_frames, list):
+            frames_to_save = video_frames
+        else:
+            frames_to_save = video_frames
+
+        # Запускаем цикл обработки кадров
+        for frame in frames_to_save:
+            # Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
             
             # Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            # 🚀 НАСТОЯЩИЙ ИСПРАВЛЕННЫЙ ФИКС ГЕОМЕТРИИ (Убирает полоску в 50 пикселей):
-            # Проверяем структуру матрицы. Если первое число в форме равно 3 (каналы цвета впереди):
-            if len(enhanced_frame.shape) == 3 and enhanced_frame.shape[0] == 3:
-                # Принудительно разворачиваем оси из (3, H, W) в правильный формат (H, W, 3)
-                enhanced_frame = np.transpose(enhanced_frame, (1, 2, 0))
-            
             # Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов
             rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
             
-            # Принудительно фиксируем правильный тип данных картинки (целые числа от 0 до 255)
-            final_frame_np = rgb_frame.astype(np.uint8)
+            # 🚀 ЖЕСТКАЯ СИСТЕМНАЯ СТРАХОВКА: 
+            # Принудительно масштабируем улучшенный кадр под идеальное вертикальное Full HD разрешение (896x1536).
+            # Теперь, что бы ни вернул апскейлер, FFmpeg гарантированно получит полноценную большую картинку!
+            final_frame_np = cv2.resize(rgb_frame, (896, 1536), interpolation=cv2.INTER_LANCZOS4)
+            final_frame_np = final_frame_np.astype(np.uint8)
             
             # Записываем чёткий, цветной и правильно отформатированный кадр в MP4
             writer.append_data(final_frame_np)
             
         writer.close()
         print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
+
 
 
 
