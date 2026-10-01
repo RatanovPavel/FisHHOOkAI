@@ -1580,15 +1580,29 @@ def process_video_animation(task_data):
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
         writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
         
-        for frame in video_frames:
-            # Переводим кадр в массив
+        # Импортируем OpenCV для быстрой и правильной смены каналов цвета
+        import cv2
+        
+        for frame in frames_to_save:
+            # Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
-            # Накладываем фильтр звенящей чёткости RealESRGAN
+            
+            # Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
-            # Записываем чёткий кадр в MP4 контейнер
-            writer.append_data(enhanced_frame)
+            
+            # 🚀 СУПЕР-ФИКС ЧЁРНОГО ЭКРАНА: 
+            # 1. Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов одежды и кожи
+            rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
+            
+            # 2. Гарантируем, что кадр имеет правильный тип данных uint8 (от 0 до 255)
+            final_frame_np = rgb_frame.astype(np.uint8)
+            
+            # Записываем чёткий, цветной и правильно отформатированный кадр в MP4
+            writer.append_data(final_frame_np)
+            
         writer.close()
-        print("✅ Кристально чистый видеоролик успешно собран на диск.")
+        print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
+
 
 
 
