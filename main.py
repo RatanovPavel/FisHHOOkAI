@@ -1589,6 +1589,7 @@ def process_video_animation(task_data):
             macro_block_size=8
         )
         
+        
         # Импортируем OpenCV для быстрой и правильной смены каналов цвета
         import cv2
         
