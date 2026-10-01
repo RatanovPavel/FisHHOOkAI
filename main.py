@@ -1578,7 +1578,16 @@ def process_video_animation(task_data):
 
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
-        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
+
+        writer = imageio.get_writer(
+            output_video_name, 
+            fps=12, 
+            format='FFMPEG', 
+            mode='I',
+            codec='libx264',
+            pixelformat='yuv420p',
+            macro_block_size=8
+        )
         
         # Импортируем OpenCV для быстрой и правильной смены каналов цвета
         import cv2
