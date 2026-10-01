@@ -1583,7 +1583,7 @@ def process_video_animation(task_data):
         # Импортируем OpenCV для быстрой и правильной смены каналов цвета
         import cv2
         
-        for frame in frames_to_save:
+        for frame in video_frames:
             # Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
             
@@ -1602,8 +1602,6 @@ def process_video_animation(task_data):
             
         writer.close()
         print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
-
-
 
 
         # ----------------------------------------------------
