@@ -1579,7 +1579,7 @@ def process_video_animation(task_data):
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
         
-        # Конфигурируем неубиваемый кодек H.264
+        # Конфигурируем кодек H.264
         writer = imageio.get_writer(
             output_video_name, 
             fps=12, 
@@ -1593,22 +1593,21 @@ def process_video_animation(task_data):
         import cv2
         
         for frame in video_frames:
-            # 1. Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
             
-            # 2. Накладываем фильтр чёткости RealESRGAN
+            # Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            # 🚀 СУПЕР-ФИКС ГЕОМЕТРИИ (Исправляет полоску в 50 пикселей):
-            # Если ИИ-модель вернула каналы цвета первыми (например, 3 x H x W), 
-            # мы принудительно разворачиваем матрицу в стандартный формат (H x W x 3)
-            if enhanced_frame.shape[0] == 3 or enhanced_frame.shape[0] == 4:
+            # 🚀 НАСТОЯЩИЙ ИСПРАВЛЕННЫЙ ФИКС ГЕОМЕТРИИ (Убирает полоску в 50 пикселей):
+            # Проверяем структуру матрицы. Если первое число в форме равно 3 (каналы цвета впереди):
+            if len(enhanced_frame.shape) == 3 and enhanced_frame.shape[0] == 3:
+                # Принудительно разворачиваем оси из (3, H, W) в правильный формат (H, W, 3)
                 enhanced_frame = np.transpose(enhanced_frame, (1, 2, 0))
             
-            # 3. Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов одежды и кожи
+            # Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов
             rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
             
-            # 4. Принудительно фиксируем правильный тип данных картинки (целые числа от 0 до 255)
+            # Принудительно фиксируем правильный тип данных картинки (целые числа от 0 до 255)
             final_frame_np = rgb_frame.astype(np.uint8)
             
             # Записываем чёткий, цветной и правильно отформатированный кадр в MP4
@@ -1616,6 +1615,7 @@ def process_video_animation(task_data):
             
         writer.close()
         print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
+
 
 
 
