@@ -1571,7 +1571,7 @@ def process_video_animation(task_data):
         # 🚀 ИСПРАВЛЕНО: Полностью УДАЛИЛИ параметр tile=400, который сжимал ширину до 50 пикселей!
         upsampler = RealESRGANer(
             scale=2, 
-            model_path='https://github!com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
+            model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
             model=model_esr, 
             device='cuda'
         )
