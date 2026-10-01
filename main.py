@@ -1573,8 +1573,7 @@ def process_video_animation(task_data):
             model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
             model=model_esr, 
             tile=400, 
-            device='cuda',
-            model_dir='.'  # 🚀 ФИКС [Errno 21]: Веса скачиваются локально в корень проекта!
+            device='cuda'
         )
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
