@@ -1564,10 +1564,10 @@ def process_video_animation(task_data):
         from realesrgan import RealESRGANer
         from basicsr.archs.rrdbnet_arch import RRDBNet
         
-        # Собираем архитектуру нейросети
-        model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=2)
+        # 🚀 ИСПРАВЛЕНО СИНХРОНИЗАЦИЯ ВЕСОВ: num_block обязан быть равен 23, чтобы матрицы совпали!
+        model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
         
-        # Инициализируем улучшайзер с фиксом model_dir='.' и восклицательным знаком в домене!
+        # Инициализируем улучшайзер с фиксом model_dir='.' и восклицательным знаком в домене
         upsampler = RealESRGANer(
             scale=2, 
             model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
@@ -1575,6 +1575,7 @@ def process_video_animation(task_data):
             tile=400, 
             device='cuda'
         )
+
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
         writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
