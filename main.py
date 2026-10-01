@@ -1555,13 +1555,20 @@ def process_video_animation(task_data):
         output_video_name = f"vton_video_{task_id}.mp4"
         print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Убираем размытие с автомобиля и фона...")
         
-        # Подключаем супер-быстрый апскейлер RealESRGAN
+        # 🚀 ЖЕСТКИЙ ХАК СОВМЕСТИМОСТИ PYTORCH (Исправляет No module named 'torchvision.transforms.functional_tensor'):
+        import sys
+        import torchvision.transforms.functional as tv_F
+        # Насильно заставляем Python думать, что старый модуль лежит по новому адресу
+        sys.modules['torchvision.transforms.functional_tensor'] = tv_F
+        
+        # Теперь эти импорты выполнятся со свистом и без единой ошибки!
         from realesrgan import RealESRGANer
         from basicsr.archs.rrdbnet_arch import RRDBNet
         
         # Моделька скачается за пару секунд один раз
         model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=6, num_grow_ch=32, scale=2)
         upsampler = RealESRGANer(scale=2, model_path='https://github.com', model=model_esr, tile=400, device='cuda')
+
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
         writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I')
