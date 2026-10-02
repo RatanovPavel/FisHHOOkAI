@@ -1524,7 +1524,7 @@ def process_video_animation(task_data):
         input_image = Image.open(io.BytesIO(res.content)).convert("RGB")
         
         # SVD требует, чтобы размеры были строго кратны 64. Идеальный стандарт: 576x1024
-        input_image = input_image.resize((576, 1024), Image.Resampling.LANCZOS)
+        input_image = input_image.resize((384, 512), Image.Resampling.LANCZOS)
     except Exception as e:
         print(f"❌ Сбой сети при подготовке кадра: {e}")
         return
@@ -1568,8 +1568,8 @@ def process_video_animation(task_data):
         print("🎬 Запуск нейросети SVD на кристально чистой видеокарте...")
         output_object = VIDEO_PIPE(
             image=input_image,
-            height=1024,              # Наше эталонное HD разрешение
-            width=576,
+            height=512,              # Наше эталонное HD разрешение
+            width=384,
             num_frames=25,
             num_inference_steps=20,   # Быстрый рендер
             decode_chunk_size=2,      # Экономный декод пачками по 2 кадра
