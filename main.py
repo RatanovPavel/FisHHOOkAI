@@ -1496,6 +1496,11 @@ def process_video_animation(task_data):
     БОЕВАЯ ВИДЕО-ФУНКЦИЯ: Скачивает готовый результат примерки родительской задачи 
     и генерирует из него плавный MP4 видеоролик на GPU.
     """
+
+    import sys
+    import torchvision.transforms.functional as tv_F
+    sys.modules['torchvision.transforms.functional_tensor'] = tv_F
+        
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]           # Это ID видео-задачи (нужен для сохранения MP4)
     session_id = actual_task["session_id"]
