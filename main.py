@@ -1500,7 +1500,7 @@ def process_video_animation(task_data):
     import sys
     import torchvision.transforms.functional as tv_F
     sys.modules['torchvision.transforms.functional_tensor'] = tv_F
-        
+
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]           # Это ID видео-задачи (нужен для сохранения MP4)
     session_id = actual_task["session_id"]
@@ -1565,8 +1565,7 @@ def process_video_animation(task_data):
         # Вытаскиваем объект из пайплайна
         raw_frames = video_frames
         
-        # 🚀 ЖЕСТКИЙ ПОБЕДНЫЙ МАНЕВР: Распаковываем список списков!
-        # Если в первом элементе лежит другой список (наша матрешка), забираем его целиком
+        # Распаковываем список списков (наша матрешка)
         if isinstance(raw_frames, list) and len(raw_frames) > 0 and isinstance(raw_frames[0], list):
             frames_to_save = raw_frames[0]
             print(f"🎯 [РАСПАКОВКА]: Успешно извлечен вложенный список! Кадров к сборке: {len(frames_to_save)}")
@@ -1574,7 +1573,6 @@ def process_video_animation(task_data):
             frames_to_save = raw_frames
             print(f"🎯 [СБОРКА]: Список уже плоский. Кадров к сборке: {len(frames_to_save)}")
 
-        # Дальше твой чистый стандартный рабочий код упаковщика с RealESRGAN
         from realesrgan import RealESRGANer
         from basicsr.archs.rrdbnet_arch import RRDBNet
         import cv2
@@ -1582,24 +1580,35 @@ def process_video_animation(task_data):
         model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
         upsampler = RealESRGANer(scale=2, model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', model=model_esr, device='cuda')
 
-        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I', codec='libx264', pixelformat='yuv420p', macro_block_size=8)
+        # 🚀 ИСПРАВЛЕНО: Выставляем macro_block_size=16 (стандарт веб-видео) под разрешение 576x1024
+        writer = imageio.get_writer(
+            output_video_name, 
+            fps=12, 
+            format='FFMPEG', 
+            mode='I', 
+            codec='libx264', 
+            pixelformat='yuv420p', 
+            macro_block_size=16
+        )
         
-        # Теперь этот цикл пойдет строго по ВСЕМ 25 кадрам по очереди!
+        # Запускаем цикл сборки
         for frame in frames_to_save:
             img_np = np.array(frame)
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
-            final_frame_np = cv2.resize(rgb_frame, (896, 1536), interpolation=cv2.INTER_LANCZOS4)
+            # 🚀 ФИКС СИНЕГО ПЛАТЬЯ: УДАЛИЛИ КОРЕЖАЩУЮ СТРОКУ cv2.cvtColor!
+            # Передаем цвета напрямую, так как RealESRGAN без tile выдает чистый RGB
+            
+            # 🚀 ФИКС СМЯТИЯ КАДРА (Разрешение 576х1024):
+            # В OpenCV размеры передаются строго как (Ширина, Высота). 
+            # 576x1024 делится на 16 абсолютно без остатка, видео больше никогда не скомкается!
+            final_frame_np = cv2.resize(enhanced_frame, (576, 1024), interpolation=cv2.INTER_LANCZOS4)
             final_frame_np = final_frame_np.astype(np.uint8)
             
             writer.append_data(final_frame_np)
             
         writer.close()
         print("✅ Кристально чистый видеоролик успешно собран!")
-
-
-
 
         # ----------------------------------------------------
         # 4. ОТПРАВКА НА СЕРВЕР SKULLA И ЛОКАЛЬНОЕ СОХРАНЕНИЕ
