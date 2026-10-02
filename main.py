@@ -1531,30 +1531,54 @@ def process_video_animation(task_data):
 
 
     # ----------------------------------------------------
-    # 2. СКОРОСТНОЙ ИИ-ИНФЕРЕНС ДВИЖЕНИЯ
+    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ (ЖЕСТКАЯ ОЧИСТКА VRAM)
     # ----------------------------------------------------
     try:
-        global VIDEO_PIPE
-        print("⚡ [GPU SVD]: Быстрый расчет динамики кадра...")
+        global VIDEO_PIPE, VTON_V3_PIPE
+        print("⚡ [GPU SVD]: Запуск принудительного аппаратного сброса VRAM...")
         import torch
+        import gc
+        import ctypes
+        
+        # 1. Намертво стираем CatVTON, если он есть
+        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
+            try:
+                del VTON_V3_PIPE
+                VTON_V3_PIPE = None
+                print("✅ Пайплайн CatVTON полностью удален.")
+            except: pass
+            
+        # 2. Полный цикл очистки системного мусора Python
+        gc.collect()
+        torch.cuda.empty_cache()
+        
+        # 3. 🚀 ХИРУРГИЧЕСКИЙ ФИКС OOM: Очищаем внутреннюю фрагментацию драйвера Nvidia Cuda C
+        try:
+            libc = ctypes.CDLL("libc.so.6")
+            libc.malloc_trim(0) # Принудительно возвращает всю неиспользуемую память операционной системе
+            print("✅ Аппаратная очистка malloc_trim выполнена.")
+        except Exception as e:
+            print(f"⚠️ Маневр malloc_trim пропущен: {e}")
+
+        # 4. На всякий случай включаем обратно оффлоад для SVD, чтобы он шел по микро-кусочкам
+        VIDEO_PIPE.enable_sequential_cpu_offload()
         
         generator = torch.Generator(device="cuda").manual_seed(42)
         
-        # 🚀 ВОЗВРАЩАЕМ СКОРОСТЬ И ЖИЗНЬ: 
-        # Всего 20 шагов вместо 45 (рендер взлетит!), но подняли motion_bucket до 140, 
-        # чтобы девушка плавно двигалась, и ослабили привязку до 0.01, чтобы убрать ступор
-        video_frames = VIDEO_PIPE(
+        print("🎬 Запуск нейросети SVD на кристально чистой видеокарте...")
+        output_object = VIDEO_PIPE(
             image=input_image,
-            height=1024,
+            height=1024,              # Наше эталонное HD разрешение
             width=576,
             num_frames=25,
-            num_inference_steps=20,   # Ускорили рендер в 2.5 раза!
-            decode_chunk_size=4, 
-            motion_bucket_id=140,     # Модель оживет, пойдет плавное позирование
+            num_inference_steps=20,   # Быстрый рендер
+            decode_chunk_size=2,      # Экономный декод пачками по 2 кадра
+            motion_bucket_id=140,     
             fps=7,
-            noise_aug_strength=0.01,  # Разрешаем ИИ естественно двигать плечи и волосы
+            noise_aug_strength=0.03,  
             generator=generator
-        ).frames
+        )
+        video_frames = output_object.frames
 
         # ----------------------------------------------------
         # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ И СБОРКИ MP4 (RealESRGAN)
