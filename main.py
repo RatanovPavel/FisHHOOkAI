@@ -136,20 +136,22 @@ def init_vton_models():
 
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка видео-движка Stable Video Diffusion...")
     try:
+        # Загружаем SVD-XT
         VIDEO_PIPE = StableVideoDiffusionPipeline.from_pretrained(
             "stabilityai/stable-video-diffusion-img2vid-xt",
             torch_dtype=torch.float16,
             variant="fp16"
         )
         
-        # 🚀 ЖЕСТКИЙ ФИКС: Заменяем enable_model_cpu_offload на enable_sequential_cpu_offload
-        VIDEO_PIPE.enable_sequential_cpu_offload() # Режет веса на микро-слои!
-        
+        # 🚀 ЖЕСТКИЙ ФИКС СОБАКИ: Полностью УДАЛИЛИ сломанную строку VIDEO_PIPE.vae.enable_slicing()!
+        # Вместо неё используем последовательный оффлоад и chunking — они работают без сбоев и OOM
+        VIDEO_PIPE.enable_sequential_cpu_offload() 
         VIDEO_PIPE.unet.enable_forward_chunking()
-        VIDEO_PIPE.vae.enable_slicing()
-        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов и оптимизирован под T4!")
+        
+        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов, инициализирован и оптимизирован под T4!")
     except Exception as e:
-        print(f"❌ Сбой при сборке видео-пайплайна: {e}")
+        print(f"❌ Критический сбой при сборке видео-пайплайна: {e}")
+
 
 
     print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
@@ -1550,10 +1552,10 @@ def process_video_animation(task_data):
         ).frames
 
         # ----------------------------------------------------
-        # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ (Быстрый Апскейл кадров)
+        # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ И СБОРКИ MP4 (RealESRGAN)
         # ----------------------------------------------------
         output_video_name = f"vton_video_{task_id}.mp4"
-        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Убираем размытие с автомобиля и фона...")
+        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Запуск RealESRGAN для 25 кадров...")
         
         # Жесткий хак совместимости PyTorch (чтобы не было ошибки functional_tensor)
         import sys
@@ -1568,15 +1570,16 @@ def process_video_animation(task_data):
         # Собираем архитектуру нейросети (num_block=23 под веса RealESRGAN_x2plus)
         model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
         
-        # 🚀 ИСПРАВЛЕНО: Полностью УДАЛИЛИ параметр tile=400, который сжимал ширину до 50 пикселей!
+        # Инициализируем улучшайзер БЕЗ параметра tile (чистая обработка без полос!)
         upsampler = RealESRGANer(
             scale=2, 
-            model_path='https://github!com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
+            model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
             model=model_esr, 
             device='cuda'
         )
 
         print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
+        # Конфигурируем чистый кодек H.264
         writer = imageio.get_writer(
             output_video_name, 
             fps=12, 
@@ -1587,35 +1590,26 @@ def process_video_animation(task_data):
             macro_block_size=8
         )
         
-        if isinstance(video_frames, list) and len(video_frames) > 0 and isinstance(video_frames, list):
-            frames_to_save = video_frames
-        else:
-            frames_to_save = video_frames
-
-        # Запускаем цикл обработки кадров
-        for frame in frames_to_save:
-            # Переводим PIL-кадр в массив numpy
+        # 🚀 СТРОГИЙ ЦИКЛ: Идём напрямую по всем 25 кадрам от ИИ-модели!
+        for frame in video_frames:
+            # 1. Переводим PIL-кадр в массив numpy
             img_np = np.array(frame)
             
-            # Накладываем фильтр чёткости RealESRGAN
+            # 2. Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            # Переводим каналы цвета из BGR (OpenCV) обратно в RGB для правильных цветов
+            # 3. ФИКС ПОЛОС: Переводим каналы из BGR (OpenCV) обратно в RGB для правильных цветов
             rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
             
-            # 🚀 ЖЕСТКАЯ СИСТЕМНАЯ СТРАХОВКА: 
-            # Принудительно масштабируем улучшенный кадр под идеальное вертикальное Full HD разрешение (896x1536).
-            # Теперь, что бы ни вернул апскейлер, FFmpeg гарантированно получит полноценную большую картинку!
+            # 4. ФИКС ГЕОМЕТРИИ: Принудительно масштабируем под Full HD вертикаль (896x1536)
             final_frame_np = cv2.resize(rgb_frame, (896, 1536), interpolation=cv2.INTER_LANCZOS4)
             final_frame_np = final_frame_np.astype(np.uint8)
             
-            # Записываем чёткий, цветной и правильно отформатированный кадр в MP4
+            # Записываем чёткий, цветной кадр в MP4
             writer.append_data(final_frame_np)
             
         writer.close()
-        print("✅ Кристально чистый цветной видеоролик успешно собран на диск.")
-
-
+        print("✅ Кристально чистый видеоролик из 25 кадров успешно собран!")
 
 
 
