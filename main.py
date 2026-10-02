@@ -1616,6 +1616,7 @@ def process_video_animation(task_data):
         # ----------------------------------------------------
         # 4. ОТПРАВКА НА СЕРВЕР SKULLA И ЛОКАЛЬНОЕ СОХРАНЕНИЕ
         # ----------------------------------------------------
+        
         # Создаем в корне Колаба папку /content/vton_outputs/, если её ещё нет
         save_dir = "/content/vton_outputs"
         if not os.path.exists(save_dir):
