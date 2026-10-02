@@ -1555,68 +1555,51 @@ def process_video_animation(task_data):
         # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ И СБОРКИ MP4 (RealESRGAN)
         # ----------------------------------------------------
         output_video_name = f"vton_video_{task_id}.mp4"
-        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Запуск RealESRGAN для 25 кадров...")
+        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Извлечение кадров и запуск RealESRGAN...")
         
-        # Жесткий хак совместимости PyTorch (чтобы не было ошибки functional_tensor)
-        import sys
-        import torchvision.transforms.functional as tv_F
-        sys.modules['torchvision.transforms.functional_tensor'] = tv_F
+        # Вытаскиваем объект из пайплайна
+        raw_frames = video_frames
         
-        # Подключаем библиотеки апскейлера
+        # 🚀 ЖЕСТКИЙ ПОБЕДНЫЙ МАНЕВР: Распаковываем список списков!
+        # Если в первом элементе лежит другой список (наша матрешка), забираем его целиком
+        if isinstance(raw_frames, list) and len(raw_frames) > 0 and isinstance(raw_frames[0], list):
+            frames_to_save = raw_frames[0]
+            print(f"🎯 [РАСПАКОВКА]: Успешно извлечен вложенный список! Кадров к сборке: {len(frames_to_save)}")
+        else:
+            frames_to_save = raw_frames
+            print(f"🎯 [СБОРКА]: Список уже плоский. Кадров к сборке: {len(frames_to_save)}")
+
+        # Дальше твой чистый стандартный рабочий код упаковщика с RealESRGAN
         from realesrgan import RealESRGANer
         from basicsr.archs.rrdbnet_arch import RRDBNet
         import cv2
         
-        # Собираем архитектуру нейросети (num_block=23 под веса RealESRGAN_x2plus)
         model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
-        
-        # Инициализируем улучшайзер БЕЗ параметра tile (чистая обработка без полос!)
-        upsampler = RealESRGANer(
-            scale=2, 
-            model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', 
-            model=model_esr, 
-            device='cuda'
-        )
+        upsampler = RealESRGANer(scale=2, model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', model=model_esr, device='cuda')
 
-        print(f"🎬 Физическое улучшение и склейка 25 кадров в Full HD...")
-        # Конфигурируем чистый кодек H.264
-        writer = imageio.get_writer(
-            output_video_name, 
-            fps=12, 
-            format='FFMPEG', 
-            mode='I',
-            codec='libx264',
-            pixelformat='yuv420p',
-            macro_block_size=8
-        )
+        writer = imageio.get_writer(output_video_name, fps=12, format='FFMPEG', mode='I', codec='libx264', pixelformat='yuv420p', macro_block_size=8)
         
-        # 🚀 СТРОГИЙ ЦИКЛ: Идём напрямую по всем 25 кадрам от ИИ-модели!
-        for frame in video_frames:
-            # 1. Переводим PIL-кадр в массив numpy
+        # Теперь этот цикл пойдет строго по ВСЕМ 25 кадрам по очереди!
+        for frame in frames_to_save:
             img_np = np.array(frame)
-            
-            # 2. Накладываем фильтр чёткости RealESRGAN
             enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
             
-            # 3. ФИКС ПОЛОС: Переводим каналы из BGR (OpenCV) обратно в RGB для правильных цветов
             rgb_frame = cv2.cvtColor(enhanced_frame, cv2.COLOR_BGR2RGB)
-            
-            # 4. ФИКС ГЕОМЕТРИИ: Принудительно масштабируем под Full HD вертикаль (896x1536)
             final_frame_np = cv2.resize(rgb_frame, (896, 1536), interpolation=cv2.INTER_LANCZOS4)
             final_frame_np = final_frame_np.astype(np.uint8)
             
-            # Записываем чёткий, цветной кадр в MP4
             writer.append_data(final_frame_np)
             
         writer.close()
-        print("✅ Кристально чистый видеоролик из 25 кадров успешно собран!")
+        print("✅ Кристально чистый видеоролик успешно собран!")
+
 
 
 
         # ----------------------------------------------------
         # 4. ОТПРАВКА НА СЕРВЕР SKULLA И ЛОКАЛЬНОЕ СОХРАНЕНИЕ
         # ----------------------------------------------------
-        
+
         # Создаем в корне Колаба папку /content/vton_outputs/, если её ещё нет
         save_dir = "/content/vton_outputs"
         if not os.path.exists(save_dir):
