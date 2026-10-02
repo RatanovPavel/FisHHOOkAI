@@ -1524,7 +1524,7 @@ def process_video_animation(task_data):
         input_image = Image.open(io.BytesIO(res.content)).convert("RGB")
         
         # SVD требует, чтобы размеры были строго кратны 64. Идеальный стандарт: 576x1024
-        input_image = input_image.resize((448, 768), Image.Resampling.LANCZOS)
+        input_image = input_image.resize((576, 1024), Image.Resampling.LANCZOS)
     except Exception as e:
         print(f"❌ Сбой сети при подготовке кадра: {e}")
         return
@@ -1545,8 +1545,8 @@ def process_video_animation(task_data):
         # чтобы девушка плавно двигалась, и ослабили привязку до 0.01, чтобы убрать ступор
         video_frames = VIDEO_PIPE(
             image=input_image,
-            height=768,
-            width=448,
+            height=1024,
+            width=576,
             num_frames=25,
             num_inference_steps=20,   # Ускорили рендер в 2.5 раза!
             decode_chunk_size=4, 
