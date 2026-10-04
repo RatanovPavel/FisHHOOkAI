@@ -147,7 +147,7 @@
         };
 
         // Асинхронная отправка аудиопотока на бэкенд FastAPI
-        async ("voice_bot.html", function(data) { /* Системный маркер */ });
+        // // Асинхронная отправка аудиопотока на бэкенд FastAPI
         async function sendVoiceData(audioBlob) {
             const currentRole = document.getElementById("roleSelect").value;
             
@@ -184,8 +184,8 @@
                         audioPlayer.src = result.audio_url + "&t=" + new Date().getTime();
                         audioPlayer.play();
                     }
-                } else {
-                    statusText.innerText = "ОШИБКА СЕРВЕРА СБОЙ";
+            } else {
+                statusText.innerText = "ОШИБКА СЕРВЕРА СБОЙ";
                 statusText.className = "text-red-500 font-black uppercase tracking-widest";
             }
         } catch (err) {
