@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FishHook ИИ — Голосовой Собеседник</title>
+    <script src="https://tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.5; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+        .animate-pulse-ring { animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="max-w-md w-full bg-slate-900/40 border border-slate-900 rounded-xl p-6 space-y-5 shadow-2xl backdrop-blur-md">
+        
+        <!-- Заголовок -->
+        <div class="text-center space-y-1">
+            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v1.0</h1>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Интерактивный ИИ-собеседник с выбором роли и голоса</p>
+        </div>
+        
+        <!-- НАСТРОЙКА 1: ВЫБОР РОЛИ -->
+        <div class="space-y-1.5">
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Выберите роль для ИИ</label>
+            <select id="roleSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-blue-500">
+                <option value="assistant">🤖 Вежливый ИИ-Ассистент</option>
+                <option value="psychologist">🧠 Эмпатичный Психолог</option>
+                <option value="pirate">🏴‍☠️ Старый Дерзкий Пират</option>
+                <option value="coach">💪 Строгий Бизнес-Тренер</option>
+            </select>
+        </div>
+
+        <!-- НАСТРОЙКА 2: ВЫБОР ГОЛОСА -->
+        <div class="space-y-1.5">
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Пол голоса озвучки</label>
+            <div class="grid grid-cols-2 gap-3">
+                <button id="voiceMaleBtn" class="bg-blue-500/20 border border-blue-500 text-blue-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all">
+                    👨 Мужской
+                </button>
+                <button id="voiceFemaleBtn" class="bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all">
+                    👩 Женский
+                </button>
+            </div>
+        </div>
+
+        <!-- ИНТЕРФЕЙС ЗАПИСИ (КНОПКА-МИКРОФОН) -->
+        <div class="flex flex-col items-center justify-center py-6 space-y-3">
+            <div class="relative w-20 h-20 flex items-center justify-center">
+                <div id="micRing" class="hidden absolute inset-0 rounded-full bg-blue-500/30 animate-pulse-ring"></div>
+                <button id="micBtn" class="relative z-10 w-16 h-16 bg-slate-950 border border-slate-800 hover:border-blue-500 rounded-full flex items-center justify-center text-2xl transition-all shadow-xl cursor-pointer">
+                    🎙️
+                </button>
+            </div>
+            <div id="statusText" class="text-[10px] font-black uppercase tracking-widest text-slate-500">Нажмите, чтобы говорить</div>
+        </div>
+
+        <!-- ДИАЛОГОВЫЕ ОКНА (ВЫВОД ТЕКСТА) -->
+        <div id="textBlock" class="hidden space-y-3 p-4 bg-slate-950/60 border border-slate-900 rounded-lg font-mono text-[10px]">
+            <div class="space-y-1">
+                <span class="text-slate-500 font-bold uppercase block">Вы сказали:</span>
+                <p id="userTranscriptText" class="text-slate-300 italic">...</p>
+            </div>
+            <div class="border-t border-slate-900/60 my-2"></div>
+            <div class="space-y-1">
+                <span class="text-blue-400 font-bold uppercase block" id="botRoleTitle">Ответ ИИ:</span>
+                <p id="botResponseText" class="text-emerald-400 font-medium">...</p>
+            </div>
+        </div>
+
+        <!-- СКРЫТЫЙ АУДИОПЛЕЕР ДЛЯ ОТВЕТА -->
+        <audio id="audioResponsePlayer" class="hidden" autoplay controls></audio>
+
+    </div>
+
+    <script>
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let selectedGender = "male"; // по умолчанию мужской голос
+
+        const micBtn = document.getElementById("micBtn");
+        const micRing = document.getElementById("micRing");
+        const statusText = document.getElementById("statusText");
+        const textBlock = document.getElementById("textBlock");
+        const userTranscriptText = document.getElementById("userTranscriptText");
+        const botResponseText = document.getElementById("botResponseText");
+        const botRoleTitle = document.getElementById("botRoleTitle");
+        const audioPlayer = document.getElementById("audioResponsePlayer");
+
+        // Переключение кнопок выбора пола голоса
+        document.getElementById("voiceMaleBtn").onclick = () => {
+            selectedGender = "male";
+            document.getElementById("voiceMaleBtn").className = "bg-blue-500/20 border border-blue-500 text-blue-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
+            document.getElementById("voiceFemaleBtn").className = "bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
+        };
+
+        document.getElementById("voiceFemaleBtn").onclick = () => {
+            selectedGender = "female";
+            document.getElementById("voiceFemaleBtn").className = "bg-pink-500/20 border border-pink-500 text-pink-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
+            document.getElementById("voiceMaleBtn").className = "bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
+        };
+
+        // Логика работы с микрофоном браузера
+        micBtn.onclick = async () => {
+            if (!isRecording) {
+                // Запуск записи
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        await sendVoiceData(audioBlob);
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micRing.classList.remove("hidden");
+                    micBtn.classList.add("border-blue-500", "scale-105");
+                    statusText.innerText = "ЗАПИСЬ... ГОВОРИТЕ";
+                    statusText.className = "text-red-500 font-black uppercase tracking-widest animate-pulse";
+                } catch (err) {
+                    alert("Ошибка доступа к микрофону: " + err);
+                }
+            } else {
+                // Остановка записи
+                mediaRecorder.stop();
+                // Отключаем микрофон у браузера, чтобы не горел значок записи
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                
+                isRecording = false;
+                micRing.classList.add("hidden");
+                micBtn.classList.remove("border-blue-500", "scale-105");
+                statusText.innerText = "ОБРАБОТКА ИИ-ГОЛОСА...";
+                statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
+            }
+        };
+
+        // Асинхронная отправка аудиопотока на бэкенд FastAPI
+        async ("voice_bot.html", function(data) { /* Системный маркер */ });
+        async function sendVoiceData(audioBlob) {
+            const currentRole = document.getElementById("roleSelect").value;
+            
+            const formData = new FormData();
+            formData.append("audio_file", audioBlob, "user_voice.wav");
+            formData.append("role", currentRole);
+            formData.append("gender", selectedGender);
+            formData.append("user_login", "RATANOV_PAVEL");
+
+            try {
+                // Отправляем голос на специальный роут сервера skulla.ru
+                const response = await fetch('/api/studio/fishhook/voice_chat', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // Выводим диалог на экран
+                    userTranscriptText.innerText = result.user_text;
+                    botResponseText.innerText = result.bot_text;
+                    //botRoleTitle.innerText = `Ответ ИИ (${document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text}):`;
+                    botRoleTitle.innerText = "Ответ ИИ (" + document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text + "):";
+
+                    textBlock.classList.remove("hidden");
+                    
+                    statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
+                    statusText.className = "text-slate-500 font-black uppercase tracking-widest";
+
+                    // Скармливаем плееру ссылку на готовый аудиофайл ответа и запускаем озвучку
+                    if (result.audio_url) {
+                        // Добавляем timestamp, чтобы браузер не кэшировал старые ответы
+                        audioPlayer.src = result.audio_url + "&t=" + new Date().getTime();
+                        audioPlayer.play();
+                    }
+                } else {
+                    statusText.innerText = "ОШИБКА СЕРВЕРА СБОЙ";
+                statusText.className = "text-red-500 font-black uppercase tracking-widest";
+            }
+        } catch (err) {
+            console.error(err);
+            statusText.innerText = "ОШИБКА СЕТИ";
+            statusText.className = "text-red-500 font-black uppercase tracking-widest";
+        }
+    }
+    </script>
+</body>
+</html>
