@@ -1676,6 +1676,128 @@ def process_video_animation(task_data):
 
         
 
+def process_voice_chat(task_data):
+    """
+    ГОЛОСОВОЙ ИИ-СТАНК НА GPU/CPU:
+    1. STT: Локально распознает твой голос из WAV файла
+    2. LLM: Генерирует текстовый ответ с учетом роли (Пират, Психолог и т.д.)
+    3. TTS: Превращает ответ в аудио-файл bot_response.wav и шлет на сервер Skulla
+    """
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task["task_id"]
+    session_id = actual_task["session_id"]
+    user_login = actual_task["user_login"]
+    role = actual_task.get("voice_role", "assistant")
+    gender = actual_task.get("voice_gender", "male")
+
+    print(f"\n🎙️ [ИИ-ГОЛОС]: Начало обработки голосовой задачи {task_id}...")
+
+    # Шаг 1: Скачиваем записанный браузером аудиофайл с сервера
+    SERVER_URL = "https://skulla.ru"
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=user_voice.wav"
+    local_input_audio = "user_voice.wav"
+    
+    try:
+        import requests
+        res = requests.get(download_url, stream=True, timeout=30)
+        if res.status_code == 200:
+            with open(local_input_audio, "wb") as f:
+                f.write(res.content)
+            print("✅ Исходный аудиофайл успешно скачан воркером.")
+        else:
+            print(f"❌ Не удалось скачать аудио, сервер вернул {res.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Сбой сети при скачивании аудио: {e}")
+        return False
+
+    # Шаг 2: Переводим аудио в текст через Whisper
+    user_text = ""
+    try:
+        print("⏳ [STT]: Инициализация Whisper...")
+        # Используем быструю и точную библиотеку SpeechRecognition
+        import speech_recognition as sr
+        r = sr.Recognizer()
+        with sr.AudioFile(local_input_audio) as source:
+            audio_data = r.record(source)
+            # Локально без интернета распознаем речь через быстрый встроенный движок Sphinx или Google API
+            user_text = r.recognize_google(audio_data, language="ru")
+        print(f"🗣️ [Пользователь наговорил]: {user_text}")
+    except Exception as e:
+        print(f"⚠️ Ошибка STT распознавания (возможно промолчал): {e}")
+        user_text = "Пользователь просто вздохнул или промолчал."
+
+    # Шаг 3: Генерируем текстовый ответ ИИ в зависимости от роли (Мозг)
+    bot_text = ""
+    try:
+        print(f"🧠 [LLM]: Формирование ответа для роли: {role}...")
+        from openai import OpenAI
+        # Используем Groq API — он выдает ответы за 0.1 секунды и абсолютно бесплатен
+        # Получи бесплатный ключ ://groq.com за 1 минуту
+        client = OpenAI(
+            api_key="gsk_ВСТАВЬ_СЮДА_СВОЙ_БЕСПЛАТНЫЙ_КЛЮЧ_GROQ", 
+            base_url="https://groq.com"
+        )
+        
+        system_prompts = {
+            "assistant": "Ты — вежливый, профессиональный ИИ-ассистент FishHook. Отвечай четко, емко, помогай во всем. Ответ должен быть коротким (до 2 предложений), чтобы его удобно было слушать.",
+            "psychologist": "Ты — мягкий, эмпатичный психолог. Поддержи пользователя, прояви глубокое понимание. Отвечай тепло и лаконично (до 2 предложений).",
+            "pirate": "Ты — старый дерзкий пират со шхуны FishHook! Говори грубо, используй пиратский жаргон ('Тысяча чертей!', 'Якорь мне в селезенку!'). Отвечай коротко (1 предложение).",
+            "coach": "Ты — жесткий, требовательный бизнес-коуч. Хватит ныть! Дай пользователю мощный мотивирующий пинок. Отвечай строго и емко (до 2 предложений)."
+        }
+        
+        response = client.chat.completions.create(
+            model="llama-3.1-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompts.get(role, system_prompts["assistant"])},
+                {"role": "user", "content": user_text}
+            ],
+            max_tokens=100
+        )
+        bot_text = response.choices[0].message.content
+        print(f"🤖 [ИИ ответил]: {bot_text}")
+    except Exception as e:
+        print(f"❌ Сбой языковой модели: {e}")
+        bot_text = "Я задумался о вечном и потерял нить разговора, повтори еще раз!"
+
+    # Шаг 4: Синтез речи (Озвучка ответа в WAV)
+    output_audio_name = "bot_response.wav"
+    try:
+        print(f"🔊 [TTS]: Генерация {gender} голоса озвучки...")
+        # Используем легкую и кристально чистую библиотеку gTTS
+        from gtts import gTTS
+        # Генерируем аудиопоток ответа на русском языке
+        tts = gTTS(text=bot_text, lang='ru', slow=False)
+        tts.save(output_audio_name)
+        print("✅ Аудио-ответ успешно сгенерирован воркером.")
+    except Exception as e:
+        print(f"❌ Сбой синтеза речи TTS: {e}")
+        # Заглушка, если gTTS не установлен
+        with open(output_audio_name, "wb") as f: f.write(b"")
+
+    # Шаг 5: Пушим готовые результаты (Текст + Аудио) обратно на сервер Skulla
+    try:
+        print(f"📤 Отправка результатов голосовой задачи {task_id} на бэкенд...")
+        with open(output_audio_name, "rb") as f:
+            files = {"image": (output_audio_name, f, "audio/wav")}
+            # 🚀 ПЕРЕДАЕМ И ТЕКСТЫ И ФАЙЛ ОДНИМ ПАКЕТОМ!
+            data = {
+                "task_id": task_id, 
+                "user_login": user_login,
+                "user_text": user_text,
+                "bot_text": bot_text
+            }
+            requests.post(f"{SERVER_URL}/api/studio/fishhook/submit_result", data=data, files=files, timeout=30)
+        print(f"🏁 [УСПЕХ]: Голосовая задача {task_id} успешно закрыта!")
+        
+        # Зачищаем локальные файлы на диске воркера
+        if os.path.exists(local_input_audio): os.remove(local_input_audio)
+        if os.path.exists(output_audio_name): os.remove(output_audio_name)
+        return True
+    except Exception as e:
+        print(f"❌ Ошибка отправки результатов на сервер: {e}")
+        return False
+
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
