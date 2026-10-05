@@ -1739,53 +1739,90 @@ def process_voice_chat(task_data):
         print(f"⚠️ Ошибка STT распознавания (возможно промолчал): {e}")
         user_text = "Пользователь просто вздохнул или промолчал."
 
-    # Шаг 3: Генерируем текстовый ответ ИИ в зависимости от роли (Мозг)
+    # ====================================================
+    # ШАГ 3: 100% ЛОКАЛЬНЫЙ ИИ-МОЗГ (TinyLlama на GPU)
+    # ====================================================
     bot_text = ""
     try:
-        print(f"🧠 [LLM]: Формирование ответа для роли: {role}...")
-        from openai import OpenAI
-        # Используем Groq API — он выдает ответы за 0.1 секунды и абсолютно бесплатен
-        # Получи бесплатный ключ ://groq.com за 1 минуту
-        client = OpenAI(
-            api_key="gsk_ВСТАВЬ_СЮДА_СВОЙ_БЕСПЛАТНЫЙ_КЛЮЧ_GROQ", 
-            base_url="https://groq.com"
+        print(f"🧠 [ЛОКАЛЬНЫЙ ИИ]: Загрузка легкой модели TinyLlama на GPU...")
+        from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+        import torch
+
+        model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        
+        # Загружаем компактный мозг весом всего 2 ГБ строго в память CUDA
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            torch_dtype=torch.float16, 
+            device_map="auto"
         )
         
+        # Настраиваем локальные характеры персонажей
         system_prompts = {
-            "assistant": "Ты — вежливый, профессиональный ИИ-ассистент FishHook. Отвечай четко, емко, помогай во всем. Ответ должен быть коротким (до 2 предложений), чтобы его удобно было слушать.",
-            "psychologist": "Ты — мягкий, эмпатичный психолог. Поддержи пользователя, прояви глубокое понимание. Отвечай тепло и лаконично (до 2 предложений).",
-            "pirate": "Ты — старый дерзкий пират со шхуны FishHook! Говори грубо, используй пиратский жаргон ('Тысяча чертей!', 'Якорь мне в селезенку!'). Отвечай коротко (1 предложение).",
-            "coach": "Ты — жесткий, требовательный бизнес-коуч. Хватит ныть! Дай пользователю мощный мотивирующий пинок. Отвечай строго и емко (до 2 предложений)."
+            "assistant": "Ты — вежливый, профессиональный ИИ-ассистент FishHook. Отвечай четко и очень коротко на русском языке (1 предложение).",
+            "psychologist": "Ты — эмпатичный психолог. Поддержи пользователя. Отвечай мягко и очень коротко на русском языке (1 предложение).",
+            "pirate": "Ты — старый дерзкий пират FishHook! Говори грубо, используй пиратский жаргон (Тысяча чертей!). Отвечай очень коротко (1 предложение).",
+            "coach": "Ты — жесткий бизнес-коуч. Хватит ныть! Дай пользователю пинок под зад. Отвечай строго и очень коротко (1 предложение)."
         }
         
-        response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",
-            messages=[
-                {"role": "system", "content": system_prompts.get(role, system_prompts["assistant"])},
-                {"role": "user", "content": user_text}
-            ],
-            max_tokens=100
-        )
-        bot_text = response.choices[0].message.content
-        print(f"🤖 [ИИ ответил]: {bot_text}")
+        system_instruction = system_prompts.get(role, system_prompts["assistant"])
+        
+        # Формируем стандартный чат-шаблон для TinyLlama
+        messages = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_text}
+        ]
+        
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        
+        # Запускаем локальную генерацию ответа на видеокарте
+        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs, 
+                max_new_tokens=60, 
+                temperature=0.7, 
+                do_sample=True,
+                top_k=50,
+                top_p=0.95
+            )
+            
+        full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        # Отрезаем промпт, забирая только чистый ответ ИИ
+        if "<|assistant|>" in full_response:
+            bot_text = full_response.split("<|assistant|>")[-1].strip()
+        else:
+            bot_text = full_response.replace(prompt, "").strip()
+            
+        print(f"🤖 [ЛОКАЛЬНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
+        
+        # Сразу чистим текстовую модель из VRAM, чтобы она не мешала примерочной!
+        del model
+        del tokenizer
+        torch.cuda.empty_cache()
+        
     except Exception as e:
-        print(f"❌ Сбой языковой модели: {e}")
-        bot_text = "Я задумался о вечном и потерял нить разговора, повтори еще раз!"
+        print(f"❌ Сбой локальной языковой модели: {e}")
+        bot_text = "Локальный мозг временно перегружен, Повелитель! Повторите запрос."
 
-    # Шаг 4: Синтез речи (Озвучка ответа в WAV)
+    # ====================================================
+    # ШАГ 4: ЛОКАЛЬНЫЙ СИНТЕЗ РЕЧИ (TTS)
+    # ====================================================
     output_audio_name = "bot_response.wav"
     try:
-        print(f"🔊 [TTS]: Генерация {gender} голоса озвучки...")
-        # Используем легкую и кристально чистую библиотеку gTTS
+        print(f"🔊 [TTS]: Локальная генерация {gender} голоса...")
         from gtts import gTTS
-        # Генерируем аудиопоток ответа на русском языке
+        
+        # Генерируем аудиопоток локально средствами библиотеки gTTS на русском языке
         tts = gTTS(text=bot_text, lang='ru', slow=False)
         tts.save(output_audio_name)
-        print("✅ Аудио-ответ успешно сгенерирован воркером.")
+        print("✅ Локальный аудио-ответ успешно сохранен на диск воркера.")
     except Exception as e:
-        print(f"❌ Сбой синтеза речи TTS: {e}")
-        # Заглушка, если gTTS не установлен
+        print(f"❌ Сбой локального TTS: {e}")
         with open(output_audio_name, "wb") as f: f.write(b"")
+
 
     # Шаг 5: Пушим готовые результаты (Текст + Аудио) обратно на сервер Skulla
     try:
