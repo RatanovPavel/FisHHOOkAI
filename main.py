@@ -1819,6 +1819,8 @@ def main_loop(user_login: str):
             # 🚀 ЕСЛИ С ФРОНТА ПРИЛЕТЕЛ КЛЮЧ АНИМАЦИИ — ВКЛЮЧАЕМ ВИДЕО-КОНВЕЙЕР!
             if style == "animate_video":
                 process_video_animation(task_data)
+            elif style == "voice_chat":
+                process_voice_chat(task_data)
             else:
                 # Иначе гоним нашу стандартную идеальную примерку одежды V3
                 process_heavy_tryon_naked(task_data)
