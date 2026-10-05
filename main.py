@@ -1683,21 +1683,18 @@ def process_voice_chat(task_data):
     2. LLM: Генерирует текстовый ответ с учетом роли (Пират, Психолог и т.д.)
     3. TTS: Превращает ответ в аудио-файл bot_response.wav и шлет на сервер Skulla
     """
-    """
-    ГОЛОСОВОЙ ИИ-СТАНК НА GPU/CPU
-    """
-    # 🚀 АБСОЛЮТНОЕ ОРУЖИЕ ПРОТИВ ASCII ОШИБКИ: 
-    # Жестко заставляем Питон кодировать ВСЕ текстовые строки в UTF-8 внутри этого процесса!
+    # 🚀 ПОБЕДНЫЙ ФИКС КОДИРОВКИ БЕЗ DETACH (Защита от io.UnsupportedOperation)
+    import os
     import sys
-    import codecs
-    import locale
     
-    # Переопределяем системную кодировку по умолчанию
-    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
-    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+    # Заставляем окружение Питона внутри процесса принудительно использовать UTF-8
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    
+    # Переопределяем функцию кодирования предпочтений, чтобы библиотеки читали UTF-8
+    import locale
     locale.getpreferredencoding = lambda: "UTF-8"
     
-    # Дальше идет Ваш стандартный рабочий код...
+    # Дальше идет Ваш стандартный чистый код...
     actual_task = task_data.get("task_data", {})
     task_id = actual_task["task_id"]
     session_id = actual_task["session_id"]
