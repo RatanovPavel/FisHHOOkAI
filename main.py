@@ -1753,13 +1753,13 @@ def process_voice_chat(task_data):
     # ====================================================
     bot_text = ""
     try:
-        print(f"🧠 [УМНЫЙ ИИ]: Загрузка контекстной модели Llama-3.1-8B на GPU...")
+        print(f"🧠 [УМНЫЙ ИИ]: Загрузка контекстной модели Qwen-7B-AWQ на GPU...")
         from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
         import json
 
-        # Используем умную, сжатую Llama-3.1, адаптированную под скорость на T4
-        model_id = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4" # 🚀 ХАК: Qwen-7B в GPTQ формате — гений русского языка, весит 4.3 ГБ и работает быстрее всех на T4!
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Перешли на стабильный и невероятно умный AWQ-формат модели Qwen 2.5!
+        model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModelForCausalLM.from_pretrained(
@@ -1767,6 +1767,7 @@ def process_voice_chat(task_data):
             device_map="auto",
             torch_dtype=torch.float16
         )
+
         
         # Характеры персонажей для Повелителя
         system_prompts = {
