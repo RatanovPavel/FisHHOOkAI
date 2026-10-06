@@ -1759,7 +1759,7 @@ def process_voice_chat(task_data):
         import json
 
         # Используем умную, сжатую Llama-3.1, адаптированную под скорость на T4
-        model_id = "Qwen/Qwen2.5-7B-Instruct-GPTQ" # 🚀 ХАК: Qwen-7B в GPTQ формате — гений русского языка, весит 4.3 ГБ и работает быстрее всех на T4!
+        model_id = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4" # 🚀 ХАК: Qwen-7B в GPTQ формате — гений русского языка, весит 4.3 ГБ и работает быстрее всех на T4!
         
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModelForCausalLM.from_pretrained(
