@@ -1723,21 +1723,30 @@ def process_voice_chat(task_data):
         print(f"❌ Сбой сети при скачивании аудио: {e}")
         return False
 
-    # Шаг 2: Переводим аудио в текст через Whisper
-    user_text = ""
-    try:
-        print("⏳ [STT]: Инициализация Whisper...")
-        # Используем быструю и точную библиотеку SpeechRecognition
-        import speech_recognition as sr
-        r = sr.Recognizer()
-        with sr.AudioFile(local_input_audio) as source:
-            audio_data = r.record(source)
-            # Локально без интернета распознаем речь через быстрый встроенный движок Sphinx или Google API
-            user_text = r.recognize_google(audio_data, language="ru")
-        print(f"🗣️ [Пользователь наговорил]: {user_text}")
-    except Exception as e:
-        print(f"⚠️ Ошибка STT распознавания (возможно промолчал): {e}")
-        user_text = "Пользователь просто вздохнул или промолчал."
+    # ----------------------------------------------------
+    # ШАГ 2: КОРРЕКТИРОВКА ВХОДНОГО ТЕКСТА (Голос или Инпут)
+    # ----------------------------------------------------
+    # Проверяем, прислал ли Повелитель текст руками через инпут сайта
+    web_text_message = actual_task.get("text_message", "")
+    
+    if web_text_message.strip():
+        # Если прилетел текст из инпута — берём его без распознавания!
+        user_text = web_text_message.strip()
+        print(f"✍️ [ТЕКСТОВЫЙ ВВОД]: Повелитель прислал текст руками: {user_text}")
+    else:
+        # Если инпут пустой — распознаём голос из WAV файла
+        user_text = ""
+        try:
+            print("⏳ [STT]: Инициализация Whisper...")
+            import speech_recognition as sr
+            r = sr.Recognizer()
+            with sr.AudioFile(local_input_audio) as source:
+                audio_data = r.record(source)
+                user_text = r.recognize_google(audio_data, language="ru")
+            print(f"🗣️ [Whisper распознал]: {user_text}")
+        except Exception as e:
+            print(f"⚠️ Ошибка STT распознавания (возможно промолчал): {e}")
+            user_text = "Пользователь просто вздохнул или промолчал."
 
     # ====================================================
     # ШАГ 3: 100% ЛОКАЛЬНЫЙ ИИ-МОЗГ (TinyLlama на GPU)
@@ -1824,19 +1833,26 @@ def process_voice_chat(task_data):
         with open(output_audio_name, "wb") as f: f.write(b"")
 
 
-    # Шаг 5: Пушим готовые результаты (Текст + Аудио) обратно на сервер Skulla
+    # ----------------------------------------------------
+    # ШАГ 5: ХИТРЫЙ ПУШ ТЕКСТА НА СЕРВЕР ЧЕРЕЗ URL
+    # ----------------------------------------------------
     try:
+        import urllib.parse
         print(f"📤 Отправка результатов голосовой задачи {task_id} на бэкенд...")
+        
+        # Безопасно кодируем русские строки для передачи прямо внутри URL адреса запроса!
+        # Это обойдёт любые ограничения старого серверного роута V2!
+        encoded_user = urllib.parse.quote(user_text)
+        encoded_bot = urllib.parse.quote(bot_text)
+        
+        # 🚀 ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Передаем тексты прямо в Query-параметрах адреса submit_result!
+        upload_endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result?task_id={task_id}&user_login={user_login}&user_text={encoded_user}&bot_text={encoded_bot}"
+        
         with open(output_audio_name, "rb") as f:
             files = {"image": (output_audio_name, f, "audio/wav")}
-            # 🚀 ПЕРЕДАЕМ И ТЕКСТЫ И ФАЙЛ ОДНИМ ПАКЕТОМ!
-            data = {
-                "task_id": task_id, 
-                "user_login": user_login,
-                "user_text": user_text,
-                "bot_text": bot_text
-            }
-            requests.post(f"{SERVER_URL}/api/studio/fishhook/submit_result", data=data, files=files, timeout=30)
+            data = {"task_id": task_id, "user_login": user_login}
+            
+            requests.post(upload_endpoint, data=data, files=files, timeout=30)
         print(f"🏁 [УСПЕХ]: Голосовая задача {task_id} успешно закрыта!")
         
         # Зачищаем локальные файлы на диске воркера
