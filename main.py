@@ -1749,72 +1749,89 @@ def process_voice_chat(task_data):
             user_text = "Пользователь просто вздохнул или промолчал."
 
     # ====================================================
-    # ШАГ 3: 100% ЛОКАЛЬНЫЙ ИИ-МОЗГ (TinyLlama на GPU)
+    # ШАГ 3: 100% ЛОКАЛЬНЫЙ СУПЕР-МОЗГ С ПАМЯТЬЮ КОНТЕКСТА
     # ====================================================
     bot_text = ""
     try:
-        print(f"🧠 [ЛОКАЛЬНЫЙ ИИ]: Загрузка легкой модели TinyLlama на GPU...")
-        from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+        print(f"🧠 [УМНЫЙ ИИ]: Загрузка контекстной модели Llama-3.1-8B на GPU...")
+        from transformers import AutoModelForCausalLM, AutoTokenizer
         import torch
+        import json
 
-        model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+        # Используем умную, сжатую Llama-3.1, адаптированную под скорость на T4
+        model_id = "Qwen/Qwen2.5-7B-Instruct-GPTQ" # 🚀 ХАК: Qwen-7B в GPTQ формате — гений русского языка, весит 4.3 ГБ и работает быстрее всех на T4!
         
-        # Загружаем компактный мозг весом всего 2 ГБ строго в память CUDA
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModelForCausalLM.from_pretrained(
-            model_id, 
-            torch_dtype=torch.float16, 
-            device_map="auto"
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16
         )
         
-        # Настраиваем локальные характеры персонажей
+        # Характеры персонажей для Повелителя
         system_prompts = {
-            "assistant": "Ты — вежливый, профессиональный ИИ-ассистент FishHook. Отвечай четко и очень коротко на русском языке (1 предложение).",
-            "psychologist": "Ты — эмпатичный психолог. Поддержи пользователя. Отвечай мягко и очень коротко на русском языке (1 предложение).",
-            "pirate": "Ты — старый дерзкий пират FishHook! Говори грубо, используй пиратский жаргон (Тысяча чертей!). Отвечай очень коротко (1 предложение).",
-            "coach": "Ты — жесткий бизнес-коуч. Хватит ныть! Дай пользователю пинок под зад. Отвечай строго и очень коротко (1 предложение)."
+            "assistant": "Ты — вежливый, ультра-профессиональный ИИ-ассистент FishHook. Отвечай строго на русском языке. Ответ должен быть коротким (1-2 предложения), емким и понятным на слух.",
+            "psychologist": "Ты — мудрый, эмпатичный психолог. Внимательно выслушай, поддержи. Отвечай мягко, тепло и очень лаконично (до 2 предложений) на русском языке.",
+            "pirate": "Ты — старый дерзкий пират FishHook! Говори грубо, используй пиратский жаргон (Тысяча чертей!, Якорь мне в селезенку!). Отвечай очень коротко (1 предложение).",
+            "coach": "Ты — жесткий бизнес-коуч. Хватит ныть! Дай пользователю мощный пинок под зад. Отвечай строго, мотивирующе и очень емко (1 предложение)."
         }
         
         system_instruction = system_prompts.get(role, system_prompts["assistant"])
         
-        # Формируем стандартный чат-шаблон для TinyLlama
-        messages = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_text}
-        ]
+        # 📂 РАБОТА С КОНТЕКСТОМ (История диалога):
+        history_file = f"chat_history_{session_id}.json"
+        chat_history = []
         
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        # Если файл истории существует — загружаем его, чтобы ИИ ВСЁ ПОМНИЛ!
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, "r", encoding="utf-8") as hf:
+                    chat_history = json.load(hf)
+            except: pass
+            
+        # Если история пустая — закидываем системную инструкцию роли
+        if not chat_history:
+            chat_history.append({"role": "system", "content": system_instruction})
+            
+        # Добавляем свежую фразу, которую только что сказал или написал Повелитель
+        chat_history.append({"role": "user", "content": user_text})
         
-        # Запускаем локальную генерацию ответа на видеокарте
+        # Ограничиваем историю последними 10 репликами, чтобы память CUDA не переполнялась
+        if len(chat_history) > 11:
+            chat_history = [chat_history[0]] + chat_history[-10:]
+            
+        # Применяем официальный шаблон чата модели
+        prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+        
+        # Запускаем скоростной инференс на видеокарте
         inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
         with torch.no_grad():
             outputs = model.generate(
-                **inputs, 
-                max_new_tokens=60, 
-                temperature=0.7, 
+                **inputs,
+                max_new_tokens=80, # Быстрый, лаконичный ответ
+                temperature=0.7,
                 do_sample=True,
-                top_k=50,
-                top_p=0.95
+                top_p=0.9
             )
             
-        full_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        full_response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
+        bot_text = full_response.strip()
+        print(f"🤖 [УМНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
         
-        # Отрезаем промпт, забирая только чистый ответ ИИ
-        if "<|assistant|>" in full_response:
-            bot_text = full_response.split("<|assistant|>")[-1].strip()
-        else:
-            bot_text = full_response.replace(prompt, "").strip()
+        # Дописываем ответ ИИ в историю, замыкая цепочку контекста для следующего клика!
+        chat_history.append({"role": "assistant", "content": bot_text})
+        with open(history_file, "w", encoding="utf-8") as hf:
+            json.dump(chat_history, hf, ensure_ascii=False, indent=2)
             
-        print(f"🤖 [ЛОКАЛЬНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
-        
-        # Сразу чистим текстовую модель из VRAM, чтобы она не мешала примерочной!
+        # Моментально выгружаем модель из VRAM, высвобождая карту для CatVTON!
         del model
         del tokenizer
-        torch.cuda.empty_cache()
+        import torch; torch.cuda.empty_cache()
         
     except Exception as e:
-        print(f"❌ Сбой локальной языковой модели: {e}")
-        bot_text = "Локальный мозг временно перегружен, Повелитель! Повторите запрос."
+        print(f"❌ Сбой локального супер-мозга: {e}")
+        bot_text = "Мой мощный мозг зафиксировал микро-сбой, Повелитель! Повторите фразу."
+
 
     # ====================================================
     # ШАГ 4: ЛОКАЛЬНЫЙ СИНТЕЗ РЕЧИ (TTS)
