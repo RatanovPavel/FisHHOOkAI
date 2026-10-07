@@ -233,39 +233,42 @@ def process_voice_chat(task_data):
 # ====================================================
 # 🔄 3. ГЛАВНЫЙ АСИНХРОННЫЙ ЦИКЛ ОПРОСА (LONG POLLING) 🔄
 # ====================================================
-def main_loop():
-    """
-    БЕСКОНЕЧНЫЙ ВОРКЕР:
-    Непрерывно слушает оперативную память Вашего сервера Skulla и хватает задачи голоса!
-    """
-    print("\n🚀 Локальный мультимодальный воркер запущен и слушает сервер Skulla...")
+def main_loop(user_login: str):
+    clean_login = user_login.lower().strip()
     
-    # Принудительно вызываем инициализацию ИИ-моделей в VRAM при включении скрипта!
+    # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Раскомментировали и запустили центральный загрузчик ИИ-моделей!
+    # Теперь при старте воркер монолитно усадит Qwen-7B-AWQ и Фотогенератор в память GPU!
     init_vton_models()
     
-    user_login = "ratanov_pavel"
-    endpoint = f"{SERVER_URL}/api/studio/fishhook/get_task/{user_login}"
+    print("\n" + "="*60)
+    print("🚀 [ПРОФЕССИОНАЛЬНЫЙ СТАНК] FISHHOOK MULTIMODAL ENGINE ЗАПУЩЕН")
+    print("="*60)
     
     while True:
-        try:
-            res = requests.get(endpoint, timeout=10)
-            if res.status_code == 200:
-                task_data = res.json()
-                status = task_data.get("status")
-                
-                if status == "success":
-                    # Передаем задачу в наш сквозной ИИ-конвейер
-                    process_voice_chat(task_data)
-                elif status == "no_tasks":
-                    pass
-            elif res.status_code == 404:
-                print("⚠️ Ошибка 404: Роут опроса не найден на сервере Skulla!")
-                time.sleep(5)
-        except Exception as e:
-            print(f"🔌 Потеря связи с сервером Skulla: {e}")
+        # 1. Запрашиваем задачу с сервера Skulla
+        task_data = fetch_task_from_server(clean_login)
+        
+        # 2. Проверяем, что ответ пришел и сервер подтвердил статус "success"
+        if task_data and task_data.get("status") == "success":
+            style = task_data.get("task_data", {}).get("prompt_style", "")
+            
+            # ЕСЛИ С ФРОНТА ПРИЛЕТЕЛ КЛЮЧ АНИМАЦИИ — ВКЛЮЧАЕМ ВИДЕО-КОНВЕЙЕР!
+            if style == "animate_video":
+                process_video_animation(task_data)
+            elif style == "voice_chat":
+                # Передаем задачу в наш сквозной ИИ-конвейер бесцензурного общения и фотогенерации!
+                process_voice_chat(task_data)
+            else:
+                # Иначе гоним стандартную идеальную примерку одежды V3 (legacy)
+                process_heavy_tryon_naked(task_data)
+        else:
+            # Если задач нет (статус "no_tasks"), плавно печатаем точки ожидания
+            print(".", end="", flush=True)
             time.sleep(3)
-        time.sleep(1)
 
-# 🚀 ИСПРАВЛЕНО ПОВЕЛИТЕЛЕМ: Восстановили системные подчеркивания для автозапуска!
 if __name__ == "__main__":
-    main_loop()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--login", type=str, required=True)
+    args = parser.parse_args()
+    main_loop(args.login)
