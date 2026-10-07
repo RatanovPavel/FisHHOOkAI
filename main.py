@@ -2124,40 +2124,51 @@ def process_voice_chat(task_data):
     try:
         if os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
             
-            # Конвертируем браузерный WebM/OGG в чистый PCM WAV через FFmpeg
+            # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Проверяем и принудительно доставляем модуль whisper на лету!
+            # Это на корню уничтожает ошибку "No module named 'whisper'"!
+            try:
+                import whisper
+            except ImportError:
+                print("📦 [ЛОКАЛЬНЫЙ STT]: Модуль whisper отсутствует! Накатываем официальный пакет...")
+                os.system("pip install -q openai-whisper")
+                import whisper # Финальный импорт в память процесса
+            
+            # Конвертируем браузерный WebM/OGG в чистый PCM WAV через утилиту FFmpeg
             converted_audio = os.path.join(session_dir, "clean_pcm_voice.wav")
-            print("🎬 [ЛОКАЛЬНЫЙ STT]: Конвертация аудиопотока через FFmpeg...")
+            print("🎬 [ЛОКАЛЬНЫЙ STT]: Выравнивание аудиопотока через FFmpeg...")
             os.system(f'ffmpeg -y -i "{local_input_audio}" -ar 16000 -ac 1 -c:a pcm_s16le "{converted_audio}" > /dev/null 2>&1')
             
             if os.path.exists(converted_audio) and os.path.getsize(converted_audio) > 100:
-                print("⏳ [ЛОКАЛЬНЫЙ STT]: Инициализация OpenAI Whisper прямо на Вашей видеокарте...")
+                print("⏳ [ЛОКАЛЬНЫЙ STT]: Запуск OpenAI Whisper на видеокарте CUDA...")
                 r = sr.Recognizer()
                 with sr.AudioFile(converted_audio) as source:
+                    # Очищаем дорожку от шумов окружения микрофона для идеальной точности
                     r.adjust_for_ambient_noise(source, duration=0.2)
                     audio_data = r.record(source)
                     
-                    # 🚀 ЛОКАЛЬНЫЙ ХАК ДЛЯ ПОВЕЛИТЕЛЯ:
-                    # Метод recognize_whisper загружает легковесную и сверхточную модель весом в 140 МБ
-                    # прямо в VRAM и выполняет расшифровку полностью локально на русском языке!
+                    # 🚀 ЛОКАЛЬНЫЙ ИНФЕРЕНС: Загружаем умную модель "base" и расшифровываем на русском языке!
                     user_text = r.recognize_whisper(
                         audio_data, 
-                        model="base",       # "base" — идеальный баланс ума и скорости для русского языка
-                        language="russian"
+                        model="base",       # Идеальный баланс ума и скорости
+                        language="russian"  # Принудительно отсекаем галлюцинации чужих языков
                     )
                     
-                # Зачищаем временный файл
-                os.remove(converted_audio)
+                # Чистим за собой временный PCM-файл на диске Колаба
+                if os.path.exists(converted_audio): 
+                    os.remove(converted_audio)
             else:
-                user_text = "FFmpeg не смог перекодировать файл."
+                user_text = "Критическая ошибка: FFmpeg не смог перекодировать аудиопоток."
                 print(f"❌ [ЛОКАЛЬНЫЙ STT]: {user_text}")
                 
             print(f"🗣️ [ЛОКАЛЬНЫЙ STT РАСПОЗНАЛ]: {user_text}")
         else:
-            user_text = "Колаб получил пустой файл или тишину!"
+            user_text = "Колаб перехватил пустой аудиофайл или тишину!"
             print(f"⚠️ [ЛОКАЛЬНЫЙ STT]: {user_text}")
+            
     except Exception as e:
         print(f"⚠️ [ЛОКАЛЬНЫЙ STT]: Ошибка распознавания: {e}")
         user_text = f"Не удалось локально распознать звук. Ошибка: {str(e)}"
+
 
 
     # ====================================================
