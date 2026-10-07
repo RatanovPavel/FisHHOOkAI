@@ -110,10 +110,16 @@ import torch
 def init_vton_models():
     import sys
     import os
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Тотальное цементирование Сверхразума Qwen-7B на видеокарте T4...")
     
+    # 🚀 АБСОЛЮТНОЕ ОРУЖИЕ ПОВЕЛИТЕЛЯ ПРОТИВ ФРАГМЕНТАЦИИ И OOM:
+    # Жестко заставляем PyTorch динамически выделять память и сшивать куски VRAM!
+    os.environ["PYTORCH_ALLOC_CONF"] = "expandable_segments:True"
+    
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Тотальное цементирование Сверхразума Qwen-7B на видеокарте T4...")
+    # Дальше идет Ваш стандартный чистый код...
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
+
     
     # 🚀 ИСПРАВЛЕНО ПОВЕЛИТЕЛЕМ: Никаких картинок и примерок! Карта принадлежит только Qwen!
     global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
