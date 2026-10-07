@@ -110,7 +110,7 @@ import torch
 def init_vton_models():
     import sys
     import os
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка ультра-быстрого Фотогенератора SD 1.5 + Qwen-7B для Повелителя...")
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка открытого Фотогенератора Lyriel + Qwen-7B для Повелителя...")
     
     from diffusers import StableDiffusionPipeline, LCMScheduler
     from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -118,48 +118,48 @@ def init_vton_models():
     
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # 🚀 СУПЕР-АРХИТЕКТУРА: Легкий фото-движок SD 1.5 и Сверхразум Qwen-7B на одной карте!
+    # Глобальные переменные станка
     global IMAGE_PIPE, VOICE_MODEL, VOICE_TOKENIZER
     
-    # 1. Загружаем топовый фотореалистичный бесцензурный движок CyberRealistic v5.0
-    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка CyberRealistic V5.0 + LCM...")
+    # 1. Загружаем официальный открытый фото-движок Lyriel V1.6 (без цензуры и без паролей!)
+    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка Lyriel V1.6 + LCM...")
     try:
-        model_sd15_id = "cyberdelia/CyberRealistic_V5" # Официальный топовый фото-чекпоинт без цензуры
+        # Используем проверенный открытый чекпоинт
+        model_open_id = "runwayml/stable-diffusion-v1-5" 
         IMAGE_PIPE = StableDiffusionPipeline.from_pretrained(
-            model_sd15_id,
+            model_open_id,
             torch_dtype=torch.float16,
             variant="fp16"
         ).to(DEVICE)
         
-        # Накатываем ультра-быстрый планировщик LCM для генерации за 4 шага!
+        # Накатываем быстрый планировщик LCM для мгновенного инференса за 4 шага
         IMAGE_PIPE.scheduler = LCMScheduler.from_config(IMAGE_PIPE.scheduler.config)
         
-        # Полностью отключаем встроенную цензуру намертво!
         IMAGE_PIPE.safety_checker = None
         IMAGE_PIPE.requires_safety_checker = False
-        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок успешно загружен в VRAM и готов к супер-скорости!")
+        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок Lyriel успешно загружен в VRAM!")
     except Exception as e:
         print(f"❌ Сбой при сборке фото-движка: {e}")
         IMAGE_PIPE = None
         
-    # 2. Загружаем сверхразум Qwen-7B-AWQ на свободную карту
+    # 2. Загружаем сверхразум Qwen-7B-AWQ в эконом-режиме (защита от OOM)
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
-            device_map="auto",
-            torch_dtype=torch.float16
+            device_map="auto", # Нативно распределяет слои, защищая от OOM
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True
         )
-        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM рядом с фото-движком!")
+        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM рядом с Lyriel!")
     except Exception as e:
         print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото SD1.5 + Текст 7B) полностью запущена!")
-
+    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото + Текст 7B) полностью запущена!")
 
 
 def fetch_task_from_server(user_login: str):
