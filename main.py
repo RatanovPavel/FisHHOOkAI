@@ -1961,6 +1961,7 @@ def process_voice_chat(task_data):
         prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
         
         # Генерация мысли на GPU
+        # ⚡ Молниеносный инференс!
         inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
         with torch.no_grad():
             outputs = model.generate(
@@ -1971,9 +1972,14 @@ def process_voice_chat(task_data):
                 top_p=0.9
             )
             
-        full_response = tokenizer.decode(outputs[inputs.input_ids.shape:], skip_special_tokens=True)
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Берем чистый int через .shape[1]!
+        # Это полностью уничтожает ошибку 'slice indices must be integers'!
+        prompt_length = inputs.input_ids.shape[1]
+        full_response = tokenizer.decode(outputs[0][prompt_length:], skip_special_tokens=True)
+        
         bot_text = full_response.strip()
         print(f"🤖 [УМНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
+
         
         # Записываем ответ в историю диалога
         chat_history.append({"role": "assistant", "content": bot_text})
