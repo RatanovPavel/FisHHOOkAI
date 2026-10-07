@@ -1859,7 +1859,7 @@ def process_voice_chat_old2(task_data):
         print(f"❌ Ошибка отправки результатов на сервер: {e}")
         return False
 
-def process_voice_chat(task_data):
+def process_voice_chat123(task_data):
     """
     100% ЛОКАЛЬНЫЙ ГОЛОСОВОЙ И ТЕКСТОВЫЙ СТАНК ПОВЕЛИТЕЛЯ
     Инициализация модели происходит строго НА ЛЕТУ в процессе работы
@@ -2076,6 +2076,99 @@ def process_voice_chat(task_data):
     except Exception as e:
         print(f"❌ Ошибка отправки результатов на сервер: {e}")
 
+def process_voice_chat(task_data):
+    """
+    🔬 ТЕСТОВЫЙ КОНВЕЙЕР ПОВЕЛИТЕЛЯ:
+    Скачивает аудиофайл с сервера, распознает его в текст и сразу выводит на сайт!
+    """
+    import os
+    import sys
+    import time
+    import requests
+    import speech_recognition as sr
+
+    # 1. Разбираем входящий пакет задачи
+    actual_task = task_data.get("task_data", {})
+    task_id = actual_task.get("task_id")
+    session_id = actual_task.get("session_id")
+    user_login = actual_task.get("user_login")
+
+    print(f"\n🔬 [STT ТЕСТ]: Начало обработки задачи {task_id}...")
+    
+    # Строим пути на локальном диске Колаба
+    session_dir = f"./uploads/{session_id}"
+    os.makedirs(session_dir, exist_ok=True)
+    local_input_audio = os.path.join(session_dir, "user_voice.wav")
+    output_audio_name = "bot_response.wav"
+
+    # ====================================================
+    # ШАГ 1: ХАРДКОРНОЕ СКАЧИВАНИЕ ФАЙЛА С СЕРВЕРА SKULLA
+    # ====================================================
+    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=user_voice.wav"
+    print(f"📥 [STT ТЕСТ]: Скачиваем аудио по адресу: {download_url}")
+    try:
+        res = requests.get(download_url, timeout=20)
+        if res.status_code == 200:
+            with open(local_input_audio, "wb") as f:
+                f.write(res.content)
+            print(f"✅ [STT ТЕСТ]: Файл успешно скачан и сохранен в: {local_input_audio}")
+        else:
+            print(f"❌ [STT ТЕСТ]: Сервер вернул ошибку {res.status_code} при скачивании!")
+    except Exception as e:
+        print(f"❌ [STT ТЕСТ]: Сбой сети при скачивании файла: {e}")
+
+    # ====================================================
+    # ШАГ 2: ЧИСТОЕ РАСПОЗНАВАНИЕ РЕЧИ (Google ru-RU)
+    # ====================================================
+    user_text = ""
+    try:
+        if os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
+            print("⏳ [STT ТЕСТ]: Отправляем аудиопоток в Google API...")
+            r = sr.Recognizer()
+            with sr.AudioFile(local_input_audio) as source:
+                r.adjust_for_ambient_noise(source, duration=0.3)
+                audio_data = r.record(source)
+                # Намертво зашиваем русскую локализацию региона
+                user_text = r.recognize_google(audio_data, language="ru-RU")
+            print(f"🗣️ [STT ТЕСТ РАСПОЗНАЛ]: {user_text}")
+        else:
+            user_text = "Колаб получил пустой файл-пустышку или тишину!"
+            print(f"⚠️ [STT ТЕСТ]: {user_text}")
+    except Exception as e:
+        print(f"⚠️ [STT ТЕСТ]: Ошибка распознавания: {e}")
+        user_text = f"Не удалось распознать звук. Ошибка API: {str(e)}"
+
+    # ====================================================
+    # ШАГ 3: ДЕФОЛТНЫЙ ДУБЛИКАТ ДЛЯ TTS (Чтобы плеер на сайте не зависал)
+    # ====================================================
+    bot_text = f"Повелитель, я успешно распознал Ваш голос! Вы сказали: {user_text}"
+    try:
+        from gtts import gTTS
+        tts = gTTS(text="Текст успешно выведен на экран", lang='ru', slow=False)
+        tts.save(output_audio_name)
+    except:
+        with open(output_audio_name, "wb") as f: f.write(b"")
+
+    # ====================================================
+    # ШАГ 4: МГНОВЕННЫЙ ПУШ РЕЗУЛЬТАТОВ НА САЙТ SKULLA
+    # ====================================================
+    try:
+        import urllib.parse
+        encoded_user = urllib.parse.quote(user_text)
+        encoded_bot = urllib.parse.quote(bot_text)
+        
+        upload_endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result?task_id={task_id}&user_login={user_login}&user_text={encoded_user}&bot_text={encoded_bot}"
+        
+        with open(output_audio_name, "rb") as f:
+            files = {"image": (output_audio_name, f, "audio/wav")}
+            requests.post(upload_endpoint, data={"task_id": task_id, "user_login": user_login}, files={f"image": (output_audio_name, f, "audio/wav")}, timeout=30)
+            
+        # Зачищаем локальные хвосты в Колабе
+        if os.path.exists(local_input_audio): os.remove(local_input_audio)
+        if os.path.exists(output_audio_name): os.remove(output_audio_name)
+        print(f"🏁 [STT ТЕСТ]: Данные успешно отправлены, задача {task_id} закрыта!")
+    except Exception as e:
+        print(f"❌ [STT ТЕСТ]: Ошибка отправки на сервер: {e}")
 
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
