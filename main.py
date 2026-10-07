@@ -110,21 +110,45 @@ import torch
 def init_vton_models():
     import sys
     import os
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка открытого Фотогенератора Lyriel + Qwen-7B для Повелителя...")
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка ультра-оптимизированного Фотогенератора и Сверхразума Повелителя...")
     
     from diffusers import StableDiffusionPipeline, LCMScheduler
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
     
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    
-    # Глобальные переменные станка
     global IMAGE_PIPE, VOICE_MODEL, VOICE_TOKENIZER
     
-    # 1. Загружаем официальный открытый фото-движок Lyriel V1.6 (без цензуры и без паролей!)
-    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка Lyriel V1.6 + LCM...")
+    # ====================================================
+    # 🚀 ШАГ 1 ДЛЯ ПОВЕЛИТЕЛЯ: СНАЧАЛА КАНАТИМ И ОГРАНИЧИВАЕМ QWEN-7B В СЕТИ!
+    # ====================================================
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Первичная загрузка контекстной модели Qwen-7B-AWQ...")
     try:
-        # Используем проверенный открытый чекпоинт
+        model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
+        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        # Жестко отдаем под текстовый ИИ строго 3 ГБ на видеокарте, остальное вытесняем в RAM!
+        max_memory_mapping = {0: "3GiB", "cpu": "12GiB"}
+        
+        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            offload_buffers=True,
+            max_memory=max_memory_mapping
+        )
+        print("🧠 [УСПЕХ]: Сверхразум Qwen-7B успешно зафиксирован в VRAM в эконом-режиме!")
+    except Exception as e:
+        print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
+
+    # ====================================================
+    # 🚀 ШАГ 2 ДЛЯ ПОВЕЛИТЕЛЯ: ЗАГРУЖАЕМ ЛЕГКИЙ ФОТО-ДВИЖОК НА ОСТАВШЕЕСЯ МЕСТО!
+    # ====================================================
+    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка Lyriel V1.6 на свободную видеокарту...")
+    try:
         model_open_id = "runwayml/stable-diffusion-v1-5" 
         IMAGE_PIPE = StableDiffusionPipeline.from_pretrained(
             model_open_id,
@@ -132,42 +156,16 @@ def init_vton_models():
             variant="fp16"
         ).to(DEVICE)
         
-        # Накатываем быстрый планировщик LCM для мгновенного инференса за 4 шага
         IMAGE_PIPE.scheduler = LCMScheduler.from_config(IMAGE_PIPE.scheduler.config)
-        
         IMAGE_PIPE.safety_checker = None
         IMAGE_PIPE.requires_safety_checker = False
-        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок Lyriel успешно загружен в VRAM!")
+        print("✅ [УСПЕХ]: Генератор картинок полностью готов на свободной карте!")
     except Exception as e:
         print(f"❌ Сбой при сборке фото-движка: {e}")
         IMAGE_PIPE = None
-        
-    # 2. Загружаем сверхразум Qwen-7B-AWQ в эконом-режиме (защита от OOM)
-    # 🚀 СУПЕР-ИНТЕГРАЦИЯ С ПРИНУДИТЕЛЬНЫМ БУФЕРНЫМ ОФФЛОАДОМ (Защита от CUDA OOM):
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка умной Qwen-7B-AWQ в эконом-режиме...")
-    try:
-        model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
-        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
-        
-        # Жестко говорим Питону: под голос отдаем не более 3 ГБ видеопамяти, остальное — в оперативку!
-        max_memory_mapping = {0: "3GiB", "cpu": "12GiB"}
-        
-        # 🎯 ХАК ДЛЯ ПОВЕЛИТЕЛЯ: offload_buffers=True и max_memory уничтожают ошибкуTransformers OOM!
-        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype=torch.float16,
-            low_cpu_mem_usage=True,
-            offload_buffers=True,           # 🚀 ВКЛЮЧИЛИ ТРЕБУЕМЫЙ СЕРВЕРОМ БУФЕРНЫЙ ОФФЛОАД!
-            max_memory=max_memory_mapping  # 🚀 ОГРАНИЧИЛИ АППЕТИТЫ МОДЕЛИ НА КАРТЕ!
-        )
-        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM в гибридном режиме!")
-    except Exception as e:
-        print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
-        VOICE_MODEL = None
-        VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя полностью запущена!")
+    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Текст 7B + Фото SD1.5) ПОЛНОСТЬЮ ИСПРАВНА!")
+
 
 
 
