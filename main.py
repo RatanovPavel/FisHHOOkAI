@@ -1758,15 +1758,21 @@ def process_voice_chat(task_data):
         import torch
         import json
 
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Перешли на стабильный и невероятно умный AWQ-формат модели Qwen 2.5!
+
+        # Вместо стандартного AutoModelForCausalLM загружаем её через Heretic, который на лету вырезает цензурные веса!
+        from heretic import Heretic
+        
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype=torch.float16
-        )
+        # Инструмент разблокирует слои внимания модели прямо в памяти CUDA
+        tokenizer, model = Heretic.load(model_id, device_map="auto", torch_dtype=torch.float16)
+
+
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Перешли на стабильный и невероятно умный AWQ-формат модели Qwen 2.5!
+        #model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
+        
+        #tokenizer = AutoTokenizer.from_pretrained(model_id)
+        #model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", torch_dtype=torch.float16)
 
         
         # Характеры персонажей для Повелителя
