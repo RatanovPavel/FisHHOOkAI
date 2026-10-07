@@ -2118,25 +2118,42 @@ def process_voice_chat(task_data):
         print(f"❌ [STT ТЕСТ]: Сбой сети при скачивании файла: {e}")
 
     # ====================================================
-    # ШАГ 2: ЧИСТОЕ РАСПОЗНАВАНИЕ РЕЧИ (Google ru-RU)
+    # ШАГ 2: ЧИСТОЕ РАСПОЗНАВАНИЕ РЕЧИ (С Конвертацией WebM -> WAV через FFmpeg)
     # ====================================================
     user_text = ""
     try:
         if os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
-            print("⏳ [STT ТЕСТ]: Отправляем аудиопоток в Google API...")
-            r = sr.Recognizer()
-            with sr.AudioFile(local_input_audio) as source:
-                r.adjust_for_ambient_noise(source, duration=0.3)
-                audio_data = r.record(source)
-                # Намертво зашиваем русскую локализацию региона
-                user_text = r.recognize_google(audio_data, language="ru-RU")
+            
+            # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Конвертируем браузерный WebM/OGG в настоящий PCM WAV!
+            converted_audio = os.path.join(session_dir, "clean_pcm_voice.wav")
+            print("🎬 [STT ТЕСТ]: Принудительная конвертация аудиопотока через FFmpeg...")
+            
+            # Вызываем системный ffmpeg, который пережимает любой формат в идеальный PCM 16kHz Mono WAV
+            # Флаг -y разрешает перезаписывать файл, если он уже существует
+            os.system(f'ffmpeg -y -i "{local_input_audio}" -ar 16000 -ac 1 -c:a pcm_s16le "{converted_audio}" > /dev/null 2>&1')
+            
+            if os.path.exists(converted_audio) and os.path.getsize(converted_audio) > 100:
+                print("⏳ [STT ТЕСТ]: Отправляем перекодированный PCM WAV в Google API...")
+                r = sr.Recognizer()
+                with sr.AudioFile(converted_audio) as source:
+                    r.adjust_for_ambient_noise(source, duration=0.2)
+                    audio_data = r.record(source)
+                    user_text = r.recognize_google(audio_data, language="ru-RU")
+                    
+                # Зачищаем временный чистый файл
+                os.remove(converted_audio)
+            else:
+                user_text = "FFmpeg не смог перекодировать файл (возможно, он поврежден)."
+                print(f"❌ [STT ТЕСТ]: {user_text}")
+                
             print(f"🗣️ [STT ТЕСТ РАСПОЗНАЛ]: {user_text}")
         else:
-            user_text = "Колаб получил пустой файл-пустышку или тишину!"
+            user_text = "Колаб получил пустой файл или тишину!"
             print(f"⚠️ [STT ТЕСТ]: {user_text}")
     except Exception as e:
         print(f"⚠️ [STT ТЕСТ]: Ошибка распознавания: {e}")
         user_text = f"Не удалось распознать звук. Ошибка API: {str(e)}"
+
 
     # ====================================================
     # ШАГ 3: ДЕФОЛТНЫЙ ДУБЛИКАТ ДЛЯ TTS (Чтобы плеер на сайте не зависал)
