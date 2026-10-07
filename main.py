@@ -2118,41 +2118,46 @@ def process_voice_chat(task_data):
         print(f"❌ [STT ТЕСТ]: Сбой сети при скачивании файла: {e}")
 
     # ====================================================
-    # ШАГ 2: ЧИСТОЕ РАСПОЗНАВАНИЕ РЕЧИ (С Конвертацией WebM -> WAV через FFmpeg)
+    # ШАГ 2: 100% ЛОКАЛЬНОЕ РАСПОЗНАВАНИЕ РЕЧИ (Whisper на GPU)
     # ====================================================
     user_text = ""
     try:
         if os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
             
-            # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Конвертируем браузерный WebM/OGG в настоящий PCM WAV!
+            # Конвертируем браузерный WebM/OGG в чистый PCM WAV через FFmpeg
             converted_audio = os.path.join(session_dir, "clean_pcm_voice.wav")
-            print("🎬 [STT ТЕСТ]: Принудительная конвертация аудиопотока через FFmpeg...")
-            
-            # Вызываем системный ffmpeg, который пережимает любой формат в идеальный PCM 16kHz Mono WAV
-            # Флаг -y разрешает перезаписывать файл, если он уже существует
+            print("🎬 [ЛОКАЛЬНЫЙ STT]: Конвертация аудиопотока через FFmpeg...")
             os.system(f'ffmpeg -y -i "{local_input_audio}" -ar 16000 -ac 1 -c:a pcm_s16le "{converted_audio}" > /dev/null 2>&1')
             
             if os.path.exists(converted_audio) and os.path.getsize(converted_audio) > 100:
-                print("⏳ [STT ТЕСТ]: Отправляем перекодированный PCM WAV в Google API...")
+                print("⏳ [ЛОКАЛЬНЫЙ STT]: Инициализация OpenAI Whisper прямо на Вашей видеокарте...")
                 r = sr.Recognizer()
                 with sr.AudioFile(converted_audio) as source:
                     r.adjust_for_ambient_noise(source, duration=0.2)
                     audio_data = r.record(source)
-                    user_text = r.recognize_google(audio_data, language="ru-RU")
                     
-                # Зачищаем временный чистый файл
+                    # 🚀 ЛОКАЛЬНЫЙ ХАК ДЛЯ ПОВЕЛИТЕЛЯ:
+                    # Метод recognize_whisper загружает легковесную и сверхточную модель весом в 140 МБ
+                    # прямо в VRAM и выполняет расшифровку полностью локально на русском языке!
+                    user_text = r.recognize_whisper(
+                        audio_data, 
+                        model="base",       # "base" — идеальный баланс ума и скорости для русского языка
+                        language="russian"
+                    )
+                    
+                # Зачищаем временный файл
                 os.remove(converted_audio)
             else:
-                user_text = "FFmpeg не смог перекодировать файл (возможно, он поврежден)."
-                print(f"❌ [STT ТЕСТ]: {user_text}")
+                user_text = "FFmpeg не смог перекодировать файл."
+                print(f"❌ [ЛОКАЛЬНЫЙ STT]: {user_text}")
                 
-            print(f"🗣️ [STT ТЕСТ РАСПОЗНАЛ]: {user_text}")
+            print(f"🗣️ [ЛОКАЛЬНЫЙ STT РАСПОЗНАЛ]: {user_text}")
         else:
             user_text = "Колаб получил пустой файл или тишину!"
-            print(f"⚠️ [STT ТЕСТ]: {user_text}")
+            print(f"⚠️ [ЛОКАЛЬНЫЙ STT]: {user_text}")
     except Exception as e:
-        print(f"⚠️ [STT ТЕСТ]: Ошибка распознавания: {e}")
-        user_text = f"Не удалось распознать звук. Ошибка API: {str(e)}"
+        print(f"⚠️ [ЛОКАЛЬНЫЙ STT]: Ошибка распознавания: {e}")
+        user_text = f"Не удалось локально распознать звук. Ошибка: {str(e)}"
 
 
     # ====================================================
