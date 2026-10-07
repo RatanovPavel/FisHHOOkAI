@@ -143,23 +143,32 @@ def init_vton_models():
         IMAGE_PIPE = None
         
     # 2. Загружаем сверхразум Qwen-7B-AWQ в эконом-режиме (защита от OOM)
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ...")
+    # 🚀 СУПЕР-ИНТЕГРАЦИЯ С ПРИНУДИТЕЛЬНЫМ БУФЕРНЫМ ОФФЛОАДОМ (Защита от CUDA OOM):
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка умной Qwen-7B-AWQ в эконом-режиме...")
     try:
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        # Жестко говорим Питону: под голос отдаем не более 3 ГБ видеопамяти, остальное — в оперативку!
+        max_memory_mapping = {0: "3GiB", "cpu": "12GiB"}
+        
+        # 🎯 ХАК ДЛЯ ПОВЕЛИТЕЛЯ: offload_buffers=True и max_memory уничтожают ошибкуTransformers OOM!
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
-            device_map="auto", # Нативно распределяет слои, защищая от OOM
+            device_map="auto",
             torch_dtype=torch.float16,
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
+            offload_buffers=True,           # 🚀 ВКЛЮЧИЛИ ТРЕБУЕМЫЙ СЕРВЕРОМ БУФЕРНЫЙ ОФФЛОАД!
+            max_memory=max_memory_mapping  # 🚀 ОГРАНИЧИЛИ АППЕТИТЫ МОДЕЛИ НА КАРТЕ!
         )
-        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM рядом с Lyriel!")
+        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM в гибридном режиме!")
     except Exception as e:
         print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото + Текст 7B) полностью запущена!")
+    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя полностью запущена!")
+
 
 
 def fetch_task_from_server(user_login: str):
