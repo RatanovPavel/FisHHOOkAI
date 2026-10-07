@@ -110,63 +110,34 @@ import torch
 def init_vton_models():
     import sys
     import os
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка ультра-оптимизированного Фотогенератора и Сверхразума Повелителя...")
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Тотальное цементирование Сверхразума Qwen-7B на видеокарте T4...")
     
-    from diffusers import StableDiffusionPipeline, LCMScheduler
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
     
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    global IMAGE_PIPE, VOICE_MODEL, VOICE_TOKENIZER
+    # 🚀 ИСПРАВЛЕНО ПОВЕЛИТЕЛЕМ: Никаких картинок и примерок! Карта принадлежит только Qwen!
+    global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
+    IMAGE_PIPE = None  # Принудительно глушим фотогенератор
     
-    # ====================================================
-    # 🚀 ШАГ 1 ДЛЯ ПОВЕЛИТЕЛЯ: СНАЧАЛА КАНАТИМ И ОГРАНИЧИВАЕМ QWEN-7B В СЕТИ!
-    # ====================================================
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Первичная загрузка контекстной модели Qwen-7B-AWQ...")
+    # Загружаем сверхразум Qwen-7B-AWQ на 100% чистую видеокарту
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ на чистую CUDA...")
     try:
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
-        # Жестко отдаем под текстовый ИИ строго 3 ГБ на видеокарте, остальное вытесняем в RAM!
-        max_memory_mapping = {0: "3GiB", "cpu": "12GiB"}
-        
+        # Загружаем модель без ограничений по памяти — пускай забирает всю карту T4!
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
-            torch_dtype=torch.float16,
-            low_cpu_mem_usage=True,
-            offload_buffers=True,
-            max_memory=max_memory_mapping
+            torch_dtype=torch.float16
         )
-        print("🧠 [УСПЕХ]: Сверхразум Qwen-7B успешно зафиксирован в VRAM в эконом-режиме!")
+        print("🧠 [УСПЕХ]: Сверхразум Qwen-7B успешно зацементирован в VRAM видеокарты!")
     except Exception as e:
-        print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
+        print(f"❌ Критический сбой при сборке голосового ИИ-пайплайна: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # ====================================================
-    # 🚀 ШАГ 2 ДЛЯ ПОВЕЛИТЕЛЯ: ЗАГРУЖАЕМ ЛЕГКИЙ ФОТО-ДВИЖОК НА ОСТАВШЕЕСЯ МЕСТО!
-    # ====================================================
-    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка Lyriel V1.6 на свободную видеокарту...")
-    try:
-        model_open_id = "runwayml/stable-diffusion-v1-5" 
-        IMAGE_PIPE = StableDiffusionPipeline.from_pretrained(
-            model_open_id,
-            torch_dtype=torch.float16,
-            variant="fp16"
-        ).to(DEVICE)
-        
-        IMAGE_PIPE.scheduler = LCMScheduler.from_config(IMAGE_PIPE.scheduler.config)
-        IMAGE_PIPE.safety_checker = None
-        IMAGE_PIPE.requires_safety_checker = False
-        print("✅ [УСПЕХ]: Генератор картинок полностью готов на свободной карте!")
-    except Exception as e:
-        print(f"❌ Сбой при сборке фото-движка: {e}")
-        IMAGE_PIPE = None
-
-    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Текст 7B + Фото SD1.5) ПОЛНОСТЬЮ ИСПРАВНА!")
-
-
+    print("✨ [УСПЕХ]: Видеокарта T4 полностью оккупирована Сверхразумом Повелителя!")
 
 
 def fetch_task_from_server(user_login: str):
