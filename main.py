@@ -110,36 +110,39 @@ import torch
 def init_vton_models():
     import sys
     import os
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Тотальная зачистка станка под Фотогенератор и Голос Повелителя...")
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Сборка ультра-быстрого Фотогенератора SD 1.5 + Qwen-7B для Повелителя...")
     
-    from diffusers import StableDiffusionXLPipeline, AutoencoderKL
+    from diffusers import StableDiffusionPipeline, LCMScheduler
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
     
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # 🚀 АРХИТЕКТУРА ПОВЕЛИТЕЛЯ: Только Генерация Картинок (IMAGE_PIPE) и Локальный Голос/Текст (VOICE)
+    # 🚀 СУПЕР-АРХИТЕКТУРА: Легкий фото-движок SD 1.5 и Сверхразум Qwen-7B на одной карте!
     global IMAGE_PIPE, VOICE_MODEL, VOICE_TOKENIZER
     
-    # 1. Загружаем топовый, скоростной фотореалистичный движок Juggernaut XL (Lightning-версия)
-    # Выдает шедевры кинематографичного качества всего за 4-8 шагов инференса!
-    print("🖼️ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка фотореалистичного генератора изображений...")
+    # 1. Загружаем топовый фотореалистичный бесцензурный движок CyberRealistic v5.0
+    print("🖼️ [ФОТО-ДВИЖОК]: Загрузка CyberRealistic V5.0 + LCM...")
     try:
-        IMAGE_PIPE = StableDiffusionXLPipeline.from_pretrained(
-            "SG161222/RealVisXL_V4.0_Lightning", # Самый фотореалистичный чекпоинт без цензуры
+        model_sd15_id = "cyberdelia/CyberRealistic_V5" # Официальный топовый фото-чекпоинт без цензуры
+        IMAGE_PIPE = StableDiffusionPipeline.from_pretrained(
+            model_sd15_id,
             torch_dtype=torch.float16,
             variant="fp16"
         ).to(DEVICE)
         
-        # Отключаем встроенные цензурные фильтры безопасности на аппаратном уровне!
+        # Накатываем ультра-быстрый планировщик LCM для генерации за 4 шага!
+        IMAGE_PIPE.scheduler = LCMScheduler.from_config(IMAGE_PIPE.scheduler.config)
+        
+        # Полностью отключаем встроенную цензуру намертво!
         IMAGE_PIPE.safety_checker = None
         IMAGE_PIPE.requires_safety_checker = False
-        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок успешно загружен в VRAM и полностью разблокирован!")
+        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок успешно загружен в VRAM и готов к супер-скорости!")
     except Exception as e:
         print(f"❌ Сбой при сборке фото-движка: {e}")
         IMAGE_PIPE = None
         
-    # 2. Загружаем сверхразум Qwen-7B-AWQ на абсолютно свободную карту
+    # 2. Загружаем сверхразум Qwen-7B-AWQ на свободную карту
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
@@ -149,13 +152,13 @@ def init_vton_models():
             device_map="auto",
             torch_dtype=torch.float16
         )
-        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM!")
+        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM рядом с фото-движком!")
     except Exception as e:
         print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото + Текст) полностью готова!")
+    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото SD1.5 + Текст 7B) полностью запущена!")
 
 
 
