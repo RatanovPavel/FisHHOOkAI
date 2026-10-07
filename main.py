@@ -1892,6 +1892,7 @@ def process_voice_chat(task_data):
     # ====================================================
     # ШАГ 1: ПОЛУЧЕНИЕ ТЕКСТА (ВВОД ИЛИ РАСПОЗНАВАНИЕ ГОЛОСА)
     # ====================================================
+    '''
     if web_text_message.strip():
         user_text = web_text_message.strip()
         print(f"✍️ [ТЕКСТОВЫЙ ВВОД]: Принят текст руками: {user_text}")
@@ -1910,6 +1911,51 @@ def process_voice_chat(task_data):
         except Exception as e:
             print(f"⚠️ Ошибка STT распознавания: {e}")
             user_text = "Пользователь просто вздохнул или промолчал."
+    '''
+
+        # ====================================================
+    # ШАГ 1: ТЕСТОВЫЙ ИЗОЛИРОВАННЫЙ СТЕНД РАСПОЗНАВАНИЯ (STT)
+    # ====================================================
+    if web_text_message.strip():
+        user_text = web_text_message.strip()
+        print(f"✍️ [ТЕКСТ]: Повелитель набрал руками: {user_text}")
+    else:
+        user_text = ""
+        try:
+            print("⏳ [STT ТЕСТ]: Проверка аудиофайла на диске...")
+            import speech_recognition as sr
+            
+            if os.path.exists(local_input_audio):
+                print(f"📦 [STT ТЕСТ]: Файл найден по пути: {local_input_audio}")
+                print(f"Размер файла: {os.path.getsize(local_input_audio)} байт")
+                
+                r = sr.Recognizer()
+                with sr.AudioFile(local_input_audio) as source:
+                    # Корректируем шумы
+                    r.adjust_for_ambient_noise(source, duration=0.2)
+                    audio_data = r.record(source)
+                    
+                    print("📡 [STT ТЕСТ]: Отправка аудиопотока в Google API (ru-RU)...")
+                    # Пробуем распознать чистую речь
+                    user_text = r.recognize_google(audio_data, language="ru-RU")
+                    
+                print(f"🎯 [STT РЕЗУЛЬТАТ]: Гугл успешно распознал: «{user_text}»")
+            else:
+                user_text = "ОШИБКА: Файл user_voice.wav физически отсутствует в папке сессии!"
+                print(f"❌ [STT ТЕСТ]: {user_text}")
+                
+        except sr.UnknownValueError:
+            user_text = "ОШИБКА: Google API не смог разобрать ни одного слова (в файле тишина или шум)."
+            print(f"⚠️ [STT ТЕСТ]: {user_text}")
+        except sr.RequestError as e:
+            user_text = f"ОШИБКА: Проблема с доступом к серверам распознавания Google: {e}"
+            print(f"❌ [STT ТЕСТ]: {user_text}")
+        except Exception as e:
+            user_text = f"ОШИБКА: Системный сбой Питона при чтении звука: {e}"
+            print(f"❌ [STT ТЕСТ]: {user_text}")
+
+    # Чтобы проверить только этот шаг, давайте временно заставим ИИ просто повторить распознанный текст!
+    bot_text = f"Я услышал от Вас следующую фразу: {user_text}"
 
     # ====================================================
     # ШАГ 2: ДИНАМИЧЕСКАЯ ИНИЦИАЛИЗАЦИЯ QWEN-7B-AWQ НА ЛЕТУ
