@@ -112,18 +112,20 @@ def init_vton_models():
     import os
     if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
         sys.path.append("/content/CatVTON_repo")
-        print("🎯 [INIT GPU]: Пути CatVTON_repo успешно подключены внутри функции!")
-
+        print("⚙️ [INIT GPU]: Пути CatVTON_repo успешно подключены внутри функции!")
+        
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
-    
-    # Твои рабочие локальные импорты теперь выполнятся идеально!
     from model.pipeline import CatVTONPipeline
     from utils import init_weight_dtype
     from diffusers import StableVideoDiffusionPipeline
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    import torch
     
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    global VTON_V3_PIPE, VIDEO_PIPE
-    # Загружаем базовый инпаинт чекпоинт и накатываем веса внимания CatVTON
+    # 🚀 ДОБАВИЛИ НАШИ ПЕРЕМЕННЫЕ В СПИСОК ГЛOБАЛОК СТАНКА!
+    global VTON_V3_PIPE, VIDEO_PIPE, VOICE_MODEL, VOICE_TOKENIZER
+    
+    # Твой базовый инпейнт чекпоинт CatVTON
     VTON_V3_PIPE = CatVTONPipeline(
         base_ckpt="booksforcharlie/stable-diffusion-inpainting",
         attn_ckpt="zhengchong/CatVTON",
@@ -133,28 +135,38 @@ def init_vton_models():
         device=DEVICE,
         skip_safety_check=True
     )
-
+    
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка видео-движка Stable Video Diffusion...")
     try:
-        # Загружаем SVD-XT
         VIDEO_PIPE = StableVideoDiffusionPipeline.from_pretrained(
             "stabilityai/stable-video-diffusion-img2vid-xt",
             torch_dtype=torch.float16,
             variant="fp16"
         )
-        
-        # 🚀 ЖЕСТКИЙ ФИКС СОБАКИ: Полностью УДАЛИЛИ сломанную строку VIDEO_PIPE.vae.enable_slicing()!
-        # Вместо неё используем последовательный оффлоад и chunking — они работают без сбоев и OOM
-        VIDEO_PIPE.enable_sequential_cpu_offload() 
+        VIDEO_PIPE.enable_sequential_cpu_offload()
         VIDEO_PIPE.unet.enable_forward_chunking()
-        
-        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов, инициализирован и оптимизирован под T4!")
+        print("🎨 [УСПЕХ]: Видео-движок SVD полностью готов и оптимизирован под T4!")
     except Exception as e:
         print(f"❌ Критический сбой при сборке видео-пайплайна: {e}")
+        
+    # 🚀 СУПЕР-ИНТЕГРАЦИЯ ДЛЯ ПОВЕЛИТЕЛЯ: Сажаем сверхразум намертво в буфер видеокарты!
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ...")
+    try:
+        model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
+        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16
+        )
+        print("🧠 [УСПЕХ]: Сверхразум Qwen-7B успешно зацементирован в VRAM и готов к диалогу!")
+    except Exception as e:
+        print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
 
+    print("✨ [УСПЕХ]: Все локальные ИИ-модели станции полностью прогружены на GPU!")
 
-
-    print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
 
 def fetch_task_from_server(user_login: str):
     clean_login = user_login.lower().strip()
