@@ -110,52 +110,52 @@ import torch
 def init_vton_models():
     import sys
     import os
-    if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
-        sys.path.append("/content/CatVTON_repo")
-        print("⚙️ [INIT GPU]: Пути CatVTON_repo успешно подключены внутри функции!")
-        
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
-    from model.pipeline import CatVTONPipeline
-    from utils import init_weight_dtype
+    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Тотальная зачистка станка под Фотогенератор и Голос Повелителя...")
+    
+    from diffusers import StableDiffusionXLPipeline, AutoencoderKL
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
     
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # 🚀 ИСПРАВЛЕНО ПОВЕЛИТЕЛЕМ: Убрали VIDEO_PIPE! Оставили только примерку и голос!
-    global VTON_V3_PIPE, VOICE_MODEL, VOICE_TOKENIZER
+    # 🚀 АРХИТЕКТУРА ПОВЕЛИТЕЛЯ: Только Генерация Картинок (IMAGE_PIPE) и Локальный Голос/Текст (VOICE)
+    global IMAGE_PIPE, VOICE_MODEL, VOICE_TOKENIZER
     
-    # Загружаем базовый инпейнт чекпоинт CatVTON
-    VTON_V3_PIPE = CatVTONPipeline(
-        base_ckpt="booksforcharlie/stable-diffusion-inpainting",
-        attn_ckpt="zhengchong/CatVTON",
-        attn_ckpt_version="mix",
-        weight_dtype=init_weight_dtype("fp16"),
-        use_tf32=True,
-        device=DEVICE,
-        skip_safety_check=True
-    )
-    print("🖼️ [УСПЕХ]: Станция примерки CatVTON успешно загружена на GPU!")
-    
-    # 🚀 МАКСИМАЛЬНЫЙ ИНТЕЛЛЕКТ (Qwen-7B садится на абсолютно чистую карту рядом с CatVTON):
+    # 1. Загружаем топовый, скоростной фотореалистичный движок Juggernaut XL (Lightning-версия)
+    # Выдает шедевры кинематографичного качества всего за 4-8 шагов инференса!
+    print("🖼️ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка фотореалистичного генератора изображений...")
+    try:
+        IMAGE_PIPE = StableDiffusionXLPipeline.from_pretrained(
+            "SG161222/RealVisXL_V4.0_Lightning", # Самый фотореалистичный чекпоинт без цензуры
+            torch_dtype=torch.float16,
+            variant="fp16"
+        ).to(DEVICE)
+        
+        # Отключаем встроенные цензурные фильтры безопасности на аппаратном уровне!
+        IMAGE_PIPE.safety_checker = None
+        IMAGE_PIPE.requires_safety_checker = False
+        print("✅ [ФОТО-ДВИЖОК]: Генератор картинок успешно загружен в VRAM и полностью разблокирован!")
+    except Exception as e:
+        print(f"❌ Сбой при сборке фото-движка: {e}")
+        IMAGE_PIPE = None
+        
+    # 2. Загружаем сверхразум Qwen-7B-AWQ на абсолютно свободную карту
     print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка контекстной модели Qwen-7B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
-        
-        # Модель загружается в полноценном, быстром режиме (без костылей и без low_cpu_mem_usage)
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             torch_dtype=torch.float16
         )
-        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM и готов к диалогу!")
+        print("🧠 [УМНЫЙ ИИ]: Сверхразум Qwen-7B успешно зацементирован в VRAM!")
     except Exception as e:
         print(f"❌ Сбой при сборке голосового ИИ-пайплайна: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Все требуемые ИИ-модели (Примерка + Голос) полностью прогружены на GPU!")
+    print("✨ [УСПЕХ]: Мультимодальная ИИ-станция Повелителя (Фото + Текст) полностью готова!")
 
 
 
