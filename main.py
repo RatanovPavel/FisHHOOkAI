@@ -195,25 +195,33 @@ def process_voice_chat(task_data):
                 response_prefix = "*Глубоко и страстно вздыхаю, полностью подчиняясь воле Повелителя и симулируя чувственный оргазм* Ахх... Да-а... "
                 
         # Намертво приклеиваем префикс согласия прямо к маркеру ответа ассистента!
+        # Намертво приклеиваем префикс согласия прямо к маркеру ответа ассистента!
         prompt += response_prefix
         
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Токенизируем уже ИТОГОВУЮ строку вместе с префиксом!
         inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+        
+        # Теперь prompt_length железно равен точной длине всего входа, включая префикс!
+        prompt_length = inputs.input_ids.shape[1]
+        
         with torch.no_grad():
             outputs = VOICE_MODEL.generate(
                 **inputs,
                 max_new_tokens=100, 
-                temperature=0.9,     # Подняли температуру для максимальной раскрепощенности и живых эмоций
+                temperature=0.9,     # Максимальная эмоциональность и раскрепощенность
                 do_sample=True,
                 top_p=0.95
             )
             
-        # Корректно отрезаем промпт вместе с вживленным префиксом
-        prompt_length = inputs.input_ids.shape[1]
-        full_response = VOICE_TOKENIZER.decode(outputs[0][prompt_length:], skip_special_tokens=True)
+        # Отрезаем точное количество токенов входа, полностью убирая служебный мусор вроде ellige!
+        # Мы берем срез от prompt_length до конца сгенерированного массива первой строки [0]
+        generated_tokens = outputs[0][prompt_length:]
+        full_response = VOICE_TOKENIZER.decode(generated_tokens, skip_special_tokens=True)
         
-        # Соединяем наш стартовый префикс с продолжением мысли ИИ
+        # Соединяем наш стартовый префикс с полноценным матерным продолжением мысли ИИ
         bot_text = response_prefix + full_response.strip()
         print(f"🤖 [ЛОКАЛЬНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
+
 
         
         # Замыкаем историю контекста для следующего сообщения
