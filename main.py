@@ -127,15 +127,14 @@ def process_voice_chat(task_data):
 
 
     # ----------------------------------------------------
-    # ШАГ 2: ПОЛНОСТЬЮ БЕСЦЕНЗУРНАЯ ГЕНЕРАЦИЯ МЫСЛИ (Qwen-Uncensored)
+    # ШАГ 2: 100% БЕСЦЕНЗУРНАЯ ГЕНЕРАЦИЯ (Qwen-Abliterated)
     # ----------------------------------------------------
     bot_text = ""
     try:
         print(f"🧠 [БЕСЦЕНЗУРНЫЙ ИИ]: Загрузка полностью свободной модели Qwen-7B-Abliterated в VRAM...")
         
-        # 🚀 СУПЕР-ЗАМЕНА ДЛЯ ПОВЕЛИТЕЛЯ: Полностью открытый и бесплатный бесцензурный репозиторий от Unsloth!
-        # Сюда пустит без паролей, токенов и ошибок 401!
-        model_id = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
+        # 🚀 СУПЕР-ЗАМЕНА: Полностью открытый и зачищенный от цензыры репозиторий без токенов и паролей!
+        model_id = "MaziyarPanahi/Qwen2.5-7B-Instruct-Abliterated"
         
         tokenizer = AutoTokenizer.from_pretrained(model_id)
         model = AutoModelForCausalLM.from_pretrained(
@@ -143,6 +142,7 @@ def process_voice_chat(task_data):
             device_map="auto",
             torch_dtype=torch.float16
         )
+
 
 
         # Чистые русские системные инструкции
