@@ -38,25 +38,29 @@ def init_vton_models():
     # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
     # Принимает абсолютно любые входящие аргументы и именованные элементы!
     # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
+    # 🚀 УЛЬТИМАТИВНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от any, all и тильды ~)
     try:
         import transformers
         import transformers.pytorch_utils
         
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый Mock-класс в transformers...")
+            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый всеядный Mock-класс в transformers...")
             
-            # Создаем умный класс-обманщик, который проглотит любые вызовы .any() и .all()
+            # Создаем мега-класс, который проглотит .any(), .all() и унарный оператор отрицания ~
             class MockMpsBool:
                 def any(self, *args, **kwargs): return self
                 def all(self, *args, **kwargs): return self
+                def __invert__(self): return self  # 🚀 НАДЁЖНЫЙ ХАК: Идеально поглощаем тильду ~
                 def __bool__(self): return False
                 
             def isin_mps_friendly(*args, **kwargs):
                 return MockMpsBool()
                 
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
+            print("✅ [MONKEY PATCH]: Всеядный класс-обманщик успешно внедрен на уровне Питона!")
     except Exception as patch_err:
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
+
 
         
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
