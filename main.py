@@ -1,27 +1,25 @@
 import os
 import sys
-import time
 import json
-import torch
+import time
 import requests
-from gtts import gTTS
-import speech_recognition as sr
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+import gc
+import re  # 🚀 СУПЕР-ФИКС ПОВЕЛИТЕЛЯ №1: Вернули системный импорт регулярных выражений!
 
-# Базовые конфигурации станка Повелителя
-SERVER_URL = "https://skulla.ru"
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # Глобальные переменные для удержания ИИ-моделей в оперативной памяти видеокарты
 VOICE_MODEL = None
 VOICE_TOKENIZER = None
-TTS_ENGINE = None  # 🚀 Переменная для вечного удержания XTTS v2 в памяти
+TTS_ENGINE = None
 IMAGE_PIPE = None 
 
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Автоматически обновляет пути файловой системы Linux в памяти процесса.
-    Внедряет Monkey Patch для обхода конфликта версий transformers на лету!
+    Автоматически обновляет пути файловой системы Linux в памяти процесса,
+    намертво вживляя autoawq и gptqmodel в ОЗУ Питона!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
@@ -31,18 +29,21 @@ def init_vton_models():
     import os
     os.environ["COQUI_TOS_AGREED"] = "1"
     
-    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Динамический рефреш путей в ОЗУ
+    # Динамический рефреш путей в ОЗУ (Намертво цементирует gptqmodel и autoawq)
     for directory in site.getsitepackages():
         if directory not in sys.path:
             sys.path.append(directory)
             
-    # 🚀 ЯДЕРНЫЙ ХАК ПОВЕЛИТЕЛЯ (MONKEY PATCHING):
-    # Искусственно создаем отсутствующую функцию в памяти Питона до импорта Coqui-TTS!
+    # Принудительно подтягиваем gptqmodel в sys.modules, чтобы transformers не слепнул
+    try:
+        import gptqmodel
+    except: pass
+            
+    # ЯДЕРНЫЙ ХАК ПОВЕЛИТЕЛЯ (MONKEY PATCHING)
     try:
         import transformers
         import transformers.pytorch_utils
         
-        # Нагло создаем заглушку, которую ищет старый код Coqui в новом Hugging Face
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
             print("🧪 [MONKEY PATCH]: Вживляем функцию isin_mps_friendly в transformers на лету...")
             def isin_mps_friendly(tensor):
@@ -53,6 +54,8 @@ def init_vton_models():
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
 
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
+    # Дальше идет Ваш готовый идеальный код загрузки Qwen и XTTS v2...
+
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
