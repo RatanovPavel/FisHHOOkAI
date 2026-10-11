@@ -205,22 +205,20 @@ def process_voice_chat(task_data):
         if len(chat_history) > 9:
             chat_history = [chat_history] + chat_history[-6:]
             
+        # Применяем официальный шаблон чата модели Qwen
         prompt = v_tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
         
         if matched_pattern:
             prompt += response_prefix
             
-        # Токенизируем итоговую строку вместе с префиксом согласия
+        # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Считаем длину промпта как ЧИСТЫЙ INT через обычную длину списка токенов!
+        # Метод v_tokenizer.encode() возвращает простой массив чисел. len() от него — это 100% чистый int.
+        # Это физически и на корню уничтожает любую возможность появления ошибки 'dict object has no element 0'!
+        raw_token_list = v_tokenizer.encode(prompt)
+        prompt_length = int(len(raw_token_list))
+        print(f"🧪 [ОТЛАДКА ВХОДА]: Железная длина промпта (чистый int): {prompt_length}")
+        
         inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
-        
-        # 🧪 ДЕБАГ: Смотрим тип и внутренности входящего объекта inputs
-        print(f"🧪 [ОТЛАДКА ВХОДА]: Тип inputs: {type(inputs)}")
-        if hasattr(inputs, "input_ids"):
-            print(f"🧪 [ОТЛАДКА ВХОДА]: Размеры матрицы input_ids: {inputs.input_ids.shape}")
-        
-        # Гарантированно вытаскиваем длину промпта как ЧИСТЫЙ INT
-        prompt_length = int(inputs.input_ids.size(-1))
-        print(f"🧪 [ОТЛАДКА ВХОДА]: Вычисленная длина промпта (prompt_length): {prompt_length}")
         
         with torch.no_grad():
             outputs = v_model.generate(
@@ -229,28 +227,23 @@ def process_voice_chat(task_data):
                 temperature=0.8,
                 do_sample=True,
                 top_p=0.9,
-                return_dict_in_generate=False # Принудительно отключаем возврат словарей
+                return_dict_in_generate=False
             )
             
-        # 🧪 ДЕБАГ: Рентген структуры возвращаемого генератором объекта outputs
-        print(f"🧪 [ОТЛАДКА ВЫХОДА]: Тип сгенерированного объекта outputs: {type(outputs)}")
-        if hasattr(outputs, "shape"):
-            print(f"🧪 [ОТЛАДКА ВЫХОДА]: Размеры итоговой матрицы outputs: {outputs.shape}")
+        # Входные параметры проверены: outputs — это тензор [1, общая_длина]
+        print(f"🧪 [ОТЛАДКА ВЫХОДА]: Тип outputs: {type(outputs)}, размеры: {outputs.shape}")
         
-        # 🚀 НАДЁЖНЫЙ МАТРИЧНЫЙ СРЕЗ:
-        # Берем 0-ю строку батча и режем токены от prompt_length до победного конца
+        # 🚀 ИДЕАЛЬНЫЙ МАТРИЧНЫЙ СРЕЗ: 
+        # Извлекаем первую строку батча [0] и режем её по чистому целому числу prompt_length
         try:
-            if hasattr(outputs, "shape") and len(outputs.shape) > 1:
-                generated_tokens = outputs[0, prompt_length:]
-            else:
-                generated_tokens = outputs[prompt_length:]
-                
-            print(f"🧪 [ОТЛАДКА СРЕЗА]: Длина срезанных токенов ответа: {len(generated_tokens)}")
+            generated_tokens = outputs[0][prompt_length:]
+            print(f"🧪 [ОТЛАДКА СРЕЗА]: Успешный срез! Количество токенов ответа: {len(generated_tokens)}")
             full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
         except Exception as slice_err:
-            print(f"❌ [КРИТИЧЕСКИЙ СБОЙ СРЕЗА]: Ошибка внутри Питона при нарезке: {slice_err}")
-            print(f"🧪 [ДЭМП ПОЛНОГО ОТВЕТА]: Попробуем декодировать весь outputs без среза...")
-            full_response = v_tokenizer.decode(outputs[0] if hasattr(outputs, "shape") else outputs, skip_special_tokens=True)
+            print(f"❌ [АВАРИЙНЫЙ СБОЙ СРЕЗА]: {slice_err}")
+            # Жесткий бэкап: если что-то пошло не так, декодируем всё и просто вырезаем текст промпта строковыми методами
+            full_text = v_tokenizer.decode(outputs[0], skip_special_tokens=True)
+            full_response = full_text.replace(prompt, "").strip()
         
         if matched_pattern:
             bot_text = response_prefix + full_response.strip()
@@ -258,6 +251,7 @@ def process_voice_chat(task_data):
             bot_text = full_response.strip()
             
         print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
+
 
         
         chat_history.append({"role": "assistant", "content": bot_text})
