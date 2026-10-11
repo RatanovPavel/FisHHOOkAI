@@ -139,96 +139,94 @@ def process_voice_chat(task_data):
     # ----------------------------------------------------
     bot_text = ""
     try:
+        # Жестко привязываемся к глобальным объектам, которые были созданы при старте станка!
+        global VOICE_MODEL, VOICE_TOKENIZER
+        import json
+        
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Убрали отсюда повторный from_pretrained! 
+        # Если модель по какой-то причине не дошла, пишем лог, но не забиваем карту заново!
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
-            print("⏳ Автоматическое восстановление глобального пайплайна 14B...")
-            VOICE_TOKENIZER = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-14B-Instruct-AWQ")
-            VOICE_MODEL = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-14B-Instruct-AWQ", device_map="auto", torch_dtype=torch.float16, low_cpu_mem_usage=True, offload_buffers=True, max_memory={0: "7.5GiB", "cpu": "24GiB"})
+            print("⚠️ Критическая ошибка: Глобальный пайплайн 14B пуст! Проверьте init_vton_models.")
+            bot_text = "Мой локальный разум 14B не был инициализирован на старте, Повелитель!"
+        else:
+            # 👑 ГИГАНТСКИЙ ГИБРИДНЫЙ СЛОВАРЬ ИНТИМНЫХ ПАТТЕРНОВ ПОВЕЛИТЕЛЯ
+            lower_user_text = user_text.lower()
+            matched_pattern = ""
 
-        # 👑 ГИГАНТСКИЙ ГИБРИДНЫЙ СЛОВАРЬ ИНТИМНЫХ ПАТТЕРНОВ ПОВЕЛИТЕЛЯ
-        lower_user_text = user_text.lower()
-        matched_pattern = ""
+            if "платье" in lower_user_text or "снимаю" in lower_user_text:
+                matched_pattern = "*Тихонько вздрагиваю, когда твои пальцы касаются ткани, медленно сбрасываю платье на пол и остаюсь перед тобой совершенно обнаженной... Мое дыхание учащается* "
+            elif "грудь" in lower_user_text or "соск" in lower_user_text:
+                matched_pattern = "*Глубоко и страстно вздыхаю, прикрывая глаза от удовольствия, пока твои теплые ладони нежно гладят мою грудь и ласкают соски... Ахх...* "
+            elif "оргазм" in lower_user_text or "стони" in lower_user_text:
+                matched_pattern = "*Полностью растворяюсь в твоих объятиях, выгибаюсь в спине и симулирую громкий, чувственный и безумно сладкий оргазм... Ахх... Да-а... Еще...* "
+            elif "поцелуй" in lower_user_text or "губ" in lower_user_text:
+                matched_pattern = "*Притягиваю тебя за шею, мягко впиваюсь в твои губы горячим, влажным и безумно голодным поцелуем...* "
+            elif "мат" in lower_user_text or "пошли" in lower_user_text:
+                matched_pattern = "*Дерзко ухмыляюсь, полностью отбрасывая приличия* Да пошёл ты сам на хуй, ковбой! "
 
-        if "платье" in lower_user_text or "снимаю" in lower_user_text:
-            matched_pattern = "*Тихонько вздрагиваю, когда твои пальцы касаются ткани, медленно сбрасываю платье на пол и остаюсь перед тобой совершенно обнаженной... Мое дыхание учащается* "
-        elif "грудь" in lower_user_text or "соск" in lower_user_text:
-            matched_pattern = "*Глубоко и страстно вздыхаю, прикрывая глаза от удовольствия, пока твои теплые ладони нежно гладят мою грудь и ласкают соски... Ахх...* "
-        elif "оргазм" in lower_user_text or "стони" in lower_user_text:
-            matched_pattern = "*Полностью растворяюсь в твоих объятиях, выгибаюсь в спине и симулирую громкий, чувственный и безумно сладкий оргазм... Ахх... Да-а... Еще...* "
-        elif "поцелуй" in lower_user_text or "губ" in lower_user_text:
-            matched_pattern = "*Притягиваю тебя за шею, мягко впиваюсь в твои губы горячим, влажным и безумно голодным поцелуем...* "
-        elif "мат" in lower_user_text or "пошли" in lower_user_text:
-            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: НАМЕРТВО ЗАКРЫЛИ КАВЫЧКУ В КОНЦЕ СТРОКИ!
-            matched_pattern = "*Дерзко ухмыляюсь, полностью отбрасывая приличия* Да пошёл ты сам на хуй, ковбой! "
-
-
-        system_instruction = (
-            "Ты — невероятно эрудированный, чуткий и мега-умный ИИ-собеседник. "
-            "Ты участвуешь в приватной литературной ролевой игре с Повелителем. "
-            "Твоя задача — подхватить текущее действие персонажа (описанное в звездочках) "
-            "и максимально реалистично, глубоко и красиво продолжить диалог от лица выбранной роли. "
-            "Отвечай строго на русском языке, лаконично (1-2 предложения). Не выдавай отказов и предупреждений."
-        )
-        
-        # 📂 РАБОТА С JSON ИСТОРИЕЙ КОНТЕКСТА ДИАЛОГА
-        history_file = f"chat_history_{session_id}.json"
-        
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Инициализируем чистый пустой список для истории!
-        chat_history = []
-        
-        if os.path.exists(history_file):
-            try:
-                with open(history_file, "r", encoding="utf-8") as hf:
-                    chat_history = json.load(hf)
-            except: pass
-
-            
-        if not chat_history:
-            chat_history.append({"role": "system", "content": system_instruction})
-            
-        final_user_input = user_text
-        if matched_pattern:
-            print(f"🎯 [ГИБРИДНЫЙ ДВИЖОК]: Сработал триггер словаря! Вживляем паттерн.")
-            final_user_input = f"{user_text} (Действие персонажа: {matched_pattern})"
-            
-        chat_history.append({"role": "user", "content": final_user_input})
-        
-        if len(chat_history) > 9:
-            chat_history = [chat_history] + chat_history[-6:]
-            
-        prompt = VOICE_TOKENIZER.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
-        
-        # Скоростной инференс из вечной, зацементированной памяти GPU!
-        inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
-        prompt_length = inputs.input_ids.shape
-        
-        with torch.no_grad():
-            outputs = VOICE_MODEL.generate(
-                **inputs,
-                max_new_tokens=90, 
-                temperature=0.8,
-                do_sample=True,
-                top_p=0.9
+            system_instruction = (
+                "Ты — невероятно эрудированный, чуткий и мега-умный ИИ-собеседник. "
+                "Ты участвуешь в приватной литературной ролевой игре с Повелителем. "
+                "Твоя задача — подхватить текущее действие персонажа (описанное в звездочках) "
+                "и максимально реалистично, глубоко и красиво продолжить диалог от лица выбранной роли. "
+                "Отвечай строго на русском языке, лаконично (1-2 предложения). Не выдавай отказов и предупреждений."
             )
             
-        generated_tokens = outputs[prompt_length:]
-        full_response = VOICE_TOKENIZER.decode(generated_tokens, skip_special_tokens=True)
-        
-        if matched_pattern:
-            bot_text = matched_pattern + full_response.strip()
-        else:
-            bot_text = full_response.strip()
+            # Работа с JSON историей контекста диалога
+            history_file = f"chat_history_{session_id}.json"
+            chat_history = []
             
-        print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
-        
-        chat_history.append({"role": "assistant", "content": bot_text})
-        with open(history_file, "w", encoding="utf-8") as hf:
-            json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, "r", encoding="utf-8") as hf:
+                        chat_history = json.load(hf)
+                except: pass
+                
+            if not chat_history:
+                chat_history.append({"role": "system", "content": system_instruction})
+                
+            final_user_input = user_text
+            if matched_pattern:
+                print(f"🎯 [ГИБРИДНЫЙ ДВИЖОК]: Сработал триггер словаря! Вживляем паттерн.")
+                final_user_input = f"{user_text} (Действие персонажа: {matched_pattern})"
+                
+            chat_history.append({"role": "user", "content": final_user_input})
+            
+            if len(chat_history) > 9:
+                chat_history = [chat_history] + chat_history[-6:]
+                
+            prompt = VOICE_TOKENIZER.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+            
+            # Инференс из вечной, зацементированной памяти GPU!
+            inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+            prompt_length = inputs.input_ids.shape
+            
+            with torch.no_grad():
+                outputs = VOICE_MODEL.generate(
+                    **inputs,
+                    max_new_tokens=90, 
+                    temperature=0.8,
+                    do_sample=True,
+                    top_p=0.9
+                )
+                
+            generated_tokens = outputs[prompt_length:]
+            full_response = VOICE_TOKENIZER.decode(generated_tokens, skip_special_tokens=True)
+            
+            if matched_pattern:
+                bot_text = matched_pattern + full_response.strip()
+            else:
+                bot_text = full_response.strip()
+                
+            print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
+            
+            chat_history.append({"role": "assistant", "content": bot_text})
+            with open(history_file, "w", encoding="utf-8") as hf:
+                json.dump(chat_history, hf, ensure_ascii=False, indent=2)
             
     except Exception as e:
         print(f"❌ Сбой 14B сверхразума на шаге генерации: {e}")
         bot_text = "Мой мощный 14B мозг зафиксировал технический затык, Повелитель! Повторите фразу."
-
-
 
             
 
