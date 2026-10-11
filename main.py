@@ -15,6 +15,9 @@ VOICE_TOKENIZER = None
 TTS_ENGINE = None
 IMAGE_PIPE = None 
 
+# Базовые конфигурации станка Повелителя
+SERVER_URL = "https://skulla.ru"
+
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
