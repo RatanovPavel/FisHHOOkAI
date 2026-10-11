@@ -135,19 +135,25 @@ def process_voice_chat(task_data):
 
 
     # ----------------------------------------------------
-    # ШАГ 2: ГИБРИДНЫЙ СВЕРХРАЗУМ ПОВЕЛИТЕЛЯ (Qwen-14B ИЗ ГЛОБАЛЬНОЙ ПАМЯТИ)
+    # ШАГ 2: ГИБРИДНЫЙ СВЕРХРАЗУМ ПОВЕЛИТЕЛЯ (Qwen-14B ИЗ СИСТЕМНОГО МОДУЛЯ)
     # ----------------------------------------------------
     bot_text = ""
     try:
-        # Жестко привязываемся к глобальным объектам, которые были созданы при старте станка!
-        global VOICE_MODEL, VOICE_TOKENIZER
+        import sys
         import json
         
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Убрали отсюда повторный from_pretrained! 
-        # Если модель по какой-то причине не дошла, пишем лог, но не забиваем карту заново!
-        if VOICE_MODEL is None or VOICE_TOKENIZER is None:
-            print("⚠️ Критическая ошибка: Глобальный пайплайн 14B пуст! Проверьте init_vton_models.")
-            bot_text = "Мой локальный разум 14B не был инициализирован на старте, Повелитель!"
+        # 🚀 АБСОЛЮТНОЕ ОРУЖИЕ: Насильно вытаскиваем модель из кэша модулей Питона!
+        # Это полностью уничтожает слепоту пространства имен Scope!
+        main_mod = sys.modules.get("__main__")
+        current_mod = sys.modules.get("main")
+        
+        # Собираем ссылки из всех возможных контекстов запуска
+        v_model = getattr(main_mod, "VOICE_MODEL", None) or getattr(current_mod, "VOICE_MODEL", None)
+        v_tokenizer = getattr(main_mod, "VOICE_TOKENIZER", None) or getattr(current_mod, "VOICE_TOKENIZER", None)
+        
+        if v_model == "" or v_model is None or v_tokenizer is None:
+            print("⚠️ Критическая ошибка: Глобальный пайплайн 14B пуст во всех модулях!")
+            bot_text = "Мой локальный разум 14B не был найден в памяти модулей, Повелитель!"
         else:
             # 👑 ГИГАНТСКИЙ ГИБРИДНЫЙ СЛОВАРЬ ИНТИМНЫХ ПАТТЕРНОВ ПОВЕЛИТЕЛЯ
             lower_user_text = user_text.lower()
@@ -195,14 +201,14 @@ def process_voice_chat(task_data):
             if len(chat_history) > 9:
                 chat_history = [chat_history] + chat_history[-6:]
                 
-            prompt = VOICE_TOKENIZER.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+            prompt = v_tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
             
-            # Инференс из вечной, зацементированной памяти GPU!
-            inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+            # Намертво привязываем вызов к вытащенным объектам v_tokenizer и v_model
+            inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
             prompt_length = inputs.input_ids.shape
             
             with torch.no_grad():
-                outputs = VOICE_MODEL.generate(
+                outputs = v_model.generate(
                     **inputs,
                     max_new_tokens=90, 
                     temperature=0.8,
@@ -211,7 +217,7 @@ def process_voice_chat(task_data):
                 )
                 
             generated_tokens = outputs[prompt_length:]
-            full_response = VOICE_TOKENIZER.decode(generated_tokens, skip_special_tokens=True)
+            full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
             
             if matched_pattern:
                 bot_text = matched_pattern + full_response.strip()
