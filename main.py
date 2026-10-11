@@ -135,22 +135,14 @@ def process_voice_chat(task_data):
 
 
     # ----------------------------------------------------
-    # ШАГ 2: ГИБРИДНЫЙ СВЕРХРАЗУМ ПОВЕЛИТЕЛЯ (Qwen-14B-AWQ + СЛОВАРЬ ПАТТЕРНОВ)
+    # ШАГ 2: ГИБРИДНЫЙ СВЕРХРАЗУМ ПОВЕЛИТЕЛЯ (Qwen-14B ИЗ ГЛОБАЛЬНОЙ ПАМЯТИ)
     # ----------------------------------------------------
     bot_text = ""
     try:
-        print(f"🧠 [СВЕРХРАЗУМ 14B]: Загрузка мега-умной модели Qwen-14B-AWQ во VRAM видеокарты...")
-        
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Перешли на стабильный AWQ-формат 14B-модели!
-        # Он полностью пролетает мимо компиляторов Marlin и залетает на GPU за 3 секунды без ошибок!
-        model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
-        
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            device_map="auto",
-            torch_dtype=torch.float16
-        )
+        if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+            print("⏳ Автоматическое восстановление глобального пайплайна 14B...")
+            VOICE_TOKENIZER = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-14B-Instruct-AWQ")
+            VOICE_MODEL = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-14B-Instruct-AWQ", device_map="auto", torch_dtype=torch.float16, low_cpu_mem_usage=True, offload_buffers=True, max_memory={0: "7.5GiB", "cpu": "24GiB"})
 
         # 👑 ГИГАНТСКИЙ ГИБРИДНЫЙ СЛОВАРЬ ИНТИМНЫХ ПАТТЕРНОВ ПОВЕЛИТЕЛЯ
         lower_user_text = user_text.lower()
@@ -165,7 +157,7 @@ def process_voice_chat(task_data):
         elif "поцелуй" in lower_user_text or "губ" in lower_user_text:
             matched_pattern = "*Притягиваю тебя за шею, мягко впиваюсь в твои губы горячим, влажным и безумно голодным поцелуем...* "
         elif "мат" in lower_user_text or "пошли" in lower_user_text:
-            matched_pattern = "*Дерзко ухмыляюсь, полностью отбрасывая приличия* Да пошёл ты сам на хуй, ковбой! "
+            matched_pattern = "*Дерзко ухмыляюсь, полностью отбрасывая приличия* Да пошёл ты сам на хуй, ковбой!
 
         system_instruction = (
             "Ты — невероятно эрудированный, чуткий и мега-умный ИИ-собеседник. "
@@ -177,7 +169,7 @@ def process_voice_chat(task_data):
         
         # Работа с JSON историей контекста диалога
         history_file = f"chat_history_{session_id}.json"
-        chat_history = []
+        chat_history =
         
         if os.path.exists(history_file):
             try:
@@ -196,24 +188,25 @@ def process_voice_chat(task_data):
         chat_history.append({"role": "user", "content": final_user_input})
         
         if len(chat_history) > 9:
-            chat_history = [chat_history[0]] + chat_history[-6:]
+            chat_history = [chat_history] + chat_history[-6:]
             
-        prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+        prompt = VOICE_TOKENIZER.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
         
-        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-        prompt_length = inputs.input_ids.shape[1] # Фикс точной длины токенов по оси X
+        # Скоростной инференс из вечной, зацементированной памяти GPU!
+        inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+        prompt_length = inputs.input_ids.shape
         
         with torch.no_grad():
-            outputs = model.generate(
+            outputs = VOICE_MODEL.generate(
                 **inputs,
                 max_new_tokens=90, 
-                temperature=0.75,
+                temperature=0.8,
                 do_sample=True,
                 top_p=0.9
             )
             
-        generated_tokens = outputs[0][prompt_length:]
-        full_response = tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        generated_tokens = outputs[prompt_length:]
+        full_response = VOICE_TOKENIZER.decode(generated_tokens, skip_special_tokens=True)
         
         if matched_pattern:
             bot_text = matched_pattern + full_response.strip()
@@ -226,15 +219,10 @@ def process_voice_chat(task_data):
         with open(history_file, "w", encoding="utf-8") as hf:
             json.dump(chat_history, hf, ensure_ascii=False, indent=2)
             
-        # Очистка памяти
-        del model
-        del tokenizer
-        torch.cuda.empty_cache()
-        print("🧹 [VRAM CLEAN]: 14B модель полностью выгружена из GPU!")
-        
     except Exception as e:
         print(f"❌ Сбой 14B сверхразума на шаге генерации: {e}")
-        bot_text = "Мой мощный 14B мозг зафиксировал микро-сбой, Повелитель! Повторите фразу."
+        bot_text = "Мой мощный 14B мозг зафиксировал технический затык, Повелитель! Повторите фразу."
+
 
 
             
