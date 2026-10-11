@@ -28,7 +28,7 @@ def init_vton_models():
     # Жестко зашиваем согласие с лицензией Coqui в память процесса
     os.environ["COQUI_TOS_AGREED"] = "1"
     
-    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем цементирование Сверхразума Qwen-14B-AWQ...")
+    print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем цементирование Сверхразума Qwen-14B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
@@ -38,17 +38,17 @@ def init_vton_models():
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True
         )
-        print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован во VRAM!")
+        print(f"🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован во VRAM!")
     except Exception as e:
-        print(f"❌ Критический сбой при инициализации весов Qwen: {e}")
+        print("❌ Критический сбой при инициализации весов Qwen: {e}")
 
-    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
+    print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
     try:
         # Инициализируем модель напрямую на чистую видеокарту CUDA
         TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
         print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов клонировать!")
     except Exception as e:
-        print(f"❌ Critical сбой при загрузке XTTS v2: {e}")
+        print("❌ Critical сбой при загрузке XTTS v2: {e}")
 
 
 # ====================================================
