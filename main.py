@@ -315,9 +315,21 @@ def process_voice_chat(task_data):
 def main_loop(user_login: str):
     clean_login = user_login.lower().strip()
     
-    # Инициализация ИИ-моделей в VRAM при включении скрипта — отработала идеально!
+    # 🚀 Инициализация ИИ-моделей в VRAM при включении скрипта — отработала идеально!
     init_vton_models()
     
+    # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Принудительно связываем изолированные контексты Питона!
+    # Это намертво уничтожает слепоту переменных во всех функциях раз и навсегда!
+    import sys
+    if "main" in sys.modules:
+        sys.modules["main"].VOICE_MODEL = VOICE_MODEL
+        sys.modules["main"].VOICE_TOKENIZER = VOICE_TOKENIZER
+        sys.modules["main"].TTS_ENGINE = TTS_ENGINE # Наш локальный XTTS v2
+    if "__main__" in sys.modules:
+        sys.modules["__main__"].VOICE_MODEL = VOICE_MODEL
+        sys.modules["__main__"].VOICE_TOKENIZER = VOICE_TOKENIZER
+        sys.modules["__main__"].TTS_ENGINE = TTS_ENGINE # Наш локальный XTTS v2
+
     print("\n" + "="*60)
     print("🚀 [ПРОФЕССИОНАЛЬНЫЙ СТАНК] FISHHOOK MULTIMODAL ENGINE ЗАПУЩЕН")
     print("="*60)
@@ -327,7 +339,7 @@ def main_loop(user_login: str):
     
     while True:
         try:
-            # 🚀 НАДЁЖНЫЙ ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Вместо неопределенной функции fetch_task_from_server
+            # НАДЁЖНЫЙ ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Вместо неопределенной функции fetch_task_from_server
             # делаем прямой, неубиваемый HTTP-запрос к Вашему бэкенду!
             res = requests.get(endpoint, timeout=10)
             
@@ -367,3 +379,4 @@ if __name__ == "__main__":
     parser.add_argument("--login", type=str, required=True)
     args = parser.parse_args()
     main_loop(args.login)
+
