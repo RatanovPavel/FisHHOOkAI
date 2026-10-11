@@ -52,16 +52,19 @@ def init_vton_models():
     # 🚀 ЛОКАЛЬНАЯ МОДЕЛЬ СТРАСТИ XTTS v2 (Защищено от No module named 'TTS')
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 (2.4 ГБ) в VRAM...")
     try:
-        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Принудительно заставляем Python обновить карту путей,
-        # чтобы он мгновенно увидел пакет TTS без перезагрузки ядер!
         import sys
         import site
+        import importlib
+        
+        # Динамически обновляем пути файловой системы Linux
         for directory in site.getsitepackages():
             if directory not in sys.path:
                 sys.path.append(directory)
                 
-        # Финальный, теперь на 1000% зрячий импорт модели в облаке Колаба
-        from TTS.api import TTS
+        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Вызываем importlib вместо стандартного import!
+        # Это принудительно заставляет Python обойти кэш сохраненных ошибок ядра!
+        tts_module = importlib.import_module("TTS.api")
+        TTS = getattr(tts_module, "TTS")
         
         # Загружаем официальный мультиязычный чекпоинт XTTS v2 на чистую CUDA видеокарту
         TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
@@ -70,8 +73,8 @@ def init_vton_models():
         print(f"❌ Критический сбой при загрузке XTTS v2: {e}")
         TTS_ENGINE = None
 
+    print(f"✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
 
-    print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
 
 
 
