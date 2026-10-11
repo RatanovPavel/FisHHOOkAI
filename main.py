@@ -168,13 +168,16 @@ def process_voice_chat(task_data):
             
             # Работа с JSON историей контекста диалога
             history_file = f"chat_history_{session_id}.json"
+            
+            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Поставили пустой список, уничтожив ошибку синтаксиса!
             chat_history = []
             
             if os.path.exists(history_file):
                 try:
                     with open(history_file, "r", encoding="utf-8") as hf:
                         chat_history = json.load(hf)
-            except: pass
+                except: pass
+
                 
             if not chat_history:
                 chat_history.append({"role": "system", "content": system_instruction})
