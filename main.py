@@ -38,7 +38,7 @@ def init_vton_models():
     # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
     # Принимает абсолютно любые входящие аргументы и именованные элементы!
     # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
-    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Универсальный неуязвимый Mock-класс (Всеядный ИИ-Бронежилет)
+    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Универсальный неуязвимый Mock-класс (Всеядный ИИ-Бронежилет V2)
     try:
         import transformers
         import transformers.pytorch_utils
@@ -47,21 +47,28 @@ def init_vton_models():
             print("🧪 [MONKEY PATCH]: Вживляем универсальный всеядный Mock-класс в transformers...")
             
             class MockMpsBool:
-                # 🔥 ГЕНИАЛЬНЫЙ ХАК: Перехватывает АБСОЛЮТНО любые вызовы, операторы (+, -, *, ~) и методы!
-                # Что бы библиотека ни попыталась сделать с этим объектом — он всегда вернет сам себя без ошибок!
+                # 🔥 УЛЬТИМАТИВНЫЙ ХАК: Перехватывает любые вызовы методов
                 def __getattr__(self, name): return lambda *args, **kwargs: self
-                def __add__(self, other): return self      # Защита для оператора плюс (+)
-                def __radd__(self, other): return self     # Защита для оператора плюс (+) справа
-                def __mul__(self, other): return self      # Защита для оператора умножения (*)
-                def __rmul__(self, other): return self     # Защита для оператора умножения (*) справа
-                def __invert__(self): return self          # Защита для унарной тильды (~)
-                def __bool__(self): return False           # Чтобы логические if-проверки не ломались
+                
+                # Защита от математических и поразрядных операторов
+                def __add__(self, other): return self
+                def __radd__(self, other): return self
+                def __mul__(self, other): return self
+                def __rmul__(self, other): return self
+                def __invert__(self): return self
+                
+                # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Защита от системной функции len()!
+                # Возвращает нейтральную длину 1, полностью уничтожая ошибку object of type function has no len!
+                def __len__(self): return 1
+                
+                # Защита для логических if-проверок
+                def __bool__(self): return False
                 
             def isin_mps_friendly(*args, **kwargs):
                 return MockMpsBool()
                 
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
-            print("✅ [MONKEY PATCH]: Универсальный всеядный бронежилет успешно внедрен в ОЗУ!")
+            print("✅ [MONKEY PATCH]: Универсальный всеядный бронежилет V2 успешно внедрен в ОЗУ!")
     except Exception as patch_err:
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
 
