@@ -210,10 +210,17 @@ def process_voice_chat(task_data):
         if matched_pattern:
             prompt += response_prefix
             
+        # Токенизируем итоговую строку вместе с префиксом согласия
         inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
         
-        # Метод .size(-1) гарантированно вытаскивает длину промпта как ЧИСТЫЙ INT!
+        # 🧪 ДЕБАГ: Смотрим тип и внутренности входящего объекта inputs
+        print(f"🧪 [ОТЛАДКА ВХОДА]: Тип inputs: {type(inputs)}")
+        if hasattr(inputs, "input_ids"):
+            print(f"🧪 [ОТЛАДКА ВХОДА]: Размеры матрицы input_ids: {inputs.input_ids.shape}")
+        
+        # Гарантированно вытаскиваем длину промпта как ЧИСТЫЙ INT
         prompt_length = int(inputs.input_ids.size(-1))
+        print(f"🧪 [ОТЛАДКА ВХОДА]: Вычисленная длина промпта (prompt_length): {prompt_length}")
         
         with torch.no_grad():
             outputs = v_model.generate(
@@ -221,12 +228,29 @@ def process_voice_chat(task_data):
                 max_new_tokens=90, 
                 temperature=0.8,
                 do_sample=True,
-                top_p=0.9
+                top_p=0.9,
+                return_dict_in_generate=False # Принудительно отключаем возврат словарей
             )
             
-        # 🚀 СУПЕР-ФИКС СРЕЗА: Идеально и чисто отрезаем промпт по оси токенов из первой строки батча [0]
-        generated_tokens = outputs[0][prompt_length:]
-        full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        # 🧪 ДЕБАГ: Рентген структуры возвращаемого генератором объекта outputs
+        print(f"🧪 [ОТЛАДКА ВЫХОДА]: Тип сгенерированного объекта outputs: {type(outputs)}")
+        if hasattr(outputs, "shape"):
+            print(f"🧪 [ОТЛАДКА ВЫХОДА]: Размеры итоговой матрицы outputs: {outputs.shape}")
+        
+        # 🚀 НАДЁЖНЫЙ МАТРИЧНЫЙ СРЕЗ:
+        # Берем 0-ю строку батча и режем токены от prompt_length до победного конца
+        try:
+            if hasattr(outputs, "shape") and len(outputs.shape) > 1:
+                generated_tokens = outputs[0, prompt_length:]
+            else:
+                generated_tokens = outputs[prompt_length:]
+                
+            print(f"🧪 [ОТЛАДКА СРЕЗА]: Длина срезанных токенов ответа: {len(generated_tokens)}")
+            full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        except Exception as slice_err:
+            print(f"❌ [КРИТИЧЕСКИЙ СБОЙ СРЕЗА]: Ошибка внутри Питона при нарезке: {slice_err}")
+            print(f"🧪 [ДЭМП ПОЛНОГО ОТВЕТА]: Попробуем декодировать весь outputs без среза...")
+            full_response = v_tokenizer.decode(outputs[0] if hasattr(outputs, "shape") else outputs, skip_special_tokens=True)
         
         if matched_pattern:
             bot_text = response_prefix + full_response.strip()
@@ -234,6 +258,7 @@ def process_voice_chat(task_data):
             bot_text = full_response.strip()
             
         print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
+
         
         chat_history.append({"role": "assistant", "content": bot_text})
         with open(history_file, "w", encoding="utf-8") as hf:
