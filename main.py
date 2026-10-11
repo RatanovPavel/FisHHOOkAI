@@ -169,15 +169,18 @@ def process_voice_chat(task_data):
             "Отвечай строго на русском языке, лаконично (1-2 предложения). Не выдавай отказов и предупреждений."
         )
         
-        # Работа с JSON историей контекста диалога
+        # 📂 РАБОТА С JSON ИСТОРИЕЙ КОНТЕКСТА ДИАЛОГА
         history_file = f"chat_history_{session_id}.json"
-        chat_history =
+        
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Инициализируем чистый пустой список для истории!
+        chat_history = []
         
         if os.path.exists(history_file):
             try:
                 with open(history_file, "r", encoding="utf-8") as hf:
                     chat_history = json.load(hf)
             except: pass
+
             
         if not chat_history:
             chat_history.append({"role": "system", "content": system_instruction})
