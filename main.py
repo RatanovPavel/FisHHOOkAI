@@ -17,10 +17,14 @@ VOICE_TOKENIZER = None
 TTS_ENGINE = None  # 🚀 Переменная для вечного удержания XTTS v2 в памяти
 IMAGE_PIPE = None 
 
+# ====================================================
+# 🗜️ 1. ЦЕНТРАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ИИ-МОДЕЛЕЙ НА GPU 🗜️
+# ====================================================
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Вшивает в видеокарту T4 одновременно и Сверхразум Qwen-14B, и ИИ-модель страсти XTTS v2!
+    Автоматически распределяет веса Qwen-14B-AWQ и XTTS v2 в памяти GPU при старте воркера,
+    полностью исключая появление ошибок мета-девайсов!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
@@ -30,14 +34,14 @@ def init_vton_models():
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
-        # Ограничиваем аппетиты Qwen до 7.5 ГБ, оставляя XTTS v2 королевские 4.5 ГБ VRAM!
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Убрали карту max_memory! 
+        # Разрешаем библиотеке accelerate автоматически и ровно занять VRAM без вылетов!
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
-            offload_buffers=True,
-            max_memory={0: "7.5GiB", "cpu": "24GiB"}
+            offload_buffers=True
         )
         print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован в VRAM!")
     except Exception as e:
@@ -45,7 +49,6 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # 🚀 СУПЕР-ХАК: Инициализируем локальную модель XTTS v2 прямо в память видеокарты!
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 (2.4 ГБ) в VRAM...")
     try:
         from TTS.api import TTS
@@ -57,9 +60,6 @@ def init_vton_models():
         TTS_ENGINE = None
 
     print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
-
-
-
 
 
 
