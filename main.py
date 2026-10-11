@@ -189,52 +189,55 @@ def process_voice_chat(task_data):
             if not chat_history:
                 chat_history.append({"role": "system", "content": system_instruction})
                 
-            final_user_input = user_text
-            if matched_pattern:
-                print(f"🎯 [ГИБРИДНЫЙ ДВИЖОК]: Сработал триггер словаря! Вживляем паттерн.")
-                final_user_input = f"{user_text} (Действие персонажа: {matched_pattern})"
-                
-            chat_history.append({"role": "user", "content": final_user_input})
+        final_user_input = user_text
+        
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Инициализируем префикс пустой строкой по умолчанию!
+        # Это на корню уничтожает ошибку 'response_prefix is not defined'!
+        response_prefix = ""
+        
+        if matched_pattern:
+            print(f"🎯 [ГИБРИДНЫЙ ДВИЖОК]: Сработал триггер словаря! Вживляем паттерн.")
+            final_user_input = f"{user_text} (Действие персонажа: {matched_pattern})"
+            response_prefix = matched_pattern # Связываем паттерн с префиксом ответа
+
+        chat_history.append({"role": "user", "content": final_user_input})
+        
+        if len(chat_history) > 9:
+            chat_history = [chat_history] + chat_history[-6:]
             
-            if len(chat_history) > 9:
-                chat_history = [chat_history] + chat_history[-6:]
-                
-            # Применяем официальный шаблон чата модели Qwen
-            prompt = v_tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+        prompt = v_tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
+        
+        if matched_pattern:
+            prompt += response_prefix
             
-            if matched_pattern:
-                prompt += response_prefix
-                
-            inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
+        inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
+        
+        # Метод .size(-1) гарантированно вытаскивает длину промпта как ЧИСТЫЙ INT!
+        prompt_length = int(inputs.input_ids.size(-1))
+        
+        with torch.no_grad():
+            outputs = v_model.generate(
+                **inputs,
+                max_new_tokens=90, 
+                temperature=0.8,
+                do_sample=True,
+                top_p=0.9
+            )
             
-            # 🚀 ЧИСТЫЙ СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ:
-            # Метод .size(-1) гарантированно вытаскивает длину промпта как ЧИСТЫЙ INT!
-            # Это раз и навсегда уничтожает ошибку 'dict object has no element 0' на любых именах и контекстах!
-            prompt_length = int(inputs.input_ids.size(-1))
+        # 🚀 СУПЕР-ФИКС СРЕЗА: Идеально и чисто отрезаем промпт по оси токенов из первой строки батча [0]
+        generated_tokens = outputs[0][prompt_length:]
+        full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
+        
+        if matched_pattern:
+            bot_text = response_prefix + full_response.strip()
+        else:
+            bot_text = full_response.strip()
             
-            with torch.no_grad():
-                outputs = v_model.generate(
-                    **inputs,
-                    max_new_tokens=90, 
-                    temperature=0.8,
-                    do_sample=True,
-                    top_p=0.9
-                )
-                
-            # Отрезаем промпт, используя гарантированное целое число prompt_length
-            generated_tokens = outputs[0][prompt_length:]
-            full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
-            
-            if matched_pattern:
-                bot_text = matched_pattern + full_response.strip()
-            else:
-                bot_text = full_response.strip()
-                
-            print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
-            
-            chat_history.append({"role": "assistant", "content": bot_text})
-            with open(history_file, "w", encoding="utf-8") as hf:
-                json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+        print(f"🤖 [СВЕРХРАЗУМ 14B ОТВЕТИЛ]: {bot_text}")
+        
+        chat_history.append({"role": "assistant", "content": bot_text})
+        with open(history_file, "w", encoding="utf-8") as hf:
+            json.dump(chat_history, hf, ensure_ascii=False, indent=2)
 
             
     except Exception as e:
