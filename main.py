@@ -241,56 +241,59 @@ def process_voice_chat(task_data):
         bot_text = "Слушаю тебя внимательно, Повелитель! Повтори свой приказ громче."
 
     # ----------------------------------------------------
-    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ НЕЙРОСЕТЬ XTTS V2 (КЛОНИРОВАНИЕ)
+    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ ИЗОЛИРОВАННУЮ CLI-УТИЛИТУ XTTS V2
     # ----------------------------------------------------
     try:
-        import sys
         import re
-        sys_mod = sys.modules.get("main") or sys.modules.get("__main__")
-        global_tts = getattr(sys_mod, "TTS_ENGINE", None)
+        import sys
+        import shlex
+        
+        sys_os = sys.modules.get('os')
         
         # Вырезаем звездочки для чтения речи
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
         
+        # Вживляем в начало аудиопотока маркеры вздохов и стонов, если сработал триггер словаря!
         if adult_audio_marker:
             clean_voice_text = adult_audio_marker + clean_voice_text
             
-        print(f"🔊 [XTTS v2 GPU]: Локальный запуск ИИ-синтеза страсти для текста: {clean_voice_text}")
+        print(f"🔊 [XTTS v2 CLI]: Изолированный запуск генерации звука для текста: {clean_voice_text}")
         
-        if global_tts is not None:
-            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Клонируем голос напрямую из скачанного файла user_voice.wav!
-            # Вместо капризного параметра speaker="Ana Lucia" мы передаем speaker_wav!
-            # Это на 1000% обходит отсутствие встроенных спикеров в pth и заставляет станок работать вечно!
-            reference_audio = local_input_audio if (os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100) else None
-            
-            if reference_audio:
-                global_tts.tts_to_file(
-                    text=clean_voice_text,
-                    language="ru",
-                    speaker_wav=reference_audio, # Используем Ваш файл в качестве эталона клонирования!
-                    file_path=output_audio_name
-                )
-            else:
-                # Аварийный встроенный спикер БЕЗ пробела, если файла на диске нет
-                global_tts.tts_to_file(
-                    text=clean_voice_text,
-                    language="ru",
-                    speaker="Clarissa", # Официальное рабочее имя в новом релизе
-                    file_path=output_audio_name
-                )
-            print("✅ [XTTS v2 GPU]: Голос и стоны ИИ успешно сгенерированы локально в файл!")
+        # Жестко экранируем текст для безопасной передачи в терминал Linux через shlex
+        safe_text_argument = shlex.quote(clean_voice_text)
+        
+        # Находим референсный WAV-файл для клонирования голоса
+        reference_audio = local_input_audio if (sys_os.path.exists(local_input_audio) and sys_os.path.getsize(local_input_audio) > 100) else None
+        
+        # Строим официальную консольную команду XTTS v2
+        # Флаг --model_name вызывает мультиязычную модель, --language указывает русский язык
+        if reference_audio:
+            safe_ref_path = shlex.quote(reference_audio)
+            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_wav {safe_ref_path} --out_path "{output_audio_name}"'
         else:
-            print("⚠️ [XTTS v2]: Движок не найден в VRAM, включаем gTTS бэкап...")
-            raise RuntimeError("Engine is None")
+            # Если файла на диске нет — используем встроенный чистый женский пресет Clarissa
+            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_idx "Clarissa" --out_path "{output_audio_name}"'
+            
+        # Запускаем утилиту в изолированном системном процессе Колаба!
+        sys_os.system(linux_cmd)
+        
+        if sys_os.path.exists(output_audio_name) and sys_os.path.getsize(output_audio_name) > 100:
+            print("✅ [XTTS v2 CLI]: Голос и стоны ИИ успешно сгенерированы процессом Linux!")
+        else:
+            print("⚠️ [XTTS v2 CLI]: Утилита вернула пустой файл, включаем gTTS бэкап...")
+            raise RuntimeError("Empty file from CLI")
             
     except Exception as e:
-        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2: {e}")
+        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2 через CLI: {e}")
         try:
             from gtts import gTTS
             tts = gTTS(text=clean_voice_text, lang='ru', slow=False)
             tts.save(output_audio_name)
         except:
-            with open(output_audio_name, "wb") as f: f.write(b"")
+            try:
+                with open(output_audio_name, "wb") as f: f.write(b"")
+            except: pass
+
 
 
     # ----------------------------------------------------
