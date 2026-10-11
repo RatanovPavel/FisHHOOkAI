@@ -49,15 +49,27 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
+    # 🚀 ЛОКАЛЬНАЯ МОДЕЛЬ СТРАСТИ XTTS v2 (Защищено от No module named 'TTS')
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 (2.4 ГБ) в VRAM...")
     try:
+        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Принудительно заставляем Python обновить карту путей,
+        # чтобы он мгновенно увидел пакет TTS без перезагрузки ядер!
+        import sys
+        import site
+        for directory in site.getsitepackages():
+            if directory not in sys.path:
+                sys.path.append(directory)
+                
+        # Финальный, теперь на 1000% зрячий импорт модели
         from TTS.api import TTS
+        
         # Загружаем официальный мультиязычный чекпоинт XTTS v2 на чистую CUDA видеокарту
         TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
         print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов стонать!")
     except Exception as e:
         print(f"❌ Критический сбой при загрузке XTTS v2: {e}")
         TTS_ENGINE = None
+
 
     print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
 
