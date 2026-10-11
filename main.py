@@ -285,7 +285,7 @@ def process_voice_chat(task_data):
         bot_text = "Слушаю тебя внимательно, Повелитель! Повтори свой приказ громче."
 
     # ----------------------------------------------------
-    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ НЕЙРОСЕТЬ XTTS V2 (КЛОНИРОВАНИЕ)
+    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ НЕЙРОСЕТЬ XTTS V2 В ПАМЯТИ GPU
     # ----------------------------------------------------
     try:
         import sys
@@ -296,30 +296,29 @@ def process_voice_chat(task_data):
         # Вырезаем звездочки для чтения речи
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
         
+        # Вживляем в начало аудиопотока маркеры вздохов и стонов, если сработал триггер словаря!
         if adult_audio_marker:
             clean_voice_text = adult_audio_marker + clean_voice_text
             
         print(f"🔊 [XTTS v2 GPU]: Локальный запуск ИИ-синтеза страсти для текста: {clean_voice_text}")
         
         if global_tts is not None:
-            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Клонируем голос напрямую из скачанного файла user_voice.wav!
-            # Вместо капризного параметра speaker="Ana Lucia" мы передаем speaker_wav!
-            # Это на 1000% обходит отсутствие встроенных спикеров в pth и заставляет станок работать вечно!
+            # Находим референсный WAV-файл для клонирования голоса Повелителя
             reference_audio = local_input_audio if (os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100) else None
             
             if reference_audio:
                 global_tts.tts_to_file(
                     text=clean_voice_text,
                     language="ru",
-                    speaker_wav=reference_audio, # Используем Ваш файл в качестве эталона клонирования!
+                    speaker_wav=reference_audio,  # Живое клонирование голоса из Вашей же записи!
                     file_path=output_audio_name
                 )
             else:
-                # Аварийный встроенный спикер БЕЗ пробела, если файла на диске нет
+                # Встроенный чистый женский пресет Clarissa из мультиязычного пака
                 global_tts.tts_to_file(
                     text=clean_voice_text,
                     language="ru",
-                    speaker="Clarissa", # Официальное рабочее имя в новом релизе
+                    speaker="Clarissa",
                     file_path=output_audio_name
                 )
             print("✅ [XTTS v2 GPU]: Голос и стоны ИИ успешно сгенерированы локально в файл!")
@@ -335,6 +334,7 @@ def process_voice_chat(task_data):
             tts.save(output_audio_name)
         except:
             with open(output_audio_name, "wb") as f: f.write(b"")
+
 
 
     # ----------------------------------------------------
