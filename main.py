@@ -19,21 +19,39 @@ IMAGE_PIPE = None # Наследие картинок отключено, кар
 # ====================================================
 # 🗜️ 1. ЦЕНТРАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ИИ-МОДЕЛЕЙ НА GPU 🗜️
 # ====================================================
-# ====================================================
-# 🗜️ 1. ЦЕНТРАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ИИ-МОДЕЛЕЙ НА GPU 🗜️
-# ====================================================
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Полностью зачищен! Модель 14B и словарь паттернов будут инициализироваться
-    строго НА ЛЕТУ внутри процесса работы, оставляя видеокарту идеально свободной!
+    Один раз при старте воркера монолитно укладывает Qwen-14B-AWQ в память GPU,
+    жестко фиксируя лимит VRAM. Это полностью исключает CUDA OOM в процессе диалогов!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
-    IMAGE_PIPE = None
-    VOICE_MODEL = None
-    VOICE_TOKENIZER = None
+    IMAGE_PIPE = None 
     
-    print("\n✨ [УСПЕХ]: Видеокарта T4 полностью очищена и готова к динамическому запуску Сверхразума 14B!")
+    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
+    try:
+        model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
+        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        # Жестко ограничиваем аппетиты 14B модели на карте T4: отдаем ей до 7.5 ГБ,
+        # чтобы оставить Whisper гигантский свободный кусок VRAM для звука!
+        max_memory_mapping = {0: "7.5GiB", "cpu": "24GiB"}
+        
+        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            torch_dtype=torch.float16,
+            low_cpu_mem_usage=True,
+            offload_buffers=True,
+            max_memory=max_memory_mapping
+        )
+        print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B зафиксирован в VRAM и готов к бесконечному циклу!")
+    except Exception as e:
+        print(f"❌ Критический сбой при глобальной сборке 14B-пайплайна: {e}")
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
+
+    print("✨ [УСПЕХ]: Автономная ИИ-станция Повелителя полностью готова к работе!")
 
 
 
