@@ -23,66 +23,17 @@ IMAGE_PIPE = None
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Автоматически распределяет веса Qwen-14B-AWQ и XTTS v2 в памяти GPU.
-    Внедряет Monkey Patch для обхода конфликта версий transformers!
+    Кристально чистый старт! Модель Qwen-14B цементируется во VRAM нативно,
+    а озвучка страсти XTTS v2 уходит в изолированный системный CLI-процесс Linux!
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
+    global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
     IMAGE_PIPE = None 
     
-    import os
-    import sys
-    os.environ["COQUI_TOS_AGREED"] = "1"
-    
-    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Динамическая инъекция метода (Monkey Patching)
-    # Искусственно создаем отсутствующую функцию в памяти Питона до импорта Coqui-TTS!
-    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
-    # Принимает абсолютно любые входящие аргументы и именованные элементы!
-    # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
-    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Универсальный неуязвимый Mock-класс (Всеядный ИИ-Бронежилет V2)
-    try:
-        import transformers
-        import transformers.pytorch_utils
-        
-        if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем универсальный всеядный Mock-класс в transformers...")
-            
-            class MockMpsBool:
-                # 🔥 УЛЬТИМАТИВНЫЙ ХАК: Перехватывает любые вызовы методов
-                def __getattr__(self, name): return lambda *args, **kwargs: self
-                
-                # Защита от математических и поразрядных операторов
-                def __add__(self, other): return self
-                def __radd__(self, other): return self
-                def __mul__(self, other): return self
-                def __rmul__(self, other): return self
-                def __invert__(self): return self
-                
-                # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Защита от системной функции len()!
-                # Возвращает нейтральную длину 1, полностью уничтожая ошибку object of type function has no len!
-                def __len__(self): return 1
-                
-                # Защита для логических if-проверок
-                def __bool__(self): return False
-                
-            def isin_mps_friendly(*args, **kwargs):
-                return MockMpsBool()
-                
-            transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
-            print("✅ [MONKEY PATCH]: Универсальный всеядный бронежилет V2 успешно внедрен в ОЗУ!")
-    except Exception as patch_err:
-        print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
-
-
-        
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
-    # Дальше идет Ваш готовый идеальный код загрузки Qwen и динамический importlib...
-
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Убрали карту max_memory! 
-        # Разрешаем библиотеке accelerate автоматически и ровно занять VRAM без вылетов!
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
@@ -96,49 +47,7 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # 🚀 ЛОКАЛЬНАЯ МОДЕЛЬ СТРАСТИ XTTS v2 (С ТОТАЛЬНОЙ ДЕБАГ-ОТЛАДКОЙ ДИСКА)
-    print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 (2.4 ГБ) в VRAM...")
-    try:
-        import sys
-        import os
-        import site
-        import importlib
-        
-        # 🧪 [ОТЛАДКА ДИСКА 1]: Выводим все текущие пути sys.path в консоль
-        print("\n🧪 [ОТЛАДКА ПУТЕЙ ПИТОНА]:")
-        for p in sys.path:
-            print(f"  -> {p}")
-            
-        # 🧪 [ОТЛАДКА ДИСКА 2]: Проверяем физическое наличие папки TTS в site-packages
-        print("\n🧪 [ОТЛАДКА СИСТЕМНЫХ ПАПОК]:")
-        for directory in site.getsitepackages():
-            if directory not in sys.path:
-                sys.path.append(directory)
-            print(f"  Проверка директории: {directory}")
-            if os.path.exists(directory):
-                # Смотрим, есть ли внутри папки со словом TTS
-                try:
-                    all_contents = os.listdir(directory)
-                    tts_matches = [item for item in all_contents if "tts" in item.lower()]
-                    print(f"    Найдено совпадений с 'TTS' в этой папке: {tts_matches}")
-                except Exception as dir_err:
-                    print(f"    Не удалось прочесть папку: {dir_err}")
-
-        # Пытаемся импортировать через importlib
-        print("\n⏳ [ОТЛАДКА ИМПОРТА]: Попытка динамической сборки модуля TTS.api...")
-        tts_module = importlib.import_module("TTS.api")
-        TTS = getattr(tts_module, "TTS")
-        
-        # Загружаем официальный мультиязычный чекпоинт XTTS v2 на чистую CUDA видеокарту
-        TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
-        print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов стонать!")
-    except Exception as e:
-        print(f"❌ Критический сбой при загрузке XTTS v2: {e}")
-        TTS_ENGINE = None
-
-    print(f"✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
-
-
+    print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
 
 
 
