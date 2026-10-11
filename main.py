@@ -19,51 +19,13 @@ IMAGE_PIPE = None
 
 def init_vton_models():
     """
-    ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ (ВАРИАНТ А):
-    Физически вшивает Monkey Patch в файлы библиотеки transformers на диске Колаба,
-    после чего монолитно укладывает Qwen-14B-AWQ и XTTS v2 в память одной GPU!
+    ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
+    Кристально чистый старт! Модель Qwen-14B цементируется во VRAM нативно,
+    а озвучка страсти XTTS v2 полностью изолирована в CLI-процесс Linux!
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
+    global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
     IMAGE_PIPE = None 
     
-    import os
-    os.environ["COQUI_TOS_AGREED"] = "1"
-    
-    # Жесткий патч диска, который спас наш станок!
-    try:
-        import sys
-        import transformers
-        base_dir = os.path.dirname(transformers.__file__)
-        target_file = os.path.join(base_dir, "pytorch_utils.py")
-        
-        if os.path.exists(target_file):
-            with open(target_file, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            if "isin_mps_friendly" not in content:
-                print("🧪 [HARD PATCH]: Запись всеядной заглушки isin_mps_friendly напрямую в файл диска...")
-                patch_code = (
-                    "\n\nclass MockMpsBool:\n"
-                    "    def any(self, *args, **kwargs): return self\n"
-                    "    def all(self, *args, **kwargs): return self\n"
-                    "    def __invert__(self): return self\n"
-                    "    def __add__(self, other): return self\n"
-                    "    def __radd__(self, other): return self\n"
-                    "    def __mul__(self, other): return self\n"
-                    "    def __rmul__(self, other): return self\n"
-                    "    def __len__(self): return 1\n"
-                    "    def __bool__(self): return False\n\n"
-                    "def isin_mps_friendly(*args, **kwargs):\n"
-                    "    return MockMpsBool()\n"
-                )
-                with open(target_file, "a", encoding="utf-8") as f:
-                    f.write(patch_code)
-                print("✅ [HARD PATCH]: Системный файл transformers успешно модифицирован!")
-            else:
-                print("✨ [HARD PATCH]: Патч уже присутствует на диске.")
-    except Exception as patch_err:
-        print(f"⚠️ Не удалось применить жесткий патч диска: {patch_err}")
-        
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
@@ -81,18 +43,7 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # 🚀 СУПЕР-ВОЗВРАТ: Инициализируем локальную модель XTTS v2 напрямую в память видеокарты!
-    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
-    try:
-        from TTS.api import TTS
-        TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
-        print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов стонать!")
-    except Exception as e:
-        print(f"❌ Критический сбой при загрузке XTTS v2: {e}")
-        TTS_ENGINE = None
-
     print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
-
 
 
 # ====================================================
@@ -285,13 +236,14 @@ def process_voice_chat(task_data):
         bot_text = "Слушаю тебя внимательно, Повелитель! Повтори свой приказ громче."
 
     # ----------------------------------------------------
-    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ НЕЙРОСЕТЬ XTTS V2 В ПАМЯТИ GPU
+    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ ИЗОЛИРОВАННУЮ CLI-УТИЛИТУ XTTS V2
     # ----------------------------------------------------
     try:
-        import sys
         import re
-        sys_mod = sys.modules.get("main") or sys.modules.get("__main__")
-        global_tts = getattr(sys_mod, "TTS_ENGINE", None)
+        import sys
+        import shlex
+        
+        sys_os = sys.modules.get('os')
         
         # Вырезаем звездочки для чтения речи
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
@@ -300,41 +252,41 @@ def process_voice_chat(task_data):
         if adult_audio_marker:
             clean_voice_text = adult_audio_marker + clean_voice_text
             
-        print(f"🔊 [XTTS v2 GPU]: Локальный запуск ИИ-синтеза страсти для текста: {clean_voice_text}")
+        print(f"🔊 [XTTS v2 CLI]: Изолированный запуск генерации звука для текста: {clean_voice_text}")
         
-        if global_tts is not None:
-            # Находим референсный WAV-файл для клонирования голоса Повелителя
-            reference_audio = local_input_audio if (os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100) else None
-            
-            if reference_audio:
-                global_tts.tts_to_file(
-                    text=clean_voice_text,
-                    language="ru",
-                    speaker_wav=reference_audio,  # Живое клонирование голоса из Вашей же записи!
-                    file_path=output_audio_name
-                )
-            else:
-                # Встроенный чистый женский пресет Clarissa из мультиязычного пака
-                global_tts.tts_to_file(
-                    text=clean_voice_text,
-                    language="ru",
-                    speaker="Clarissa",
-                    file_path=output_audio_name
-                )
-            print("✅ [XTTS v2 GPU]: Голос и стоны ИИ успешно сгенерированы локально в файл!")
+        # Жестко экранируем текст для безопасной передачи в терминал Linux через shlex
+        safe_text_argument = shlex.quote(clean_voice_text)
+        
+        # Находим референсный WAV-файл для клонирования голоса Повелителя
+        reference_audio = local_input_audio if (sys_os.path.exists(local_input_audio) and sys_os.path.getsize(local_input_audio) > 100) else None
+        
+        # Строим официальную консольную команду XTTS v2
+        if reference_audio:
+            safe_ref_path = shlex.quote(reference_audio)
+            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_wav {safe_ref_path} --out_path "{output_audio_name}"'
         else:
-            print("⚠️ [XTTS v2]: Движок не найден в VRAM, включаем gTTS бэкап...")
-            raise RuntimeError("Engine is None")
+            # Пресет Clarissa из мультиязычного пака
+            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_idx "Clarissa" --out_path "{output_audio_name}"'
+            
+        # 🚀 Запускаем утилиту в изолированном системном процессе Колаба!
+        sys_os.system(linux_cmd)
+        
+        if sys_os.path.exists(output_audio_name) and sys_os.path.getsize(output_audio_name) > 100:
+            print("✅ [XTTS v2 CLI]: Голос и стоны ИИ успешно сгенерированы процессом Linux!")
+        else:
+            print("⚠️ [XTTS v2 CLI]: Утилита вернула пустой файл, включаем gTTS бэкап...")
+            raise RuntimeError("Empty file from CLI")
             
     except Exception as e:
-        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2: {e}")
+        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2 через CLI: {e}")
         try:
             from gtts import gTTS
             tts = gTTS(text=clean_voice_text, lang='ru', slow=False)
             tts.save(output_audio_name)
         except:
-            with open(output_audio_name, "wb") as f: f.write(b"")
-
+            try:
+                with open(output_audio_name, "wb") as f: f.write(b"")
+            except: pass
 
 
     # ----------------------------------------------------
