@@ -241,58 +241,44 @@ def process_voice_chat(task_data):
         bot_text = "Слушаю тебя внимательно, Повелитель! Повтори свой приказ громче."
 
     # ----------------------------------------------------
-    # ШАГ 3: ЛОКАЛЬНАЯ ГЕНЕРАЦИЯ СТРАСТИ ЧЕРЕЗ ИЗОЛИРОВАННУЮ CLI-УТИЛИТУ XTTS V2
+    # ШАГ 3: ЛОКАЛЬНАЯ ПЕРЕОЗВУЧКА СТРАСТИ ЧЕРЕЗ КЛОНИРОВАНИЕ ВХОДНОГО WAV
     # ----------------------------------------------------
     try:
-        import re
-        import sys
-        import shlex
-        
-        sys_os = sys.modules.get('os')
-        
-        # Вырезаем звездочки для чтения речи
+        # Вырезаем звездочки ролевого текста для чтения речи
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
         
-        # Вживляем в начало аудиопотока маркеры вздохов и стонов, если сработал триггер словаря!
+        # Вживляем в начало аудиопотока маркеры вздохов и стонов
         if adult_audio_marker:
             clean_voice_text = adult_audio_marker + clean_voice_text
             
-        print(f"🔊 [XTTS v2 CLI]: Изолированный запуск генерации звука для текста: {clean_voice_text}")
+        print(f"🔊 [XTTS v2 GPU]: Запуск генеративного клонирования для текста: {clean_voice_text}")
         
-        # Жестко экранируем текст для безопасной передачи в терминал Linux через shlex
-        safe_text_argument = shlex.quote(clean_voice_text)
-        
-        # Находим референсный WAV-файл для клонирования голоса Повелителя
-        reference_audio = local_input_audio if (sys_os.path.exists(local_input_audio) and sys_os.path.getsize(local_input_audio) > 100) else None
-        
-        # Строим официальную консольную команду XTTS v2
-        if reference_audio:
-            safe_ref_path = shlex.quote(reference_audio)
-            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_wav {safe_ref_path} --out_path "{output_audio_name}"'
+        if TTS_ENGINE is not None:
+            # 🚀 СУПЕР-ОРУЖИЕ ПОВЕЛИТЕЛЯ: Клонируем голос напрямую из входящего user_voice.wav!
+            # Мы передаем его в параметр speaker_wav. Больше никаких Clarissa.pth!
+            if os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
+                TTS_ENGINE.tts_to_file(
+                    text=clean_voice_text,
+                    language="ru",
+                    speaker_wav=local_input_audio,  # Наш входящий ваф-файл как эталон!
+                    file_path=output_audio_name
+                )
+                print("✅ [XTTS v2 GPU]: Голос успешно клонирован из инпута пользователя и записан!")
+            else:
+                print("⚠️ [XTTS v2]: Входящий файл user_voice.wav не найден на диске для клонирования!")
+                raise FileNotFoundError("Missing input wav")
         else:
-            # Пресет Clarissa из мультиязычного пака
-            linux_cmd = f'tts --model_name "tts_models/multilingual/multi-dataset/xtts_v2" --text {safe_text_argument} --language_idx "ru" --speaker_idx "Clarissa" --out_path "{output_audio_name}"'
-            
-        # 🚀 Запускаем утилиту в изолированном системном процессе Колаба!
-        sys_os.system(linux_cmd)
-        
-        if sys_os.path.exists(output_audio_name) and sys_os.path.getsize(output_audio_name) > 100:
-            print("✅ [XTTS v2 CLI]: Голос и стоны ИИ успешно сгенерированы процессом Linux!")
-        else:
-            print("⚠️ [XTTS v2 CLI]: Утилита вернула пустой файл, включаем gTTS бэкап...")
-            raise RuntimeError("Empty file from CLI")
+            raise RuntimeError("TTS Engine is None")
             
     except Exception as e:
-        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2 через CLI: {e}")
+        print(f"❌ Сбой локальной ИИ-озвучки XTTS v2: {e}")
+        # Аварийный gTTS бэкап на случай непредвиденных сбоев диска
         try:
             from gtts import gTTS
             tts = gTTS(text=clean_voice_text, lang='ru', slow=False)
             tts.save(output_audio_name)
         except:
-            try:
-                with open(output_audio_name, "wb") as f: f.write(b"")
-            except: pass
-
+            with open(output_audio_name, "wb") as f: f.write(b"")
 
     # ----------------------------------------------------
     # ШАГ 4: МГНОВЕННЫЙ ПУШ ВСЕХ ДАННЫХ НА БЭКЕНД SKULLA
