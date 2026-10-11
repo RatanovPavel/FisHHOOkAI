@@ -49,20 +49,36 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # 🚀 ЛОКАЛЬНАЯ МОДЕЛЬ СТРАСТИ XTTS v2 (Защищено от No module named 'TTS')
+    # 🚀 ЛОКАЛЬНАЯ МОДЕЛЬ СТРАСТИ XTTS v2 (С ТОТАЛЬНОЙ ДЕБАГ-ОТЛАДКОЙ ДИСКА)
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 (2.4 ГБ) в VRAM...")
     try:
         import sys
+        import os
         import site
         import importlib
         
-        # Динамически обновляем пути файловой системы Linux
+        # 🧪 [ОТЛАДКА ДИСКА 1]: Выводим все текущие пути sys.path в консоль
+        print("\n🧪 [ОТЛАДКА ПУТЕЙ ПИТОНА]:")
+        for p in sys.path:
+            print(f"  -> {p}")
+            
+        # 🧪 [ОТЛАДКА ДИСКА 2]: Проверяем физическое наличие папки TTS в site-packages
+        print("\n🧪 [ОТЛАДКА СИСТЕМНЫХ ПАПОК]:")
         for directory in site.getsitepackages():
             if directory not in sys.path:
                 sys.path.append(directory)
-                
-        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Вызываем importlib вместо стандартного import!
-        # Это принудительно заставляет Python обойти кэш сохраненных ошибок ядра!
+            print(f"  Проверка директории: {directory}")
+            if os.path.exists(directory):
+                # Смотрим, есть ли внутри папки со словом TTS
+                try:
+                    all_contents = os.listdir(directory)
+                    tts_matches = [item for item in all_contents if "tts" in item.lower()]
+                    print(f"    Найдено совпадений с 'TTS' в этой папке: {tts_matches}")
+                except Exception as dir_err:
+                    print(f"    Не удалось прочесть папку: {dir_err}")
+
+        # Пытаемся импортировать через importlib
+        print("\n⏳ [ОТЛАДКА ИМПОРТА]: Попытка динамической сборки модуля TTS.api...")
         tts_module = importlib.import_module("TTS.api")
         TTS = getattr(tts_module, "TTS")
         
@@ -74,6 +90,7 @@ def init_vton_models():
         TTS_ENGINE = None
 
     print(f"✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
+
 
 
 
