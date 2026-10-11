@@ -40,7 +40,7 @@ def init_vton_models():
         )
         print(f"🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован во VRAM!")
     except Exception as e:
-        print("❌ Критический сбой при инициализации весов Qwen: {e}")
+        print(f"❌ Критический сбой при инициализации весов Qwen: {e}")
 
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
     try:
@@ -48,7 +48,7 @@ def init_vton_models():
         TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
         print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов клонировать!")
     except Exception as e:
-        print("❌ Critical сбой при загрузке XTTS v2: {e}")
+        print(f"❌ Critical сбой при загрузке XTTS v2: {e}")
 
 
 # ====================================================
