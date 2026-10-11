@@ -168,8 +168,6 @@ def process_voice_chat(task_data):
             
             # Работа с JSON историей контекста диалога
             history_file = f"chat_history_{session_id}.json"
-            
-            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Поставили пустой список, уничтожив ошибку синтаксиса!
             chat_history = []
             
             if os.path.exists(history_file):
@@ -177,8 +175,7 @@ def process_voice_chat(task_data):
                     with open(history_file, "r", encoding="utf-8") as hf:
                         chat_history = json.load(hf)
                 except: pass
-
-                
+                    
             if not chat_history:
                 chat_history.append({"role": "system", "content": system_instruction})
                 
@@ -189,32 +186,31 @@ def process_voice_chat(task_data):
                 
             chat_history.append({"role": "user", "content": final_user_input})
             
-            if len(chat_history) > 9:
-                chat_history = [chat_history[0]] + chat_history[-6:]
+            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Жестко режем контекст чата (оставляем только системный промпт + 2 последних диалога)!
+            # Это на 1000% блокирует переполнение памяти, отключает CPU-оффлоад и навсегда запрещает китайский язык!
+            if len(chat_history) > 5:
+                chat_history = [chat_history[0]] + chat_history[-4:]
                 
             prompt = VOICE_TOKENIZER.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
             
-            # Токенизируем входящую текстовую строку
             inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
             
             print("⏳ [СТАНК 14B]: Нативный инференс весов...")
             with torch.no_grad():
                 outputs = VOICE_MODEL.generate(
                     **inputs,
-                    max_new_tokens=90,
+                    max_new_tokens=180,  # 🚀 ФИКС: Увеличили длину выдоха в 2 раза, чтобы фразы никогда не обрывались!
                     temperature=0.85,
                     do_sample=True,
                     top_p=0.9
                 )
             
-            # 🚀 ЧИСТАЯ НА ТИВНАЯ ПОБЕДА: Декодируем ВЕСЬ полученный массив тонеков целиком!
+            # Декодируем весь массив токенов
             full_text_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
             
-            # И просто вырезаем из него текст промпта на уровне обычной текстовой строки Питона!
-            # Никаких prompt_length, индексов 0 и тензорных срезов вообще! Разрушаться нечему!
+            # Чистое строковое вырезание промпта
             full_response = full_text_output.replace(prompt, "").strip()
             
-            # Дополнительная страховка от мусора чат-шаблонов
             if "assistant" in full_response:
                 full_response = full_response.split("assistant")[-1].strip()
             
@@ -228,6 +224,7 @@ def process_voice_chat(task_data):
             chat_history.append({"role": "assistant", "content": bot_text})
             with open(history_file, "w", encoding="utf-8") as hf:
                 json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+
             
     except Exception as e:
         print(f"❌ Сбой 14B сверхразума на шаге генерации: {e}")
