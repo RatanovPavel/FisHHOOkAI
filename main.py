@@ -20,13 +20,15 @@ IMAGE_PIPE = None
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Кристально чистый старт! Модель Qwen-14B цементируется во VRAM нативно,
-    а озвучка страсти XTTS v2 полностью изолирована в CLI-процесс Linux!
+    Монолитно укладывает Сверхразум Qwen-14B и генератор страсти XTTS v2 в память GPU.
+    Принудительно принимает CPML лицензию Coqui в памяти процесса!
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
-    IMAGE_PIPE = None 
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
     
-    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
+    # Жестко зашиваем согласие с лицензией Coqui в память процесса
+    os.environ["COQUI_TOS_AGREED"] = "1"
+    
+    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем цементирование Сверхразума Qwen-14B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
@@ -34,16 +36,19 @@ def init_vton_models():
             model_id,
             device_map="auto",
             torch_dtype=torch.float16,
-            low_cpu_mem_usage=True,
-            offload_buffers=True
+            low_cpu_mem_usage=True
         )
         print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован во VRAM!")
     except Exception as e:
         print(f"❌ Критический сбой при инициализации весов Qwen: {e}")
-        VOICE_MODEL = None
-        VOICE_TOKENIZER = None
 
-    print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
+    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
+    try:
+        # Инициализируем модель напрямую на чистую видеокарту CUDA
+        TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+        print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов клонировать!")
+    except Exception as e:
+        print(f"❌ Critical сбой при загрузке XTTS v2: {e}")
 
 
 # ====================================================
