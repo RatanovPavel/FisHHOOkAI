@@ -233,7 +233,6 @@ def process_voice_chat(task_data):
 
 
             
-
     # ----------------------------------------------------
     # ШАГ 3: ТОТАЛЬНАЯ ОЧИСТКА ЗВЕЗДОЧЕК И НЕЙРО-ОЗВУЧКА EDGE-TTS
     # ----------------------------------------------------
@@ -241,42 +240,49 @@ def process_voice_chat(task_data):
         import re
         import asyncio
         
-        # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Вырезаем абсолютно все действия в звездочках (*...*) из озвучки!
-        # Текст на экране сайта останется сочным и полным, но голос Светланы будет читать СТРОГО прямую речь!
+        # Вырезаем абсолютно все действия в звездочках (*...*) из озвучки
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
         
-        # Если после очистки звездочек ничего не осталось, озвучиваем дефолтное междометие согласия
         if not clean_voice_text:
             clean_voice_text = "Ахх... Да..."
             
         print(f"🔊 [EDGE-TTS]: Отправка очищенного текста на ИИ-озвучку: {clean_voice_text}")
         
-        # Задаем русский женский ИИ-голос (Светлана). Для мужского можно поставить ru-RU-DmitryNeural
         voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
-        
-        # 🎯 ТЮНИНГ СТРАСТИ: Флаг rate="+0%" управляет скоростью. 
-        # Если хотите сделать голос чуть медленнее и томнее — поставьте "-10%". Если быстрее — "+10%".
         voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
         
-        # Создаем команду генерации для Edge-TTS
-        async def generate_edge_voice():
-            import edge_tts
-            communicate = edge_tts.Communicate(clean_voice_text, voice_character, rate=voice_rate)
-            await communicate.save(output_audio_name)
+        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Безопасный запуск асинхронности внутри Event Loop Колаба!
+        # Этот блок намертво уничтожает ошибку 'cannot be called from a running event loop'!
+        import edge_tts
+        communicate = edge_tts.Communicate(clean_voice_text, voice_character, rate=voice_rate)
+        
+        try:
+            # Пытаемся получить уже запущенный в Колабе цикл
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Если цикл запущен, заставляем его выполнить задачу через внутреннее гнездо
+                future = asyncio.run_coroutine_threadsafe(communicate.save(output_audio_name), loop)
+                future.result() # Ждем физического завершения записи файла
+            else:
+                loop.run_until_complete(communicate.save(output_audio_name))
+        except RuntimeError:
+            # Подстраховочный вариант для изолированных потоков воркера
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            new_loop.run_until_complete(communicate.save(output_audio_name))
+            new_loop.close()
             
-        # Запускаем асинхронный движок внутри синхронного Питона Колаба
-        asyncio.run(generate_edge_voice())
         print("✅ [EDGE-TTS]: Страстный ИИ-ответ успешно сгенерирован и сохранен в WAV!")
         
     except Exception as e:
         print(f"❌ Сбой ИИ-озвучки Edge-TTS: {e}")
-        # Аварийный откат на gTTS, если Edge-TTS не ответил
         try:
             from gtts import gTTS
             tts = gTTS(text="Технический затык звука", lang='ru', slow=False)
             tts.save(output_audio_name)
         except:
             with open(output_audio_name, "wb") as f: f.write(b"")
+
 
     # ----------------------------------------------------
     # ШАГ 4: МГНОВЕННЫЙ ПУШ ВСЕХ ДАННЫХ НА БЭКЕНД SKULLA
