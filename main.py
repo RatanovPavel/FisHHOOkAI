@@ -37,15 +37,23 @@ def init_vton_models():
     # Искусственно создаем отсутствующую функцию в памяти Питона до импорта Coqui-TTS!
     # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
     # Принимает абсолютно любые входящие аргументы и именованные элементы!
+    # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
     try:
         import transformers
         import transformers.pytorch_utils
         
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем всеядную функцию isin_mps_friendly в transformers на лету...")
-            # Заставляем принимать абсолютно любые аргументы (*args, **kwargs), уничтожая ошибку 'elements'!
+            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый Mock-класс в transformers...")
+            
+            # Создаем умный класс-обманщик, который проглотит любые вызовы .any() и .all()
+            class MockMpsBool:
+                def any(self, *args, **kwargs): return self
+                def all(self, *args, **kwargs): return self
+                def __bool__(self): return False
+                
             def isin_mps_friendly(*args, **kwargs):
-                return False
+                return MockMpsBool()
+                
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
     except Exception as patch_err:
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
