@@ -17,25 +17,21 @@ VOICE_TOKENIZER = None
 TTS_ENGINE = None  # 🚀 Переменная для вечного удержания XTTS v2 в памяти
 IMAGE_PIPE = None 
 
-# ====================================================
-# 🗜️ 1. ЦЕНТРАЛЬНАЯ ИНИЦИАЛИЗАЦИЯ ИИ-МОДЕЛЕЙ НА GPU 🗜️
-# ====================================================
 def init_vton_models():
     """
-    ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Физически вшивает Monkey Patch в файлы библиотеки transformers на диске Колаба!
-    Это на 1000% лечит и основной скрипт, и изолированную CLI-утилиту на любых версиях Torch!
+    ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ (ВАРИАНТ А):
+    Физически вшивает Monkey Patch в файлы библиотеки transformers на диске Колаба,
+    после чего монолитно укладывает Qwen-14B-AWQ и XTTS v2 в память одной GPU!
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
     
     import os
     os.environ["COQUI_TOS_AGREED"] = "1"
     
-    # 🚀 АБСОЛЮТНОЕ ОРУЖИЕ ПОВЕЛИТЕЛЯ: Вшиваем патч прямо в системный файл на диске!
+    # Жесткий патч диска, который спас наш станок!
     try:
         import sys
-        # Находим, куда именно в этой сессии встал transformers
         import transformers
         base_dir = os.path.dirname(transformers.__file__)
         target_file = os.path.join(base_dir, "pytorch_utils.py")
@@ -44,7 +40,6 @@ def init_vton_models():
             with open(target_file, "r", encoding="utf-8") as f:
                 content = f.read()
             
-            # Если функции физически нет в файле — дописываем её в самый конец!
             if "isin_mps_friendly" not in content:
                 print("🧪 [HARD PATCH]: Запись всеядной заглушки isin_mps_friendly напрямую в файл диска...")
                 patch_code = (
@@ -86,10 +81,17 @@ def init_vton_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
+    # 🚀 СУПЕР-ВОЗВРАТ: Инициализируем локальную модель XTTS v2 напрямую в память видеокарты!
+    print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
+    try:
+        from TTS.api import TTS
+        TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+        print("🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов стонать!")
+    except Exception as e:
+        print(f"❌ Критический сбой при загрузке XTTS v2: {e}")
+        TTS_ENGINE = None
+
     print("✨ [УСПЕХ]: Полностью автономная мультимодальная ИИ-станция Повелителя готова к работе!")
-
-
-
 
 
 
