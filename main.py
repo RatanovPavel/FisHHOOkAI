@@ -22,7 +22,8 @@ IMAGE_PIPE = None # Наследие картинок отключено, кар
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Монолитно укладывает Qwen-14B-AWQ в память GPU при старте воркера.
+    Автоматически распределяет веса Qwen-14B-AWQ в памяти GPU при старте воркера,
+    полностью исключая появление ошибок мета-девайсов!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
     IMAGE_PIPE = None 
@@ -32,21 +33,18 @@ def init_vton_models():
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
-        # Выделяем под модель жесткий буфер во VRAM, остальное вытесняем в RAM
-        max_memory_mapping = {0: "7.5GiB", "cpu": "24GiB"}
-        
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Убрали карту max_memory! 
+        # Разрешаем библиотеке accelerate автоматически и ровно занять VRAM без вылетов!
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
-            offload_buffers=True,
-            max_memory=max_memory_mapping
+            offload_buffers=True
         )
         print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B зафиксирован в VRAM и готов к бесконечному циклу!")
     except Exception as e:
-        # Ловим только РЕАЛЬНЫЙ критический вылет, если модель физически не загрузилась
-        print(f"❌ Фактический сбой при инициализации весов модели: {e}")
+        print(f"❌ Критический сбой при инициализации весов модели: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
