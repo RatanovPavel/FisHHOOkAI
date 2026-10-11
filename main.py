@@ -234,48 +234,44 @@ def process_voice_chat(task_data):
 
             
     # ----------------------------------------------------
-    # ШАГ 3: ТОТАЛЬНАЯ ОЧИСТКА ЗВЕЗДОЧЕК И НЕЙРО-ОЗВУЧКА EDGE-TTS
+    # ШАГ 3: ТОТАЛЬНАЯ ОЧИСТКА ЗВЕЗДОЧЕК И СИСТЕМНАЯ ИИ-ОЗВУЧКА EDGE-TTS
     # ----------------------------------------------------
     try:
         import re
-        import asyncio
+        import os
+        import urllib.parse
         
         # Вырезаем абсолютно все действия в звездочках (*...*) из озвучки
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
+        
+        # Защищаем текст от двойных кавычек и спецсимволов, чтобы Linux-команда не сломалась
+        clean_voice_text = clean_voice_text.replace('"', '\\"').replace("'", "\\'")
         
         if not clean_voice_text:
             clean_voice_text = "Ахх... Да..."
             
         print(f"🔊 [EDGE-TTS]: Отправка очищенного текста на ИИ-озвучку: {clean_voice_text}")
         
+        # Выбираем персонажа озвучки (Светлана или Дмитрий)
         voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
         voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
         
-        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Безопасный запуск асинхронности внутри Event Loop Колаба!
-        # Этот блок намертво уничтожает ошибку 'cannot be called from a running event loop'!
-        import edge_tts
-        communicate = edge_tts.Communicate(clean_voice_text, voice_character, rate=voice_rate)
+        # 🚀 СУПЕР-ОРУЖИЕ ПОВЕЛИТЕЛЯ: Вызываем официальную консольную утилиту edge-tts напрямую!
+        # Это полностью выжигает из кода asyncio подвисоны и вечные циклы Колаба!
+        linux_cmd = f'edge-tts --voice "{voice_character}" --rate="{voice_rate}" --text "{clean_voice_text}" --write-media "{output_audio_name}"'
         
-        try:
-            # Пытаемся получить уже запущенный в Колабе цикл
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Если цикл запущен, заставляем его выполнить задачу через внутреннее гнездо
-                future = asyncio.run_coroutine_threadsafe(communicate.save(output_audio_name), loop)
-                future.result() # Ждем физического завершения записи файла
-            else:
-                loop.run_until_complete(communicate.save(output_audio_name))
-        except RuntimeError:
-            # Подстраховочный вариант для изолированных потоков воркера
-            new_loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(new_loop)
-            new_loop.run_until_complete(communicate.save(output_audio_name))
-            new_loop.close()
+        # Выполняем команду в фоне Linux операционной системы Колаба
+        os.system(linux_cmd)
+        
+        if os.path.exists(output_audio_name) and os.path.getsize(output_audio_name) > 100:
+            print("✅ [EDGE-TTS]: Страстный ИИ-ответ успешно сгенерирован утилитой Linux!")
+        else:
+            print("⚠️ [EDGE-TTS]: Консольная утилита вернула пустой файл, включаем gTTS бэкап...")
+            raise RuntimeError("Empty file from CLI")
             
-        print("✅ [EDGE-TTS]: Страстный ИИ-ответ успешно сгенерирован и сохранен в WAV!")
-        
     except Exception as e:
         print(f"❌ Сбой ИИ-озвучки Edge-TTS: {e}")
+        # Железный аварийный откат на gTTS, если консоль выдала ошибку
         try:
             from gtts import gTTS
             tts = gTTS(text="Технический затык звука", lang='ru', slow=False)
