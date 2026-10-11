@@ -24,16 +24,33 @@ def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
     Автоматически распределяет веса Qwen-14B-AWQ и XTTS v2 в памяти GPU.
+    Внедряет Monkey Patch для обхода конфликта версий transformers!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
     
-    # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Принудительно импортируем os прямо здесь!
-    # Это наглухо и навсегда уничтожает ошибку UnboundLocalError на строке 33!
     import os
+    import sys
     os.environ["COQUI_TOS_AGREED"] = "1"
     
+    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Динамическая инъекция метода (Monkey Patching)
+    # Искусственно создаем отсутствующую функцию в памяти Питона до импорта Coqui-TTS!
+    try:
+        import transformers
+        import transformers.pytorch_utils
+        
+        # Нагло создаем заглушку, которую ищет старый код Coqui в новом Hugging Face
+        if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
+            print("🧪 [MONKEY PATCH]: Вживляем функцию isin_mps_friendly в transformers на лету...")
+            def isin_mps_friendly(tensor):
+                return False
+            transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
+    except Exception as patch_err:
+        print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
+        
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
+    # Дальше идет Ваш готовый идеальный код загрузки Qwen и динамический importlib...
+
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
