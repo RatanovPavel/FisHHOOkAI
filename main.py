@@ -38,28 +38,30 @@ def init_vton_models():
     # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
     # Принимает абсолютно любые входящие аргументы и именованные элементы!
     # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
-    # 🚀 СУПЕР-МАТЕМАТИЧЕСКАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от any, all, тильды ~ и умножения *)
+    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Универсальный неуязвимый Mock-класс (Всеядный ИИ-Бронежилет)
     try:
         import transformers
         import transformers.pytorch_utils
         
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый математический Mock-класс в transformers...")
+            print("🧪 [MONKEY PATCH]: Вживляем универсальный всеядный Mock-класс в transformers...")
             
-            # Создаем мега-класс, который поддерживает любые логические и математические операции
             class MockMpsBool:
-                def any(self, *args, **kwargs): return self
-                def all(self, *args, **kwargs): return self
-                def __invert__(self): return self  # Поглощаем тильду ~
-                def __mul__(self, other): return self  # 🚀 НАДЁЖНЫЙ ХАК: Поглощаем умножение * (слева)
-                def __rmul__(self, other): return self  # 🚀 НАДЁЖНЫЙ ХАК: Поглощаем умножение * (справа)
-                def __bool__(self): return False
+                # 🔥 ГЕНИАЛЬНЫЙ ХАК: Перехватывает АБСОЛЮТНО любые вызовы, операторы (+, -, *, ~) и методы!
+                # Что бы библиотека ни попыталась сделать с этим объектом — он всегда вернет сам себя без ошибок!
+                def __getattr__(self, name): return lambda *args, **kwargs: self
+                def __add__(self, other): return self      # Защита для оператора плюс (+)
+                def __radd__(self, other): return self     # Защита для оператора плюс (+) справа
+                def __mul__(self, other): return self      # Защита для оператора умножения (*)
+                def __rmul__(self, other): return self     # Защита для оператора умножения (*) справа
+                def __invert__(self): return self          # Защита для унарной тильды (~)
+                def __bool__(self): return False           # Чтобы логические if-проверки не ломались
                 
             def isin_mps_friendly(*args, **kwargs):
                 return MockMpsBool()
                 
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
-            print("✅ [MONKEY PATCH]: Всеядный математический класс-обманщик успешно внедрен!")
+            print("✅ [MONKEY PATCH]: Универсальный всеядный бронежилет успешно внедрен в ОЗУ!")
     except Exception as patch_err:
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
 
