@@ -21,8 +21,8 @@ SERVER_URL = "https://skulla.ru"
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Автоматически обновляет пути файловой системы Linux в памяти процесса,
-    намертво вживляя autoawq и gptqmodel в ОЗУ Питона!
+    Намертво выжигает кэш слепоты HuggingFace, принудительно регистрируя
+    бэкенд квантования в системных модулях Питона на лету!
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
@@ -32,31 +32,34 @@ def init_vton_models():
     import os
     os.environ["COQUI_TOS_AGREED"] = "1"
     
-    # Динамический рефреш путей в ОЗУ (Намертво цементирует gptqmodel и autoawq)
+    # Динамический рефреш путей в ОЗУ
     for directory in site.getsitepackages():
         if directory not in sys.path:
             sys.path.append(directory)
             
-    # Принудительно подтягиваем gptqmodel в sys.modules, чтобы transformers не слепнул
+    # 🚀 ТОТАЛЬНЫЙ ОБМАН КЭША: Регистрируем gptqmodel во всех возможных регистрах Питона!
     try:
         import gptqmodel
-    except: pass
+        sys.modules["gptqmodel"] = gptqmodel
+        sys.modules["GPTQModel"] = gptqmodel
+        sys.modules["gptq_model"] = gptqmodel
+        print("✅ [ОЗУ]: Бэкенд gptqmodel жестко зафиксирован в системном кэше!")
+    except Exception as e:
+        print(f"⚠️ Ошибка сквозной регистрации gptqmodel: {e}")
             
     # ЯДЕРНЫЙ ХАК ПОВЕЛИТЕЛЯ (MONKEY PATCHING)
     try:
         import transformers
         import transformers.pytorch_utils
-        
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем функцию isin_mps_friendly в transformers на лету...")
-            def isin_mps_friendly(tensor):
-                return False
+            def isin_mps_friendly(tensor): return False
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
-            print("✅ [MONKEY PATCH]: Метод успешно инжектирован в ОЗУ!")
-    except Exception as patch_err:
-        print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
+            print("✅ [ОЗУ]: Метод isin_mps_friendly успешно инжектирован!")
+    except: pass
 
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
+    # Дальше идет Ваш готовый идеальный код загрузки Qwen и XTTS v2...
+
     # Дальше идет Ваш готовый идеальный код загрузки Qwen и XTTS v2...
 
     try:
