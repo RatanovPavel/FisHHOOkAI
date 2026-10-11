@@ -238,8 +238,10 @@ def process_voice_chat(task_data):
     # ----------------------------------------------------
     try:
         import re
-        import os
         import urllib.parse
+        
+        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Строку "import os" удалили к чертям!
+        # Теперь Питон использует глобальный системный модуль без конфликтов области видимости!
         
         # Вырезаем абсолютно все действия в звездочках (*...*) из озвучки
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
@@ -256,8 +258,7 @@ def process_voice_chat(task_data):
         voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
         voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
         
-        # 🚀 СУПЕР-ОРУЖИЕ ПОВЕЛИТЕЛЯ: Вызываем официальную консольную утилиту edge-tts напрямую!
-        # Это полностью выжигает из кода asyncio подвисоны и вечные циклы Колаба!
+        # Вызываем официальную консольную утилиту edge-tts напрямую через глобальный os!
         linux_cmd = f'edge-tts --voice "{voice_character}" --rate="{voice_rate}" --text "{clean_voice_text}" --write-media "{output_audio_name}"'
         
         # Выполняем команду в фоне Linux операционной системы Колаба
@@ -271,7 +272,6 @@ def process_voice_chat(task_data):
             
     except Exception as e:
         print(f"❌ Сбой ИИ-озвучки Edge-TTS: {e}")
-        # Железный аварийный откат на gTTS, если консоль выдала ошибку
         try:
             from gtts import gTTS
             tts = gTTS(text="Технический затык звука", lang='ru', slow=False)
