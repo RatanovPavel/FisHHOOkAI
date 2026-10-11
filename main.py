@@ -238,8 +238,12 @@ def process_voice_chat(task_data):
     # ----------------------------------------------------
     try:
         import re
-        import os
-        import shlex # 🚀 Подключаем официальный экранизатор командной строки
+        import sys
+        import shlex
+        
+        # 🚀 АБСОЛЮТНОЕ ОРУЖИЕ ПОВЕЛИТЕЛЯ: Вытаскиваем os из ядра Питона под уникальным именем!
+        # Это на 1000% уничтожает ошибку 'cannot access local variable os'!
+        sys_os = sys.modules.get('os')
         
         # Вырезаем абсолютно все действия в звездочках (*...*) из озвучки
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
@@ -253,17 +257,16 @@ def process_voice_chat(task_data):
         voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
         voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
         
-        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Шлепаем экранирование shlex.quote() на весь текст!
-        # Это намертво защитит вопросительные знаки, маты и спецсимволы от капризов Linux-терминала!
+        # Экранируем вопросительные знаки и спецсимволы через shlex
         safe_text_argument = shlex.quote(clean_voice_text)
         
-        # В самой команде убираем ручные кавычки вокруг текста, так как shlex.quote сам добавит идеальные!
+        # Формируем Linux-команду генерации звука
         linux_cmd = f'edge-tts --voice "{voice_character}" --rate="{voice_rate}" --text {safe_text_argument} --write-media "{output_audio_name}"'
         
-        # Выполняем команду в фоне Linux операционной системы Колаба
-        os.system(linux_cmd)
+        # Вызываем системную консоль через наш изолированный sys_os!
+        sys_os.system(linux_cmd)
         
-        if os.path.exists(output_audio_name) and os.path.getsize(output_audio_name) > 100:
+        if sys_os.path.exists(output_audio_name) and sys_os.path.getsize(output_audio_name) > 100:
             print("✅ [EDGE-TTS]: Страстный ИИ-ответ успешно сгенерирован утилитой Linux!")
         else:
             print("⚠️ [EDGE-TTS]: Консольная утилита вернула пустой файл, включаем gTTS бэкап...")
@@ -276,7 +279,10 @@ def process_voice_chat(task_data):
             tts = gTTS(text="Технический затык звука", lang='ru', slow=False)
             tts.save(output_audio_name)
         except:
-            with open(output_audio_name, "wb") as f: f.write(b"")
+            # Аварийная заглушка, если gTTS тоже недоступен
+            try:
+                with open(output_audio_name, "wb") as f: f.write(b"")
+            except: pass
 
 
     # ----------------------------------------------------
