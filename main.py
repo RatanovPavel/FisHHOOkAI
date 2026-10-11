@@ -22,8 +22,7 @@ IMAGE_PIPE = None # Наследие картинок отключено, кар
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Один раз при старте воркера монолитно укладывает Qwen-14B-AWQ в память GPU,
-    жестко фиксируя лимит VRAM. Это полностью исключает CUDA OOM в процессе диалогов!
+    Монолитно укладывает Qwen-14B-AWQ в память GPU при старте воркера.
     """
     global VOICE_MODEL, VOICE_TOKENIZER, IMAGE_PIPE
     IMAGE_PIPE = None 
@@ -33,8 +32,7 @@ def init_vton_models():
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
-        # Жестко ограничиваем аппетиты 14B модели на карте T4: отдаем ей до 7.5 ГБ,
-        # чтобы оставить Whisper гигантский свободный кусок VRAM для звука!
+        # Выделяем под модель жесткий буфер во VRAM, остальное вытесняем в RAM
         max_memory_mapping = {0: "7.5GiB", "cpu": "24GiB"}
         
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
@@ -47,11 +45,13 @@ def init_vton_models():
         )
         print("🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B зафиксирован в VRAM и готов к бесконечному циклу!")
     except Exception as e:
-        print(f"❌ Критический сбой при глобальной сборке 14B-пайплайна: {e}")
+        # Ловим только РЕАЛЬНЫЙ критический вылет, если модель физически не загрузилась
+        print(f"❌ Фактический сбой при инициализации весов модели: {e}")
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
     print("✨ [УСПЕХ]: Автономная ИИ-станция Повелителя полностью готова к работе!")
+
 
 
 
