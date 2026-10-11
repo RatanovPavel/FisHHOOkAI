@@ -28,8 +28,9 @@ def init_vton_models():
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
     IMAGE_PIPE = None 
     
-    # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Прописываем флаг согласия прямо в память процесса Python!
-    # Это наглухо блокирует появление окна [y/n] в консоли воркера!
+    # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Принудительно импортируем os прямо здесь!
+    # Это наглухо и навсегда уничтожает ошибку UnboundLocalError на строке 33!
+    import os
     os.environ["COQUI_TOS_AGREED"] = "1"
     
     print("\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
