@@ -38,26 +38,28 @@ def init_vton_models():
     # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Всеядная динамическая инъекция метода (Monkey Patching)
     # Принимает абсолютно любые входящие аргументы и именованные элементы!
     # 🚀 БРОНЕБОЙНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от .any() и .all())
-    # 🚀 УЛЬТИМАТИВНАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от any, all и тильды ~)
+    # 🚀 СУПЕР-МАТЕМАТИЧЕСКАЯ ИНЪЕКЦИЯ МЕТОДА ПОВЕЛИ ТЕЛЯ (Защищено от any, all, тильды ~ и умножения *)
     try:
         import transformers
         import transformers.pytorch_utils
         
         if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
-            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый всеядный Mock-класс в transformers...")
+            print("🧪 [MONKEY PATCH]: Вживляем неуязвимый математический Mock-класс в transformers...")
             
-            # Создаем мега-класс, который проглотит .any(), .all() и унарный оператор отрицания ~
+            # Создаем мега-класс, который поддерживает любые логические и математические операции
             class MockMpsBool:
                 def any(self, *args, **kwargs): return self
                 def all(self, *args, **kwargs): return self
-                def __invert__(self): return self  # 🚀 НАДЁЖНЫЙ ХАК: Идеально поглощаем тильду ~
+                def __invert__(self): return self  # Поглощаем тильду ~
+                def __mul__(self, other): return self  # 🚀 НАДЁЖНЫЙ ХАК: Поглощаем умножение * (слева)
+                def __rmul__(self, other): return self  # 🚀 НАДЁЖНЫЙ ХАК: Поглощаем умножение * (справа)
                 def __bool__(self): return False
                 
             def isin_mps_friendly(*args, **kwargs):
                 return MockMpsBool()
                 
             transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
-            print("✅ [MONKEY PATCH]: Всеядный класс-обманщик успешно внедрен на уровне Питона!")
+            print("✅ [MONKEY PATCH]: Всеядный математический класс-обманщик успешно внедрен!")
     except Exception as patch_err:
         print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
 
