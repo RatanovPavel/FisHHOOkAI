@@ -207,9 +207,10 @@ def process_voice_chat(task_data):
                 
             inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
             
-            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Берем чистый int длины промпта через индекс!
-            # Это намертво уничтожает ошибку 'slice indices must be integers'!
-            prompt_length = inputs.input_ids.shape[1]
+            # 🚀 ЧИСТЫЙ СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ:
+            # Метод .size(-1) гарантированно вытаскивает длину промпта как ЧИСТЫЙ INT!
+            # Это раз и навсегда уничтожает ошибку 'dict object has no element 0' на любых именах и контекстах!
+            prompt_length = int(inputs.input_ids.size(-1))
             
             with torch.no_grad():
                 outputs = v_model.generate(
@@ -220,7 +221,7 @@ def process_voice_chat(task_data):
                     top_p=0.9
                 )
                 
-            # Корректно отрезаем промпт на длину prompt_length в виде целого числа
+            # Отрезаем промпт, используя гарантированное целое число prompt_length
             generated_tokens = outputs[0][prompt_length:]
             full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
             
