@@ -20,15 +20,39 @@ IMAGE_PIPE = None
 def init_vton_models():
     """
     ГЛОБАЛЬНЫЙ ЗАГРУЗЧИК ПОВЕЛИТЕЛЯ:
-    Монолитно укладывает Сверхразум Qwen-14B и генератор страсти XTTS v2 в память GPU.
-    Принудительно принимает CPML лицензию Coqui в памяти процесса!
+    Автоматически обновляет пути файловой системы Linux в памяти процесса.
+    Внедряет Monkey Patch для обхода конфликта версий transformers на лету!
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_PIPE
+    IMAGE_PIPE = None 
     
-    # Жестко зашиваем согласие с лицензией Coqui в память процесса
+    import sys
+    import site
+    import os
     os.environ["COQUI_TOS_AGREED"] = "1"
     
-    print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем цементирование Сверхразума Qwen-14B-AWQ...")
+    # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Динамический рефреш путей в ОЗУ
+    for directory in site.getsitepackages():
+        if directory not in sys.path:
+            sys.path.append(directory)
+            
+    # 🚀 ЯДЕРНЫЙ ХАК ПОВЕЛИТЕЛЯ (MONKEY PATCHING):
+    # Искусственно создаем отсутствующую функцию в памяти Питона до импорта Coqui-TTS!
+    try:
+        import transformers
+        import transformers.pytorch_utils
+        
+        # Нагло создаем заглушку, которую ищет старый код Coqui в новом Hugging Face
+        if not hasattr(transformers.pytorch_utils, "isin_mps_friendly"):
+            print("🧪 [MONKEY PATCH]: Вживляем функцию isin_mps_friendly в transformers на лету...")
+            def isin_mps_friendly(tensor):
+                return False
+            transformers.pytorch_utils.isin_mps_friendly = isin_mps_friendly
+            print("✅ [MONKEY PATCH]: Метод успешно инжектирован в ОЗУ!")
+    except Exception as patch_err:
+        print(f"⚠️ Не удалось применить патч памяти: {patch_err}")
+
+    print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Начинаем жесткое цементирование Сверхразума Qwen-14B-AWQ...")
     try:
         model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
@@ -41,14 +65,12 @@ def init_vton_models():
         print(f"🧠 [УСПЕХ GPU]: Сверхразум Qwen-14B успешно зафиксирован во VRAM!")
     except Exception as e:
         print(f"❌ Критический сбой при инициализации весов Qwen: {e}")
-        
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
+
     print(f"\n⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка локальной ИИ-модели страсти XTTS v2 в VRAM...")
     try:
-        # 🚀 СУПЕР-ФИКС ПОВЕЛИТЕЛЯ: Перенесли импорт прямо внутрь блока выполнения!
-        # Это намертво уничтожает ошибку name 'TTS' is not defined!
         from TTS.api import TTS
-        
-        # Инициализируем модель напрямую на чистую видеокарту CUDA
         TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
         print(f"🔊 [УСПЕХ GPU]: Локальный ИИ-движок XTTS v2 успешно загружен и готов клонировать!")
     except Exception as e:
