@@ -235,15 +235,48 @@ def process_voice_chat(task_data):
             
 
     # ----------------------------------------------------
-    # ШАГ 3: ЛОКАЛЬНЫЙ СИНТЕЗ РЕЧИ (TTS)
+    # ШАГ 3: ТОТАЛЬНАЯ ОЧИСТКА ЗВЕЗДОЧЕК И НЕЙРО-ОЗВУЧКА EDGE-TTS
     # ----------------------------------------------------
     try:
-        print(f"🔊 [TTS]: Локальная генерация {gender} голоса через gTTS...")
-        tts = gTTS(text=bot_text, lang='ru', slow=False)
-        tts.save(output_audio_name)
+        import re
+        import asyncio
+        
+        # 🚀 СУПЕР-ХАК ПОВЕЛИТЕЛЯ: Вырезаем абсолютно все действия в звездочках (*...*) из озвучки!
+        # Текст на экране сайта останется сочным и полным, но голос Светланы будет читать СТРОГО прямую речь!
+        clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
+        
+        # Если после очистки звездочек ничего не осталось, озвучиваем дефолтное междометие согласия
+        if not clean_voice_text:
+            clean_voice_text = "Ахх... Да..."
+            
+        print(f"🔊 [EDGE-TTS]: Отправка очищенного текста на ИИ-озвучку: {clean_voice_text}")
+        
+        # Задаем русский женский ИИ-голос (Светлана). Для мужского можно поставить ru-RU-DmitryNeural
+        voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
+        
+        # 🎯 ТЮНИНГ СТРАСТИ: Флаг rate="+0%" управляет скоростью. 
+        # Если хотите сделать голос чуть медленнее и томнее — поставьте "-10%". Если быстрее — "+10%".
+        voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
+        
+        # Создаем команду генерации для Edge-TTS
+        async def generate_edge_voice():
+            import edge_tts
+            communicate = edge_tts.Communicate(clean_voice_text, voice_character, rate=voice_rate)
+            await communicate.save(output_audio_name)
+            
+        # Запускаем асинхронный движок внутри синхронного Питона Колаба
+        asyncio.run(generate_edge_voice())
+        print("✅ [EDGE-TTS]: Страстный ИИ-ответ успешно сгенерирован и сохранен в WAV!")
+        
     except Exception as e:
-        print(f"❌ Сбой локального TTS: {e}")
-        with open(output_audio_name, "wb") as f: f.write(b"")
+        print(f"❌ Сбой ИИ-озвучки Edge-TTS: {e}")
+        # Аварийный откат на gTTS, если Edge-TTS не ответил
+        try:
+            from gtts import gTTS
+            tts = gTTS(text="Технический затык звука", lang='ru', slow=False)
+            tts.save(output_audio_name)
+        except:
+            with open(output_audio_name, "wb") as f: f.write(b"")
 
     # ----------------------------------------------------
     # ШАГ 4: МГНОВЕННЫЙ ПУШ ВСЕХ ДАННЫХ НА БЭКЕНД SKULLA
@@ -253,22 +286,18 @@ def process_voice_chat(task_data):
         encoded_user = urllib.parse.quote(user_text)
         encoded_bot = urllib.parse.quote(bot_text)
         
-        # Передаем аудиофайл и русские тексты чата одним неубиваемым Query-пакетом
         upload_endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result?task_id={task_id}&user_login={user_login}&user_text={encoded_user}&bot_text={encoded_bot}"
         
         with open(output_audio_name, "rb") as f:
             files = {"image": (output_audio_name, f, "audio/wav")}
             requests.post(upload_endpoint, data={"task_id": task_id, "user_login": user_login}, files=files, timeout=30)
             
-        # Зачищаем временные аудио-хвосты сессии в Колабе
-        if os.path.exists(local_input_audio): 
-            os.remove(local_input_audio)
-        if os.path.exists(output_audio_name): 
-            os.remove(output_audio_name)
-            
+        if os.path.exists(local_input_audio): os.remove(local_input_audio)
+        if os.path.exists(output_audio_name): os.remove(output_audio_name)
         print(f"🏁 [УСПЕХ]: Голосовая задача {task_id} полностью выполнена и закрыта!")
     except Exception as e:
         print(f"❌ Ошибка пуша результатов на сервер Skulla: {e}")
+
 
 # ====================================================
 # 🔄 3. ГЛАВНЫЙ АСИНХРОННЫЙ ЦИКЛ ОПРОСА (LONG POLLING) 🔄
