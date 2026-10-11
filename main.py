@@ -238,16 +238,11 @@ def process_voice_chat(task_data):
     # ----------------------------------------------------
     try:
         import re
-        import urllib.parse
-        
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Строку "import os" удалили к чертям!
-        # Теперь Питон использует глобальный системный модуль без конфликтов области видимости!
+        import os
+        import shlex # 🚀 Подключаем официальный экранизатор командной строки
         
         # Вырезаем абсолютно все действия в звездочках (*...*) из озвучки
         clean_voice_text = re.sub(r'\*.*?\*', '', bot_text).strip()
-        
-        # Защищаем текст от двойных кавычек и спецсимволов, чтобы Linux-команда не сломалась
-        clean_voice_text = clean_voice_text.replace('"', '\\"').replace("'", "\\'")
         
         if not clean_voice_text:
             clean_voice_text = "Ахх... Да..."
@@ -258,8 +253,12 @@ def process_voice_chat(task_data):
         voice_character = "ru-RU-SvetlanaNeural" if gender == "female" else "ru-RU-DmitryNeural"
         voice_rate = "-5%" if "psychologist" in role.lower() else "+5%"
         
-        # Вызываем официальную консольную утилиту edge-tts напрямую через глобальный os!
-        linux_cmd = f'edge-tts --voice "{voice_character}" --rate="{voice_rate}" --text "{clean_voice_text}" --write-media "{output_audio_name}"'
+        # 🚀 СУПЕР-ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Шлепаем экранирование shlex.quote() на весь текст!
+        # Это намертво защитит вопросительные знаки, маты и спецсимволы от капризов Linux-терминала!
+        safe_text_argument = shlex.quote(clean_voice_text)
+        
+        # В самой команде убираем ручные кавычки вокруг текста, так как shlex.quote сам добавит идеальные!
+        linux_cmd = f'edge-tts --voice "{voice_character}" --rate="{voice_rate}" --text {safe_text_argument} --write-media "{output_audio_name}"'
         
         # Выполняем команду в фоне Linux операционной системы Колаба
         os.system(linux_cmd)
