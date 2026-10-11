@@ -199,11 +199,17 @@ def process_voice_chat(task_data):
             if len(chat_history) > 9:
                 chat_history = [chat_history] + chat_history[-6:]
                 
+            # Применяем официальный шаблон чата модели Qwen
             prompt = v_tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
             
-            # Намертво привязываем вызов к вытащенным объектам v_tokenizer и v_model
+            if matched_pattern:
+                prompt += response_prefix
+                
             inputs = v_tokenizer(prompt, return_tensors="pt").to("cuda")
-            prompt_length = inputs.input_ids.shape
+            
+            # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Берем чистый int длины промпта через индекс!
+            # Это намертво уничтожает ошибку 'slice indices must be integers'!
+            prompt_length = inputs.input_ids.shape[1]
             
             with torch.no_grad():
                 outputs = v_model.generate(
@@ -214,7 +220,8 @@ def process_voice_chat(task_data):
                     top_p=0.9
                 )
                 
-            generated_tokens = outputs[prompt_length:]
+            # Корректно отрезаем промпт на длину prompt_length в виде целого числа
+            generated_tokens = outputs[0][prompt_length:]
             full_response = v_tokenizer.decode(generated_tokens, skip_special_tokens=True)
             
             if matched_pattern:
@@ -227,6 +234,7 @@ def process_voice_chat(task_data):
             chat_history.append({"role": "assistant", "content": bot_text})
             with open(history_file, "w", encoding="utf-8") as hf:
                 json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+
             
     except Exception as e:
         print(f"❌ Сбой 14B сверхразума на шаге генерации: {e}")
