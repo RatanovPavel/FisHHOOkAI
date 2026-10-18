@@ -13,25 +13,29 @@ import torch
 # 📦 АВТОУСТАНОВКА ЗАВИСИМОСТЕЙ (для Colab / Kaggle)
 # ============================================================
 def install_dependencies():
-    """Устанавливает все необходимые пакеты, если их нет."""
-    packages = [
-        "transformers",
-        "accelerate",
-        "bitsandbytes",
-        "optimum",
-        "coqui-tts",
-        "openai-whisper",
-        "SpeechRecognition",
-        "gtts",
-        "pydub",
+    """
+    Устанавливает все необходимые пакеты, если их нет.
+    Словарь: {pip-имя пакета : имя модуля для импорта}
+    """
+    packages = {
+        "transformers":       "transformers",
+        "accelerate":         "accelerate",
+        "bitsandbytes":       "bitsandbytes",  # ← 4-bit квантование (стабильнее AWQ)
+        "optimum":            "optimum",
+        "TTS":                "TTS",           # ← Coqui TTS (именно TTS, не coqui-tts!)
+        "openai-whisper":     "whisper",
+        "SpeechRecognition":  "speech_recognition",
+        "gtts":               "gtts",
+        "pydub":              "pydub",
     ]
-    for pkg in packages:
+    for pip_name, import_name in packages.items():
         try:
-            __import__(pkg.replace("-", "_"))
+            __import__(import_name)
+            print(f"✅ {pip_name} уже установлен.")
         except ImportError:
-            print(f"📦 Устанавливаю {pkg}...")
+            print(f"📦 Устанавливаю {pip_name}...")
             subprocess.check_call([
-                sys.executable, "-m", "pip", "install", "-q", pkg
+                sys.executable, "-m", "pip", "install", "-q", pip_name
             ])
 
     # FFmpeg — критичен для обработки аудио
@@ -91,19 +95,19 @@ def init_models():
         print("⛔ Без GPU дальнейшая работа невозможна.")
         return False
 
-    # --- Qwen-14B (LLM) ---
-    print("\n⏳ Загрузка Qwen2.5-14B-Instruct-AWQ...")
+    # --- Qwen-14B (LLM) с 4-bit квантованием через bitsandbytes ---
+    print("\n⏳ Загрузка Qwen2.5-14B-Instruct (4-bit)...")
     try:
-        model_id = "Qwen/Qwen2.5-14B-Instruct-AWQ"
+        model_id = "Qwen/Qwen2.5-14B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
             torch_dtype=torch.float16,
+            load_in_4bit=True,  # ← 4-bit квантование через bitsandbytes
             low_cpu_mem_usage=True,
-            load_in_4bit=True,
         )
-        print("✅ Qwen-14B загружен в VRAM!")
+        print("✅ Qwen-14B (4-bit) загружен в VRAM!")
     except Exception as e:
         print(f"❌ Ошибка загрузки Qwen: {e}")
         VOICE_MODEL = None
