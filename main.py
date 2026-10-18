@@ -95,12 +95,13 @@ def init_models():
         print("⛔ Без GPU дальнейшая работа невозможна.")
         return False
 
-    # --- Qwen-14B (LLM) с 4-bit квантованием через bitsandbytes ---
-    print("\n⏳ Загрузка Qwen2.5-14B-Instruct (4-bit)...")
+    # --- Qwen-7B (LLM) с 4-bit квантованием через bitsandbytes ---
+    # Используем 7B вместо 14B для экономии VRAM (влезет в Tesla T4 14.6 GB)
+    print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
     try:
         from transformers import BitsAndBytesConfig
         
-        model_id = "Qwen/Qwen2.5-14B-Instruct"
+        model_id = "Qwen/Qwen2.5-7B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
         # Правильная конфигурация 4-bit квантования
@@ -117,7 +118,7 @@ def init_models():
             quantization_config=quantization_config,
             low_cpu_mem_usage=True,
         )
-        print("✅ Qwen-14B (4-bit) загружен в VRAM!")
+        print("✅ Qwen-7B (4-bit) загружен в VRAM!")
     except Exception as e:
         print(f"❌ Ошибка загрузки Qwen: {e}")
         VOICE_MODEL = None
@@ -148,7 +149,7 @@ def init_models():
 def process_voice_chat(task_data):
     """
     Полный цикл:
-      STT (Whisper) → LLM (Qwen-14B) → TTS (Coqui XTTS v2) → Push
+      STT (Whisper) → LLM (Qwen-7B) → TTS (Coqui XTTS v2) → Push
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
 
