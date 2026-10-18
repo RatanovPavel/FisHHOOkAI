@@ -18,6 +18,7 @@ def install_dependencies():
         "transformers",
         "accelerate",
         "autoawq",
+        "gptqmodel",
         "optimum",
         "coqui-tts",
         "openai-whisper",
