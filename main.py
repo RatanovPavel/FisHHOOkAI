@@ -22,12 +22,13 @@ def install_dependencies():
         "accelerate":         "accelerate",
         "bitsandbytes":       "bitsandbytes",
         "optimum":            "optimum",
-        "TTS":                "TTS",
         "openai-whisper":     "whisper",
         "SpeechRecognition":  "speech_recognition",
         "gtts":               "gtts",
         "pydub":              "pydub",
     }
+    
+    # Устанавливаем пакеты
     for pip_name, import_name in packages.items():
         try:
             __import__(import_name)
@@ -37,6 +38,17 @@ def install_dependencies():
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q", pip_name
             ])
+    
+    # Coqui TTS - устанавливаем из GitHub (поддерживает Python 3.12)
+    try:
+        __import__("TTS")
+        print("✅ TTS уже установлен.")
+    except ImportError:
+        print("📦 Устанавливаю TTS из GitHub (для Python 3.12)...")
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", "-q", 
+            "git+https://github.com/coqui-ai/TTS.git"
+        ])
 
     # FFmpeg — критичен для обработки аудио
     if not shutil.which("ffmpeg"):
