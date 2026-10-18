@@ -17,7 +17,7 @@ def install_dependencies():
     Устанавливает все необходимые пакеты, если их нет.
     Словарь: {pip-имя пакета : имя модуля для импорта}
     """
-    packages = {
+    packages = [
         "transformers":       "transformers",
         "accelerate":         "accelerate",
         "bitsandbytes":       "bitsandbytes",  # ← 4-bit квантование (стабильнее AWQ)
