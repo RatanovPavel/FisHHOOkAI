@@ -17,18 +17,17 @@ def install_dependencies():
     Устанавливает все необходимые пакеты, если их нет.
     Словарь: {pip-имя пакета : имя модуля для импорта}
     """
-    packages = [
-        "transformers",
-        "accelerate",
-        "bitsandbytes",  # ← 4-bit квантование (стабильнее AWQ)
-        "optimum",
-        "TTS",           # ← Coqui TTS (именно TTS, не coqui-tts!)
-        "openai-whisper",
-        "SpeechRecognition",
-        "gtts",
-        "pydub",
-    ]
-    
+    packages = {
+        "transformers":       "transformers",
+        "accelerate":         "accelerate",
+        "bitsandbytes":       "bitsandbytes",
+        "optimum":            "optimum",
+        "TTS":                "TTS",
+        "openai-whisper":     "whisper",
+        "SpeechRecognition":  "speech_recognition",
+        "gtts":               "gtts",
+        "pydub":              "pydub",
+    }
     for pip_name, import_name in packages.items():
         try:
             __import__(import_name)
@@ -55,13 +54,11 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================
 # ⚙️ КОНФИГУРАЦИЯ — МЕНЯЙТЕ ЗДЕСЬ
 # ============================================================
-USER_LOGIN = "RATANOV_PAVEL"       # ← Ваш логин на сервере
-SERVER_URL = "https://skulla.ru"     # ← Адрес сервера
-DEMO_MODE  = False                   # ← True = работа без сервера (тест)
+USER_LOGIN = "your_login_here"
+SERVER_URL = "https://skulla.ru"
+DEMO_MODE  = False
 
-# ============================================================
-# 🧠 ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ МОДЕЛЕЙ (в VRAM)
-# ============================================================
+# Глобальные переменные для удержания ИИ-моделей в VRAM
 VOICE_MODEL     = None
 VOICE_TOKENIZER = None
 TTS_ENGINE      = None
@@ -105,7 +102,7 @@ def init_models():
             model_id,
             device_map="auto",
             torch_dtype=torch.float16,
-            load_in_4bit=True,  # ← 4-bit квантование через bitsandbytes
+            load_in_4bit=True,
             low_cpu_mem_usage=True,
         )
         print("✅ Qwen-14B (4-bit) загружен в VRAM!")
@@ -417,8 +414,6 @@ def main_loop(login: str):
 # 🏁 ТОЧКА ВХОДА
 # ============================================================
 if __name__ == "__main__":
-    # В Colab / Kaggle argparse может не работать —
-    # используем переменную USER_LOGIN из конфигурации выше.
     try:
         import argparse
         parser = argparse.ArgumentParser()
