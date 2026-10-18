@@ -98,13 +98,23 @@ def init_models():
     # --- Qwen-14B (LLM) с 4-bit квантованием через bitsandbytes ---
     print("\n⏳ Загрузка Qwen2.5-14B-Instruct (4-bit)...")
     try:
+        from transformers import BitsAndBytesConfig
+        
         model_id = "Qwen/Qwen2.5-14B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        # Правильная конфигурация 4-bit квантования
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"
+        )
+        
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
-            torch_dtype=torch.float16,
-            load_in_4bit=True,
+            quantization_config=quantization_config,
             low_cpu_mem_usage=True,
         )
         print("✅ Qwen-14B (4-bit) загружен в VRAM!")
