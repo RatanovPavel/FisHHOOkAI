@@ -28,6 +28,7 @@ def install_dependencies():
         "gtts":               "gtts",
         "pydub":              "pydub",
     ]
+    
     for pip_name, import_name in packages.items():
         try:
             __import__(import_name)
