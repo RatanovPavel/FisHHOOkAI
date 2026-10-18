@@ -88,6 +88,11 @@ def init_models():
     """Загружает все ИИ-модели в видеопамять."""
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
 
+    import site
+    import importlib
+    importlib.invalidate_caches()
+    site.main()
+    
     if not check_gpu():
         print("⛔ Без GPU дальнейшая работа невозможна.")
         return False
