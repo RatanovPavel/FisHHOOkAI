@@ -17,7 +17,7 @@ def install_dependencies():
     packages = [
         "transformers",
         "accelerate",
-        "auto-gptq",
+        "autoawq",
         "optimum",
         "coqui-tts",
         "openai-whisper",
@@ -50,7 +50,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================
 # ⚙️ КОНФИГУРАЦИЯ — МЕНЯЙТЕ ЗДЕСЬ
 # ============================================================
-USER_LOGIN = "your_login_here"       # ← Ваш логин на сервере
+USER_LOGIN = "RATANOV_PAVEL"         # ← Ваш логин на сервере
 SERVER_URL = "https://skulla.ru"     # ← Адрес сервера
 DEMO_MODE  = False                   # ← True = работа без сервера (тест)
 
