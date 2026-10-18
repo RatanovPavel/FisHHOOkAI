@@ -18,15 +18,15 @@ def install_dependencies():
     Словарь: {pip-имя пакета : имя модуля для импорта}
     """
     packages = [
-        "transformers":       "transformers",
-        "accelerate":         "accelerate",
-        "bitsandbytes":       "bitsandbytes",  # ← 4-bit квантование (стабильнее AWQ)
-        "optimum":            "optimum",
-        "TTS":                "TTS",           # ← Coqui TTS (именно TTS, не coqui-tts!)
-        "openai-whisper":     "whisper",
-        "SpeechRecognition":  "speech_recognition",
-        "gtts":               "gtts",
-        "pydub":              "pydub",
+        "transformers",
+        "accelerate",
+        "bitsandbytes",  # ← 4-bit квантование (стабильнее AWQ)
+        "optimum",
+        "TTS",           # ← Coqui TTS (именно TTS, не coqui-tts!)
+        "openai-whisper",
+        "SpeechRecognition",
+        "gtts",
+        "pydub",
     ]
     
     for pip_name, import_name in packages.items():
