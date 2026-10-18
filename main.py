@@ -17,7 +17,7 @@ def install_dependencies():
     packages = [
         "transformers",
         "accelerate",
-        "auto-gptq",
+        "bitsandbytes",
         "optimum",
         "coqui-tts",
         "openai-whisper",
@@ -50,7 +50,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================
 # ⚙️ КОНФИГУРАЦИЯ — МЕНЯЙТЕ ЗДЕСЬ
 # ============================================================
-USER_LOGIN = "your_login_here"       # ← Ваш логин на сервере
+USER_LOGIN = "RATANOV_PAVEL"       # ← Ваш логин на сервере
 SERVER_URL = "https://skulla.ru"     # ← Адрес сервера
 DEMO_MODE  = False                   # ← True = работа без сервера (тест)
 
@@ -68,7 +68,7 @@ def check_gpu():
     """Проверяет доступность GPU и выводит информацию."""
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
-        vram = torch.cuda.get_device_properties(0).total_mem / (1024**3)
+        vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         print(f"✅ GPU: {gpu_name} | VRAM: {vram:.1f} GB")
         return True
     else:
@@ -101,6 +101,7 @@ def init_models():
             device_map="auto",
             torch_dtype=torch.float16,
             low_cpu_mem_usage=True,
+            load_in_4bit=True,
         )
         print("✅ Qwen-14B загружен в VRAM!")
     except Exception as e:
