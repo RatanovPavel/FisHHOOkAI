@@ -22,6 +22,7 @@ def install_dependencies():
         "accelerate":         "accelerate",
         "bitsandbytes":       "bitsandbytes",
         "optimum":            "optimum",
+        "coqui-tts":          "TTS",  # ← Coqui TTS форк (поддерживает Python 3.12!)
         "openai-whisper":     "whisper",
         "SpeechRecognition":  "speech_recognition",
         "gtts":               "gtts",
@@ -38,17 +39,6 @@ def install_dependencies():
             subprocess.check_call([
                 sys.executable, "-m", "pip", "install", "-q", pip_name
             ])
-    
-    # Coqui TTS - устанавливаем из GitHub (поддерживает Python 3.12)
-    try:
-        __import__("TTS")
-        print("✅ TTS уже установлен.")
-    except ImportError:
-        print("📦 Устанавливаю TTS из GitHub (для Python 3.12)...")
-        subprocess.check_call([
-            sys.executable, "-m", "pip", "install", "-q", 
-            "git+https://github.com/coqui-ai/TTS.git"
-        ])
 
     # FFmpeg — критичен для обработки аудио
     if not shutil.which("ffmpeg"):
@@ -123,7 +113,7 @@ def init_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # --- XTTS v2 (TTS) ---
+    # --- XTTS v2 (TTS) через Coqui TTS ---
     print("\n⏳ Загрузка XTTS v2...")
     try:
         from TTS.api import TTS
@@ -148,7 +138,7 @@ def init_models():
 def process_voice_chat(task_data):
     """
     Полный цикл:
-      STT (Whisper) → LLM (Qwen-14B) → TTS (XTTS v2) → Push
+      STT (Whisper) → LLM (Qwen-14B) → TTS (Coqui XTTS v2) → Push
     """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
 
