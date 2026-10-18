@@ -54,7 +54,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================
 # ⚙️ КОНФИГУРАЦИЯ — МЕНЯЙТЕ ЗДЕСЬ
 # ============================================================
-USER_LOGIN = "your_login_here"
+USER_LOGIN = "RATANOV_PAVEL"
 SERVER_URL = "https://skulla.ru"
 DEMO_MODE  = False
 
