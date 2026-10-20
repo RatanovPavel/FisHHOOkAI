@@ -68,7 +68,7 @@ CHARACTERS = {
     "anna": {
         "name": "Анна",
         "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
-        "voice_sample": "voices/anna.wav",  # Путь к образцу голоса
+        "voice_sample": "voices/anna.wav",
         "style": "romantic"
     },
     "kate": {
@@ -91,7 +91,6 @@ CHARACTERS = {
     }
 }
 
-# Активный персонаж (можно менять динамически)
 ACTIVE_CHARACTER = "anna"
 
 # ============================================================
@@ -135,7 +134,6 @@ def init_models():
         return False
 
     # --- Qwen-7B (LLM) с 4-bit квантованием через bitsandbytes ---
-    # Используем 7B вместо 14B для экономии VRAM (влезет в Tesla T4 14.6 GB)
     print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
     try:
         from transformers import BitsAndBytesConfig
@@ -143,7 +141,6 @@ def init_models():
         model_id = "Qwen/Qwen2.5-7B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
 
-        # Правильная конфигурация 4-bit квантования
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.float16,
@@ -205,14 +202,6 @@ def init_models():
 def generate_image(prompt: str, output_path: str, character: str = None) -> bool:
     """
     Генерирует изображение по промпту с учётом персонажа.
-
-    Args:
-        prompt: Описание изображения
-        output_path: Путь для сохранения
-        character: Имя персонажа (опционально)
-
-    Returns:
-        True если успешно, False иначе
     """
     global IMAGE_MODEL
 
@@ -221,7 +210,6 @@ def generate_image(prompt: str, output_path: str, character: str = None) -> bool
         return False
 
     try:
-        # Добавляем стиль персонажа если указан
         enhanced_prompt = prompt
         if character and character in CHARACTERS:
             char_info = CHARACTERS[character]
@@ -237,7 +225,6 @@ def generate_image(prompt: str, output_path: str, character: str = None) -> bool
 
         print(f"🎨 Генерация изображения: {enhanced_prompt[:50]}...")
 
-        # Генерируем изображение
         with torch.inference_mode():
             image = IMAGE_MODEL(
                 enhanced_prompt,
@@ -247,7 +234,6 @@ def generate_image(prompt: str, output_path: str, character: str = None) -> bool
                 height=512
             ).images[0]
 
-        # Сохраняем
         image.save(output_path)
         print(f"✅ Изображение сохранено: {output_path}")
         return True
@@ -273,11 +259,9 @@ def process_voice_chat(task_data):
     user_login  = actual_task.get("user_login", USER_LOGIN)
     web_text    = actual_task.get("text_message", "")
 
-    # Получаем персонажа из задачи или используем активного
     character_key = actual_task.get("character", ACTIVE_CHARACTER)
     character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
 
-    # Проверяем запрос на генерацию изображения
     generate_img = actual_task.get("generate_image", False)
     image_prompt = actual_task.get("image_prompt", "")
 
@@ -287,7 +271,7 @@ def process_voice_chat(task_data):
     local_input_audio = os.path.join(session_dir, "user_voice.wav")
     output_audio_name = os.path.join(session_dir, "bot_response.wav")
 
-    # ── Скачиваем аудио с сервера (или пропускаем в демо) ──
+    # ── Скачиваем аудио с сервера ──
     if not DEMO_MODE:
         download_url = (
             f"{SERVER_URL}/api/studio/fishhook/"
@@ -337,7 +321,6 @@ def process_voice_chat(task_data):
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
             bot_text = "Мой LLM-модуль не был загружен."
         else:
-            # Используем характер персонажа
             system_prompt = (
                 f"{character['personality']} "
                 "Отвечай кратко и по делу, строго на русском языке. "
@@ -360,7 +343,6 @@ def process_voice_chat(task_data):
 
             chat_history.append({"role": "user", "content": user_text})
 
-            # Обрезаем контекст — не более 5 сообщений
             if len(chat_history) > 5:
                 chat_history = [chat_history[0]] + chat_history[-4:]
 
@@ -383,7 +365,6 @@ def process_voice_chat(task_data):
             )
             bot_text = full_output.replace(prompt, "").strip()
 
-            # Убираем дублирование роли
             if "assistant" in bot_text:
                 bot_text = bot_text.split("assistant")[-1].strip()
 
@@ -401,7 +382,6 @@ def process_voice_chat(task_data):
     clean_text = re.sub(r'\*.*?\*', '', bot_text).strip()
     try:
         if TTS_ENGINE is not None:
-            # Используем голос персонажа если есть образец
             voice_sample = character.get("voice_sample")
             speaker_wav = None
 
@@ -409,7 +389,6 @@ def process_voice_chat(task_data):
                 speaker_wav = voice_sample
                 print(f"🎤 Используем голос персонажа: {voice_sample}")
             elif os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
-                # Fallback: клонируем голос из входящего аудио
                 speaker_wav = local_input_audio
                 print("🎤 Клонируем голос из входящего аудио")
 
@@ -448,40 +427,41 @@ def process_voice_chat(task_data):
     # ── ШАГ 4: Отправка результата (аудио + изображение) ──
     if not DEMO_MODE:
         try:
-            import urllib.parse
-            encoded_user = urllib.parse.quote(user_text)
-            encoded_bot  = urllib.parse.quote(bot_text)
-            upload_url = (
-                f"{SERVER_URL}/api/studio/fishhook/submit_result"
-                f"?task_id={task_id}&user_login={user_login}"
-                f"&user_text={encoded_user}&bot_text={encoded_bot}"
+            upload_url = f"{SERVER_URL}/api/studio/fishhook/submit_result"
+
+            data = {
+                "task_id": task_id,
+                "user_login": user_login,
+                "user_text": user_text,
+                "bot_text": bot_text
+            }
+
+            files = {}
+
+            if os.path.exists(output_audio_name):
+                files["audio"] = ("bot_response.wav", open(output_audio_name, "rb"), "audio/wav")
+
+            if output_image_name and os.path.exists(output_image_name):
+                files["image"] = ("generated_image.jpg", open(output_image_name, "rb"), "image/jpeg")
+
+            response = requests.post(
+                upload_url,
+                data=data,
+                files=files if files else None,
+                timeout=60
             )
 
-            # Формируем файлы для отправки
-            files = {}
-            with open(output_audio_name, "rb") as f:
-                files["audio"] = (output_audio_name, f, "audio/wav")
-
-                # Добавляем изображение если есть
-                if output_image_name and os.path.exists(output_image_name):
-                    with open(output_image_name, "rb") as img_f:
-                        files["image"] = (output_image_name, img_f, "image/jpeg")
-
-                        requests.post(
-                            upload_url,
-                            data={"task_id": task_id, "user_login": user_login},
-                            files=files,
-                            timeout=60,
-                        )
-                        print(f"🏁 Результат отправлен на сервер (аудио + изображение)!")
+            if response.status_code == 200:
+                if "image" in files:
+                    print(f"🏁 Результат отправлен на сервер (аудио + изображение)!")
                 else:
-                    requests.post(
-                        upload_url,
-                        data={"task_id": task_id, "user_login": user_login},
-                        files=files,
-                        timeout=30,
-                    )
                     print(f"🏁 Результат отправлен на сервер (только аудио)!")
+            else:
+                print(f"❌ Ошибка отправки: HTTP {response.status_code}")
+
+            for key, file_tuple in files.items():
+                file_tuple[1].close()
+
         except Exception as e:
             print(f"❌ Ошибка отправки: {e}")
     else:
