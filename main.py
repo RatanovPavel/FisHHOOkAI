@@ -23,12 +23,13 @@ def install_dependencies():
         "bitsandbytes":       "bitsandbytes",
         "optimum":            "optimum",
         "coqui-tts":          "TTS",  # ← Coqui TTS форк (поддерживает Python 3.12!)
+        "diffusers":          "diffusers",  # ← Для генерации изображений
         "openai-whisper":     "whisper",
         "SpeechRecognition":  "speech_recognition",
         "gtts":               "gtts",
         "pydub":              "pydub",
     }
-    
+
     # Устанавливаем пакеты
     for pip_name, import_name in packages.items():
         try:
@@ -60,6 +61,44 @@ USER_LOGIN = "RATANOV_PAVEL"
 SERVER_URL = "https://skulla.ru"
 DEMO_MODE  = False
 
+# ============================================================
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ
+# ============================================================
+CHARACTERS = {
+    "anna": {
+        "name": "Анна",
+        "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
+        "voice_sample": "voices/anna.wav",  # Путь к образцу голоса
+        "style": "romantic"
+    },
+    "kate": {
+        "name": "Катя",
+        "personality": "Ты — Катя, 23 года. Дерзкая, уверенная в себе, любишь флиртовать и подкалывать. Говоришь прямо, иногда грубовато, но с обаянием.",
+        "voice_sample": "voices/kate.wav",
+        "style": "bold"
+    },
+    "maria": {
+        "name": "Мария",
+        "personality": "Ты — Мария, 28 лет. Интеллектуалка, любишь философию и глубокие разговоры. Говоришь спокойно, вдумчиво, с академическим уклоном.",
+        "voice_sample": "voices/maria.wav",
+        "style": "intellectual"
+    },
+    "lisa": {
+        "name": "Лиза",
+        "personality": "Ты — Лиза, 22 года. Весёлая, энергичная, обожаешь тусовки и приключения. Говоришь быстро, эмоционально, много смеёшься.",
+        "voice_sample": "voices/lisa.wav",
+        "style": "energetic"
+    }
+}
+
+# Активный персонаж (можно менять динамически)
+ACTIVE_CHARACTER = "anna"
+
+# ============================================================
+# 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
+# ============================================================
+IMAGE_MODEL = None
+
 # Глобальные переменные для удержания ИИ-моделей в VRAM
 VOICE_MODEL     = None
 VOICE_TOKENIZER = None
@@ -89,7 +128,7 @@ def ensure_dir(path):
 # ============================================================
 def init_models():
     """Загружает все ИИ-модели в видеопамять."""
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
 
     if not check_gpu():
         print("⛔ Без GPU дальнейшая работа невозможна.")
@@ -100,10 +139,10 @@ def init_models():
     print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
     try:
         from transformers import BitsAndBytesConfig
-        
+
         model_id = "Qwen/Qwen2.5-7B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
-        
+
         # Правильная конфигурация 4-bit квантования
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
@@ -111,7 +150,7 @@ def init_models():
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4"
         )
-        
+
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
@@ -137,11 +176,85 @@ def init_models():
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
 
+    # --- Stable Diffusion (генерация изображений) ---
+    print("\n⏳ Загрузка Stable Diffusion...")
+    try:
+        from diffusers import StableDiffusionPipeline
+
+        model_id = "runwayml/stable-diffusion-v1-5"
+        IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.float16,
+            safety_checker=None,
+        ).to("cuda")
+        print("✅ Stable Diffusion загружен в VRAM!")
+    except Exception as e:
+        print(f"⚠️ Ошибка загрузки Stable Diffusion: {e}")
+        print("   Генерация изображений будет недоступна")
+        IMAGE_MODEL = None
+
     # --- Освобождаем кэш ---
     gc.collect()
     torch.cuda.empty_cache()
 
     return VOICE_MODEL is not None
+
+# ============================================================
+# 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
+# ============================================================
+def generate_image(prompt: str, output_path: str, character: str = None) -> bool:
+    """
+    Генерирует изображение по промпту с учётом персонажа.
+
+    Args:
+        prompt: Описание изображения
+        output_path: Путь для сохранения
+        character: Имя персонажа (опционально)
+
+    Returns:
+        True если успешно, False иначе
+    """
+    global IMAGE_MODEL
+
+    if IMAGE_MODEL is None:
+        print("⚠️ Модель генерации изображений не загружена")
+        return False
+
+    try:
+        # Добавляем стиль персонажа если указан
+        enhanced_prompt = prompt
+        if character and character in CHARACTERS:
+            char_info = CHARACTERS[character]
+            style_map = {
+                "romantic": "soft lighting, romantic atmosphere, warm colors",
+                "bold": "dramatic lighting, confident pose, vibrant colors",
+                "intellectual": "elegant setting, sophisticated atmosphere, muted tones",
+                "energetic": "dynamic composition, bright colors, lively atmosphere"
+            }
+            style = style_map.get(char_info.get("style", ""), "")
+            if style:
+                enhanced_prompt = f"{prompt}, {style}"
+
+        print(f"🎨 Генерация изображения: {enhanced_prompt[:50]}...")
+
+        # Генерируем изображение
+        with torch.inference_mode():
+            image = IMAGE_MODEL(
+                enhanced_prompt,
+                num_inference_steps=30,
+                guidance_scale=7.5,
+                width=512,
+                height=512
+            ).images[0]
+
+        # Сохраняем
+        image.save(output_path)
+        print(f"✅ Изображение сохранено: {output_path}")
+        return True
+
+    except Exception as e:
+        print(f"❌ Ошибка генерации изображения: {e}")
+        return False
 
 # ============================================================
 # 🎙️ КОНВЕЙЕР ГОЛОСОВОГО ЧАТА
@@ -150,8 +263,9 @@ def process_voice_chat(task_data):
     """
     Полный цикл:
       STT (Whisper) → LLM (Qwen-7B) → TTS (Coqui XTTS v2) → Push
+    С поддержкой персонажей и генерации изображений
     """
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, ACTIVE_CHARACTER
 
     actual_task = task_data.get("task_data", {})
     task_id     = actual_task.get("task_id", "test_001")
@@ -159,7 +273,15 @@ def process_voice_chat(task_data):
     user_login  = actual_task.get("user_login", USER_LOGIN)
     web_text    = actual_task.get("text_message", "")
 
-    print(f"\n🎙️ Обработка задачи {task_id} ...")
+    # Получаем персонажа из задачи или используем активного
+    character_key = actual_task.get("character", ACTIVE_CHARACTER)
+    character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
+
+    # Проверяем запрос на генерацию изображения
+    generate_img = actual_task.get("generate_image", False)
+    image_prompt = actual_task.get("image_prompt", "")
+
+    print(f"\n🎙️ Обработка задачи {task_id} (персонаж: {character['name']}) ...")
 
     session_dir = ensure_dir(f"./uploads/{session_id}")
     local_input_audio = os.path.join(session_dir, "user_voice.wav")
@@ -209,15 +331,17 @@ def process_voice_chat(task_data):
     if not user_text.strip():
         user_text = "Привет!"
 
-    # ── ШАГ 2: Генерация ответа (LLM) ──
+    # ── ШАГ 2: Генерация ответа (LLM) с характером персонажа ──
     bot_text = ""
     try:
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
             bot_text = "Мой LLM-модуль не был загружен."
         else:
+            # Используем характер персонажа
             system_prompt = (
-                "Ты — эрудированная и дружелюбная девушка-собеседница. "
-                "Отвечай кратко и по делу, строго на русском языке."
+                f"{character['personality']} "
+                "Отвечай кратко и по делу, строго на русском языке. "
+                "Сохраняй свой характер во всех ответах."
             )
 
             history_file = f"chat_history_{session_id}.json"
@@ -263,7 +387,7 @@ def process_voice_chat(task_data):
             if "assistant" in bot_text:
                 bot_text = bot_text.split("assistant")[-1].strip()
 
-            print(f"🤖 Qwen ответил: {bot_text}")
+            print(f"🤖 {character['name']} ответила: {bot_text}")
 
             chat_history.append({"role": "assistant", "content": bot_text})
             with open(history_file, "w", encoding="utf-8") as hf:
@@ -273,16 +397,22 @@ def process_voice_chat(task_data):
         print(f"❌ Сбой LLM: {e}")
         bot_text = "Произошла ошибка при генерации ответа."
 
-    # ── ШАГ 3: Синтез речи (TTS) ──
+    # ── ШАГ 3: Синтез речи (TTS) с голосом персонажа ──
     clean_text = re.sub(r'\*.*?\*', '', bot_text).strip()
     try:
         if TTS_ENGINE is not None:
-            speaker_wav = (
-                local_input_audio
-                if os.path.exists(local_input_audio)
-                   and os.path.getsize(local_input_audio) > 100
-                else None
-            )
+            # Используем голос персонажа если есть образец
+            voice_sample = character.get("voice_sample")
+            speaker_wav = None
+
+            if voice_sample and os.path.exists(voice_sample):
+                speaker_wav = voice_sample
+                print(f"🎤 Используем голос персонажа: {voice_sample}")
+            elif os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
+                # Fallback: клонируем голос из входящего аудио
+                speaker_wav = local_input_audio
+                print("🎤 Клонируем голос из входящего аудио")
+
             if speaker_wav:
                 TTS_ENGINE.tts_to_file(
                     text=clean_text,
@@ -290,7 +420,7 @@ def process_voice_chat(task_data):
                     speaker_wav=speaker_wav,
                     file_path=output_audio_name,
                 )
-                print("✅ XTTS v2: голос клонирован!")
+                print("✅ XTTS v2: голос синтезирован!")
             else:
                 raise FileNotFoundError("Нет reference wav для клонирования")
         else:
@@ -307,7 +437,15 @@ def process_voice_chat(task_data):
             with open(output_audio_name, "wb") as f:
                 f.write(b"")
 
-    # ── ШАГ 4: Отправка результата ──
+    # ── ШАГ 3.5: Генерация изображения (если запрошено) ──
+    output_image_name = None
+    if generate_img and image_prompt:
+        output_image_name = os.path.join(session_dir, "generated_image.jpg")
+        success = generate_image(image_prompt, output_image_name, character_key)
+        if not success:
+            output_image_name = None
+
+    # ── ШАГ 4: Отправка результата (аудио + изображение) ──
     if not DEMO_MODE:
         try:
             import urllib.parse
@@ -318,23 +456,42 @@ def process_voice_chat(task_data):
                 f"?task_id={task_id}&user_login={user_login}"
                 f"&user_text={encoded_user}&bot_text={encoded_bot}"
             )
+
+            # Формируем файлы для отправки
+            files = {}
             with open(output_audio_name, "rb") as f:
-                files = {"image": (output_audio_name, f, "audio/wav")}
-                requests.post(
-                    upload_url,
-                    data={"task_id": task_id, "user_login": user_login},
-                    files=files,
-                    timeout=30,
-                )
-            print(f"🏁 Результат отправлен на сервер!")
+                files["audio"] = (output_audio_name, f, "audio/wav")
+
+                # Добавляем изображение если есть
+                if output_image_name and os.path.exists(output_image_name):
+                    with open(output_image_name, "rb") as img_f:
+                        files["image"] = (output_image_name, img_f, "image/jpeg")
+
+                        requests.post(
+                            upload_url,
+                            data={"task_id": task_id, "user_login": user_login},
+                            files=files,
+                            timeout=60,
+                        )
+                        print(f"🏁 Результат отправлен на сервер (аудио + изображение)!")
+                else:
+                    requests.post(
+                        upload_url,
+                        data={"task_id": task_id, "user_login": user_login},
+                        files=files,
+                        timeout=30,
+                    )
+                    print(f"🏁 Результат отправлен на сервер (только аудио)!")
         except Exception as e:
             print(f"❌ Ошибка отправки: {e}")
     else:
         print(f"🏁 [DEMO] Результат сохранён локально: {output_audio_name}")
+        if output_image_name:
+            print(f"🏁 [DEMO] Изображение сохранено: {output_image_name}")
 
     # Очистка
-    for fp in [local_input_audio, output_audio_name]:
-        if os.path.exists(fp):
+    for fp in [local_input_audio, output_audio_name, output_image_name]:
+        if fp and os.path.exists(fp):
             try:
                 os.remove(fp)
             except Exception:
