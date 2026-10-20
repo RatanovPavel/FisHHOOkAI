@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FishHook ИИ — Голосовой Собеседник</title>
+    <title>FishHook ИИ — Голосовой и Текстовый Собеседник</title>
     <script src="/static/tailwind.min.js"></script>
     <style>
         @keyframes pulse-ring {
@@ -20,8 +20,8 @@
         
         <!-- Заголовок -->
         <div class="text-center space-y-1">
-            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v1.0</h1>
-            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Интерактивный ИИ-собеседник с выбором роли и голоса</p>
+            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v1.1</h1>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Голосовой и Текстовый собеседник Повелителя</p>
         </div>
         
         <!-- НАСТРОЙКА 1: ВЫБОР РОЛИ -->
@@ -49,7 +49,7 @@
         </div>
 
         <!-- ИНТЕРФЕЙС ЗАПИСИ (КНОПКА-МИКРОФОН) -->
-        <div class="flex flex-col items-center justify-center py-6 space-y-3">
+        <div class="flex flex-col items-center justify-center pt-4 space-y-3">
             <div class="relative w-20 h-20 flex items-center justify-center">
                 <div id="micRing" class="hidden absolute inset-0 rounded-full bg-blue-500/30 animate-pulse-ring"></div>
                 <button id="micBtn" class="relative z-10 w-16 h-16 bg-slate-950 border border-slate-800 hover:border-blue-500 rounded-full flex items-center justify-center text-2xl transition-all shadow-xl cursor-pointer">
@@ -57,6 +57,21 @@
                 </button>
             </div>
             <div id="statusText" class="text-[10px] font-black uppercase tracking-widest text-slate-500">Нажмите, чтобы говорить</div>
+        </div>
+
+        <!-- 🚀 РАЗДЕЛИТЕЛЬ И ТЕКСТОВЫЙ ВВОД СООБЩЕНИЙ -->
+        <div class="space-y-3 pt-2">
+            <div class="flex items-center my-2 text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+                <div class="flex-1 border-t border-slate-900"></div>
+                <span class="px-3">ИЛИ НАБЕРИТЕ ТЕКСТОМ</span>
+                <div class="flex-1 border-t border-slate-900"></div>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="textInput" placeholder="Введите Ваше сообщение..." class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-blue-500">
+                <button id="sendTextBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[9px] px-4 rounded-lg tracking-widest transition-all">
+                    Отправить
+                </button>
+            </div>
         </div>
 
         <!-- ДИАЛОГОВЫЕ ОКНА (ВЫВОД ТЕКСТА) -->
@@ -81,7 +96,7 @@
         let mediaRecorder = null;
         let audioChunks = [];
         let isRecording = false;
-        let selectedGender = "male"; // по умолчанию мужской голос
+        let selectedGender = "male";
 
         const micBtn = document.getElementById("micBtn");
         const micRing = document.getElementById("micRing");
@@ -91,8 +106,10 @@
         const botResponseText = document.getElementById("botResponseText");
         const botRoleTitle = document.getElementById("botRoleTitle");
         const audioPlayer = document.getElementById("audioResponsePlayer");
+        const textInput = document.getElementById("textInput");
+        const sendTextBtn = document.getElementById("sendTextBtn");
 
-        // Переключение кнопок выбора пола голоса
+        // Выбор пола голоса
         document.getElementById("voiceMaleBtn").onclick = () => {
             selectedGender = "male";
             document.getElementById("voiceMaleBtn").className = "bg-blue-500/20 border border-blue-500 text-blue-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
@@ -105,95 +122,113 @@
             document.getElementById("voiceMaleBtn").className = "bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
         };
 
-        // Логика работы с микрофоном браузера
+        // 🚀 КНОПКА ОТПРАВКИ ТЕКСТА РУКАМИ
+        sendTextBtn.onclick = async () => {
+            const rawText = textInput.value.trim();
+            if (!rawText) return;
+            
+            textInput.value = ""; // Очищаем поле ввода
+            statusText.innerText = "ИИ ДУМАЕТ НА ВИДЕОКАРТЕ...";
+            statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
+            
+            // Отправляем пустой Blob, но передаем текст параметром формы
+            const fakeBlob = new Blob([new Uint8Array([0x00])], { type: 'audio/wav' });
+            await sendVoiceData(fakeBlob, rawText);
+        };
+
+        // Поддержка отправки по нажатию Enter в инпуте
+        textInput.onkeydown = (e) => {
+            if (e.key === "Enter") sendTextBtn.click();
+        };
+
+        // Работа микрофона
         micBtn.onclick = async () => {
             if (!isRecording) {
-                // Запуск записи
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     mediaRecorder = new MediaRecorder(stream);
                     audioChunks = [];
-
-                    mediaRecorder.ondataavailable = (event) => {
-                        audioChunks.push(event.data);
-                    };
-
+                    mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
                     mediaRecorder.onstop = async () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        await sendVoiceData(audioBlob);
+                        await sendVoiceData(audioBlob, ""); // При голосе текстовый параметр пустой
                     };
-
                     mediaRecorder.start();
                     isRecording = true;
                     micRing.classList.remove("hidden");
                     micBtn.classList.add("border-blue-500", "scale-105");
                     statusText.innerText = "ЗАПИСЬ... ГОВОРИТЕ";
                     statusText.className = "text-red-500 font-black uppercase tracking-widest animate-pulse";
-                } catch (err) {
-                    alert("Ошибка доступа к микрофону: " + err);
-                }
+                } catch (err) { alert("Микрофон недоступен: " + err); }
             } else {
-                // Остановка записи
                 mediaRecorder.stop();
-                // Отключаем микрофон у браузера, чтобы не горел значок записи
-                mediaRecorder.stream.getTracks().forEach(track => track.stop());
-                
+                mediaRecorder.stream.getTracks().forEach(t => t.stop());
                 isRecording = false;
                 micRing.classList.add("hidden");
                 micBtn.classList.remove("border-blue-500", "scale-105");
-                statusText.innerText = "ОБРАБОТКА ИИ-ГОЛОСА...";
+                statusText.innerText = "ИИ ОБРАБАТЫВАЕТ СИГНАЛ...";
                 statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
             }
         };
 
-        // Асинхронная отправка аудиопотока на бэкенд FastAPI
-        // // Асинхронная отправка аудиопотока на бэкенд FastAPI
-        async function sendVoiceData(audioBlob) {
+        // Отправка формы на сервер
+        async function sendVoiceData(audioBlob, textMessage) {
             const currentRole = document.getElementById("roleSelect").value;
-            
             const formData = new FormData();
+            
             formData.append("audio_file", audioBlob, "user_voice.wav");
             formData.append("role", currentRole);
             formData.append("gender", selectedGender);
             formData.append("user_login", "RATANOV_PAVEL");
+            formData.append("text_message", textMessage); // 🚀 ПЕРЕДАЕМ ТЕКСТ НА СЕРВЕР!
 
             try {
-                // Отправляем голос на специальный роут сервера skulla.ru
-                const response = await fetch('/api/studio/fishhook/voice_chat', {
-                    method: 'POST',
-                    body: formData
-                });
-                
+                const response = await fetch('/api/studio/fishhook/voice_chat', { method: 'POST', body: formData });
                 if (response.ok) {
                     const result = await response.json();
-                    
-                    // Выводим диалог на экран
-                    userTranscriptText.innerText = result.user_text;
-                    botResponseText.innerText = result.bot_text;
-                    //botRoleTitle.innerText = `Ответ ИИ (${document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text}):`;
-                    botRoleTitle.innerText = "Ответ ИИ (" + document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text + "):";
-
-                    textBlock.classList.remove("hidden");
-                    
-                    statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
-                    statusText.className = "text-slate-500 font-black uppercase tracking-widest";
-
-                    // Скармливаем плееру ссылку на готовый аудиофайл ответа и запускаем озвучку
-                    if (result.audio_url) {
-                        // Добавляем timestamp, чтобы браузер не кэшировал старые ответы
-                        audioPlayer.src = result.audio_url + "&t=" + new Date().getTime();
-                        audioPlayer.play();
-                    }
-            } else {
-                statusText.innerText = "ОШИБКА СЕРВЕРА СБОЙ";
+                    if (result.status === "queued") checkVoiceTaskStatus(result.task_id);
+                } else {
+                    statusText.innerText = "СБОЙ СЕРВЕРА";
+                    statusText.className = "text-red-500 font-black uppercase tracking-widest";
+                }
+            } catch (err) {
+                statusText.innerText = "ОШИБКА СЕТИ";
                 statusText.className = "text-red-500 font-black uppercase tracking-widest";
             }
-        } catch (err) {
-            console.error(err);
-            statusText.innerText = "ОШИБКА СЕТИ";
-            statusText.className = "text-red-500 font-black uppercase tracking-widest";
         }
-    }
+
+        // Циклический опрос готовности Колаба
+        function checkVoiceTaskStatus(taskId) {
+            const checkInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/studio/fishhook/check_task/RATANOV_PAVEL/' + taskId);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.status === "completed") {
+                            clearInterval(checkInterval);
+                            
+                            // Отображаем тексты, которые Колаб собрал на видеокарте
+                            userTranscriptText.innerText = data.user_text || "Текстовый запрос принят.";
+                            botResponseText.innerText = data.bot_text || "Ответ сформирован.";
+                            
+                            // 🚀 СУПЕР-ФИКС: Восстановили правильные косые кавычки для динамического шаблона строки!
+                            botRoleTitle.innerText = `Ответ ИИ (${document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text}):`;
+                            
+                            textBlock.classList.remove("hidden");
+                            statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
+                            statusText.className = "text-slate-500 font-black uppercase tracking-widest";
+                            
+                            if (data.result_url) {
+                                audioPlayer.src = data.result_url + "&t=" + new Date().getTime();
+                                audioPlayer.play();
+                            }
+                        }
+                    }
+                } catch (err) { 
+                    console.error(err); 
+                }
+            }, 1000);
+        }
     </script>
 </body>
 </html>
