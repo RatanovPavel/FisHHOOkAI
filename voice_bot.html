@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FishHook ИИ — Голосовой и Текстовый Собеседник</title>
+    <title>FishHook ИИ — Персонажи и Генерация Изображений</title>
     <script src="/static/tailwind.min.js"></script>
     <style>
         @keyframes pulse-ring {
@@ -12,21 +12,38 @@
             100% { transform: scale(1.3); opacity: 0; }
         }
         .animate-pulse-ring { animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite; }
+
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.5s ease-out; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
 
-    <div class="max-w-md w-full bg-slate-900/40 border border-slate-900 rounded-xl p-6 space-y-5 shadow-2xl backdrop-blur-md">
-        
+    <div class="max-w-2xl w-full bg-slate-900/40 border border-slate-900 rounded-xl p-6 space-y-5 shadow-2xl backdrop-blur-md">
+
         <!-- Заголовок -->
         <div class="text-center space-y-1">
-            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v1.1</h1>
-            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Голосовой и Текстовый собеседник Повелителя</p>
+            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.0</h1>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Персонажи • Голос • Генерация Изображений</p>
         </div>
-        
-        <!-- НАСТРОЙКА 1: ВЫБОР РОЛИ -->
+
+        <!-- 🎭 НАСТРОЙКА 1: ВЫБОР ПЕРСОНАЖА -->
         <div class="space-y-1.5">
-            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Выберите роль для ИИ</label>
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Выберите персонажа</label>
+            <select id="characterSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
+                <option value="anna">💕 Анна — Нежная и романтичная</option>
+                <option value="kate">🔥 Катя — Дерзкая и уверенная</option>
+                <option value="maria">📚 Мария — Интеллектуалка</option>
+                <option value="lisa">⚡ Лиза — Весёлая и энергичная</option>
+            </select>
+        </div>
+
+        <!-- 🎭 НАСТРОЙКА 2: ВЫБОР РОЛИ (опционально) -->
+        <div class="space-y-1.5">
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Выберите роль для ИИ (опционально)</label>
             <select id="roleSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-blue-500">
                 <option value="assistant">🤖 Вежливый ИИ-Ассистент</option>
                 <option value="psychologist">🧠 Эмпатичный Психолог</option>
@@ -35,9 +52,9 @@
             </select>
         </div>
 
-        <!-- НАСТРОЙКА 2: ВЫБОР ГОЛОСА -->
+        <!-- 🎤 НАСТРОЙКА 3: ВЫБОР ГОЛОСА -->
         <div class="space-y-1.5">
-            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Пол голоса озвучки</label>
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">3. Пол голоса озвучки</label>
             <div class="grid grid-cols-2 gap-3">
                 <button id="voiceMaleBtn" class="bg-blue-500/20 border border-blue-500 text-blue-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all">
                     👨 Мужской
@@ -45,6 +62,21 @@
                 <button id="voiceFemaleBtn" class="bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all">
                     👩 Женский
                 </button>
+            </div>
+        </div>
+
+        <!-- 🖼️ НАСТРОЙКА 4: ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ -->
+        <div class="space-y-2 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+            <div class="flex items-center gap-2">
+                <input type="checkbox" id="generateImageCheck" class="w-4 h-4 accent-purple-500 cursor-pointer">
+                <label for="generateImageCheck" class="text-[10px] font-black uppercase tracking-widest text-purple-400 cursor-pointer">
+                    🖼️ Сгенерировать изображение
+                </label>
+            </div>
+            <div id="imagePromptBlock" class="hidden space-y-1.5">
+                <input type="text" id="imagePromptInput" placeholder="Опишите изображение (например: девушка в кафе, пьёт кофе)"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
+                <p class="text-[9px] text-slate-500">💡 Совет: используйте описательные фразы для лучшего качества</p>
             </div>
         </div>
 
@@ -71,6 +103,17 @@
                 <button id="sendTextBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[9px] px-4 rounded-lg tracking-widest transition-all">
                     Отправить
                 </button>
+            </div>
+        </div>
+
+        <!-- 🖼️ БЛОК ОТОБРАЖЕНИЯ СГЕНЕРИРОВАННОГО ИЗОБРАЖЕНИЯ -->
+        <div id="imageBlock" class="hidden space-y-3 p-4 bg-purple-950/60 border border-purple-500/30 rounded-lg animate-fade-in">
+            <div class="flex items-center justify-between">
+                <span class="text-purple-400 font-bold uppercase text-[10px] tracking-widest">🖼️ Сгенерированное изображение:</span>
+                <button id="closeImageBtn" class="text-slate-500 hover:text-slate-300 text-lg">×</button>
+            </div>
+            <div class="flex justify-center">
+                <img id="generatedImage" src="" alt="Сгенерированное изображение" class="max-w-full max-h-96 rounded-lg shadow-2xl border border-purple-500/30">
             </div>
         </div>
 
@@ -109,6 +152,28 @@
         const textInput = document.getElementById("textInput");
         const sendTextBtn = document.getElementById("sendTextBtn");
 
+        // Новые элементы для генерации изображений
+        const generateImageCheck = document.getElementById("generateImageCheck");
+        const imagePromptBlock = document.getElementById("imagePromptBlock");
+        const imagePromptInput = document.getElementById("imagePromptInput");
+        const imageBlock = document.getElementById("imageBlock");
+        const generatedImage = document.getElementById("generatedImage");
+        const closeImageBtn = document.getElementById("closeImageBtn");
+
+        // 🖼️ Показ/скрытие поля для промпта изображения
+        generateImageCheck.onchange = () => {
+            if (generateImageCheck.checked) {
+                imagePromptBlock.classList.remove("hidden");
+            } else {
+                imagePromptBlock.classList.add("hidden");
+            }
+        };
+
+        // Закрытие блока изображения
+        closeImageBtn.onclick = () => {
+            imageBlock.classList.add("hidden");
+        };
+
         // Выбор пола голоса
         document.getElementById("voiceMaleBtn").onclick = () => {
             selectedGender = "male";
@@ -126,11 +191,11 @@
         sendTextBtn.onclick = async () => {
             const rawText = textInput.value.trim();
             if (!rawText) return;
-            
+
             textInput.value = ""; // Очищаем поле ввода
             statusText.innerText = "ИИ ДУМАЕТ НА ВИДЕОКАРТЕ...";
             statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
-            
+
             // Отправляем пустой Blob, но передаем текст параметром формы
             const fakeBlob = new Blob([new Uint8Array([0x00])], { type: 'audio/wav' });
             await sendVoiceData(fakeBlob, rawText);
@@ -171,22 +236,41 @@
             }
         };
 
-        // Отправка формы на сервер
+        // 🚀 Отправка формы на сервер с поддержкой персонажей и генерации изображений
         async function sendVoiceData(audioBlob, textMessage) {
             const currentRole = document.getElementById("roleSelect").value;
+            const currentCharacter = document.getElementById("characterSelect").value;
+            const generateImage = generateImageCheck.checked;
+            const imagePrompt = imagePromptInput.value.trim();
+
             const formData = new FormData();
-            
+
             formData.append("audio_file", audioBlob, "user_voice.wav");
             formData.append("role", currentRole);
             formData.append("gender", selectedGender);
             formData.append("user_login", "RATANOV_PAVEL");
-            formData.append("text_message", textMessage); // 🚀 ПЕРЕДАЕМ ТЕКСТ НА СЕРВЕР!
+            formData.append("text_message", textMessage);
+
+            // 🎭 НОВЫЕ ПАРАМЕТРЫ:
+            formData.append("character", currentCharacter);
+            formData.append("generate_image", generateImage);
+            if (generateImage && imagePrompt) {
+                formData.append("image_prompt", imagePrompt);
+            }
+
+            // Показываем статус генерации если запрошено
+            if (generateImage) {
+                statusText.innerText = "ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ...";
+                statusText.className = "text-purple-500 font-black uppercase tracking-widest animate-pulse";
+            }
 
             try {
                 const response = await fetch('/api/studio/fishhook/voice_chat', { method: 'POST', body: formData });
                 if (response.ok) {
                     const result = await response.json();
-                    if (result.status === "queued") checkVoiceTaskStatus(result.task_id);
+                    if (result.status === "queued") {
+                        checkVoiceTaskStatus(result.task_id);
+                    }
                 } else {
                     statusText.innerText = "СБОЙ СЕРВЕРА";
                     statusText.className = "text-red-500 font-black uppercase tracking-widest";
@@ -197,7 +281,7 @@
             }
         }
 
-        // Циклический опрос готовности Колаба
+        // 🚀 Циклический опрос готовности Колаба с поддержкой изображений
         function checkVoiceTaskStatus(taskId) {
             const checkInterval = setInterval(async () => {
                 try {
@@ -206,26 +290,36 @@
                         const data = await res.json();
                         if (data.status === "completed") {
                             clearInterval(checkInterval);
-                            
-                            // Отображаем тексты, которые Колаб собрал на видеокарте
+
+                            // Отображаем тексты
                             userTranscriptText.innerText = data.user_text || "Текстовый запрос принят.";
                             botResponseText.innerText = data.bot_text || "Ответ сформирован.";
-                            
-                            // 🚀 СУПЕР-ФИКС: Восстановили правильные косые кавычки для динамического шаблона строки!
-                            botRoleTitle.innerText = `Ответ ИИ (${document.getElementById("roleSelect").options[document.getElementById("roleSelect").selectedIndex].text}):`;
-                            
+
+                            // Обновляем заголовок с именем персонажа
+                            const characterSelect = document.getElementById("characterSelect");
+                            const characterName = characterSelect.options[characterSelect.selectedIndex].text;
+                            botRoleTitle.innerText = `Ответ ${characterName}:`;
+
                             textBlock.classList.remove("hidden");
                             statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
                             statusText.className = "text-slate-500 font-black uppercase tracking-widest";
-                            
+
+                            // Воспроизводим аудио если есть
                             if (data.result_url) {
                                 audioPlayer.src = data.result_url + "&t=" + new Date().getTime();
                                 audioPlayer.play();
                             }
+
+                            // 🖼️ ОТОБРАЖАЕМ СГЕНЕРИРОВАННОЕ ИЗОБРАЖЕНИЕ если есть
+                            if (data.image_url) {
+                                generatedImage.src = data.image_url + "?t=" + new Date().getTime();
+                                imageBlock.classList.remove("hidden");
+                                console.log("✅ Изображение загружено:", data.image_url);
+                            }
                         }
                     }
-                } catch (err) { 
-                    console.error(err); 
+                } catch (err) {
+                    console.error(err);
                 }
             }, 1000);
         }
