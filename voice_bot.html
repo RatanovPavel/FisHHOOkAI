@@ -26,7 +26,7 @@
 
         <!-- Заголовок -->
         <div class="text-center space-y-1">
-            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.0</h1>
+            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.1</h1>
             <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Персонажи • Голос • Генерация Изображений</p>
         </div>
 
@@ -152,7 +152,6 @@
         const textInput = document.getElementById("textInput");
         const sendTextBtn = document.getElementById("sendTextBtn");
 
-        // Новые элементы для генерации изображений
         const generateImageCheck = document.getElementById("generateImageCheck");
         const imagePromptBlock = document.getElementById("imagePromptBlock");
         const imagePromptInput = document.getElementById("imagePromptInput");
@@ -192,11 +191,10 @@
             const rawText = textInput.value.trim();
             if (!rawText) return;
 
-            textInput.value = ""; // Очищаем поле ввода
+            textInput.value = "";
             statusText.innerText = "ИИ ДУМАЕТ НА ВИДЕОКАРТЕ...";
             statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
 
-            // Отправляем пустой Blob, но передаем текст параметром формы
             const fakeBlob = new Blob([new Uint8Array([0x00])], { type: 'audio/wav' });
             await sendVoiceData(fakeBlob, rawText);
         };
@@ -216,7 +214,7 @@
                     mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
                     mediaRecorder.onstop = async () => {
                         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                        await sendVoiceData(audioBlob, ""); // При голосе текстовый параметр пустой
+                        await sendVoiceData(audioBlob, "");
                     };
                     mediaRecorder.start();
                     isRecording = true;
@@ -250,15 +248,12 @@
             formData.append("gender", selectedGender);
             formData.append("user_login", "RATANOV_PAVEL");
             formData.append("text_message", textMessage);
-
-            // 🎭 НОВЫЕ ПАРАМЕТРЫ:
             formData.append("character", currentCharacter);
             formData.append("generate_image", generateImage);
             if (generateImage && imagePrompt) {
                 formData.append("image_prompt", imagePrompt);
             }
 
-            // Показываем статус генерации если запрошено
             if (generateImage) {
                 statusText.innerText = "ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ...";
                 statusText.className = "text-purple-500 font-black uppercase tracking-widest animate-pulse";
@@ -304,22 +299,29 @@
                             statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
                             statusText.className = "text-slate-500 font-black uppercase tracking-widest";
 
-                            // Воспроизводим аудио если есть
-                            if (data.result_url) {
-                                audioPlayer.src = data.result_url + "&t=" + new Date().getTime();
-                                audioPlayer.play();
+                            // 🎵 ВОСПРОИЗВОДИМ АУДИО если есть audio_url
+                            if (data.audio_url) {
+                                console.log("🔊 Загружаем аудио:", data.audio_url);
+                                audioPlayer.src = data.audio_url + "?t=" + new Date().getTime();
+                                audioPlayer.play().catch(err => {
+                                    console.error("❌ Ошибка воспроизведения аудио:", err);
+                                });
+                            } else {
+                                console.warn("⚠️ audio_url не получен от сервера");
                             }
 
-                            // 🖼️ ОТОБРАЖАЕМ СГЕНЕРИРОВАННОЕ ИЗОБРАЖЕНИЕ если есть
+                            // 🖼️ ОТОБРАЖАЕМ СГЕНЕРИРОВАННОЕ ИЗОБРАЖЕНИЕ если есть image_url
                             if (data.image_url) {
+                                console.log("🖼️ Загружаем изображение:", data.image_url);
                                 generatedImage.src = data.image_url + "?t=" + new Date().getTime();
                                 imageBlock.classList.remove("hidden");
-                                console.log("✅ Изображение загружено:", data.image_url);
+                            } else {
+                                console.log("ℹ️ Изображение не запрошено или не сгенерировано");
                             }
                         }
                     }
                 } catch (err) {
-                    console.error(err);
+                    console.error("❌ Ошибка опроса задачи:", err);
                 }
             }, 1000);
         }
