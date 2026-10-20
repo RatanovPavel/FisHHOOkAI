@@ -1238,12 +1238,10 @@ async def voice_chat_endpoint(
 
 
 # ==============================================================================
-# 🔥 FISHHOOK AI — ОБНОВЛЁННЫЙ РОУТЕР С ПЕРСОНАЖАМИ И ГЕНЕРАЦИЕЙ ИЗОБРАЖЕНИЙ
+# 🔥 FISHHOOK AI — ФИНАЛЬНАЯ ВЕРСИЯ С ПЕРСОНАЖАМИ И ГЕНЕРАЦИЕЙ ИЗОБРАЖЕНИЙ
 # ==============================================================================
-# Основан на оригинальном studio.py с добавлением поддержки:
-# - Системы персонажей (character)
-# - Генерации изображений (generate_image, image_prompt)
-# - Текстовых сообщений (text_message)
+# ВЕРСИЯ: 2.1 (с исправлениями для фронтенда)
+# ДАТА: 2024
 # ==============================================================================
 
 import os
@@ -1290,14 +1288,14 @@ class VoiceChatRequest(BaseModel):
     user_login: str
     role: Optional[str] = "assistant"
     gender: Optional[str] = "male"
-    character: Optional[str] = "anna"  # ← НОВЫЙ ПАРАМЕТР: ключ персонажа
-    text_message: Optional[str] = ""   # ← НОВЫЙ ПАРАМЕТР: текстовый ввод
-    generate_image: Optional[bool] = False  # ← НОВЫЙ ПАРАМЕТР: генерировать изображение?
-    image_prompt: Optional[str] = ""   # ← НОВЫЙ ПАРАМЕТР: промпт для генерации
+    character: Optional[str] = "anna"
+    text_message: Optional[str] = ""
+    generate_image: Optional[bool] = False
+    image_prompt: Optional[str] = ""
 
 
 # ==============================================================================
-# 🔥 СЕКЦИЯ СИСТЕМЫ GPU ГЕНЕРАЦИИ (FISHHOOK AI) — ОБНОВЛЁННАЯ
+# 🔥 СЕКЦИЯ СИСТЕМЫ GPU ГЕНЕРАЦИИ (FISHHOOK AI)
 # ==============================================================================
 
 # --- 1. ЭНДПОИНТ СТАТУСА (СВЕТОФОР) ---
@@ -1341,7 +1339,7 @@ async def create_fishhook_task(payload: FishHookTaskRequest):
 # --- 3. ЭНДПОИНТ ОПРОСА ГОТОВНОСТИ (ЛОАДЕР НА САЙТЕ) ---
 @router.get("/fishhook/check_task/{user_login}/{task_id}")
 async def check_task_readiness(user_login: str, task_id: str):
-    """Проверяет статус задачи"""
+    """Проверяет статус задачи и возвращает URL аудио/изображения"""
     clean_login = user_login.lower().strip()
 
     task = FISHHOOK_TASKS.get(clean_login)
@@ -1349,9 +1347,17 @@ async def check_task_readiness(user_login: str, task_id: str):
         return {"status": "not_found"}
 
     if task["status"] == "completed":
-        result_url = task["result_url"]
-        del FISHHOOK_TASKS[clean_login]
-        return {"status": "completed", "result_url": result_url}
+        # Возвращаем все URL для фронтенда
+        response = {
+            "status": "completed",
+            "bot_text": task.get("bot_text", ""),
+            "user_text": task.get("user_text", ""),
+            "audio_url": task.get("audio_url"),
+            "image_url": task.get("image_url")
+        }
+        # НЕ удаляем задачу сразу - даём фронтенду время скачать файлы
+        # del FISHHOOK_TASKS[clean_login]
+        return response
 
     return {"status": task["status"]}
 
@@ -1428,6 +1434,26 @@ async def download_source_from_session(session_id: str, filename: str = "user_vo
     raise HTTPException(status_code=404, detail=f"Файл {filename} физически отсутствует на диске сессии")
 
 
+# --- 5.1. ЭНДПОИНТ ПОЛУЧЕНИЯ АУДИО ОТВЕТА ДЛЯ ФРОНТЕНДА ---
+@router.get("/fishhook/get_audio/{session_id}")
+async def get_audio_response(session_id: str):
+    """Фронтенд дергает этот роут, чтобы получить аудио ответ бота"""
+    file_path = f"./uploads/{session_id}/bot_response.wav"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="audio/wav")
+    raise HTTPException(status_code=404, detail="Аудио ответ не найден")
+
+
+# --- 5.2. ЭНДПОИНТ ПОЛУЧЕНИЯ СГЕНЕРИРОВАННОГО ИЗОБРАЖЕНИЯ ДЛЯ ФРОНТЕНДА ---
+@router.get("/fishhook/get_image/{session_id}")
+async def get_generated_image(session_id: str):
+    """Фронтенд дергает этот роут, чтобы получить сгенерированное изображение"""
+    file_path = f"./uploads/{session_id}/generated_image.jpg"
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="image/jpeg")
+    raise HTTPException(status_code=404, detail="Сгенерированное изображение не найдено")
+
+
 # --- 6. ДЛЯ КОЛАБА: ПРИЕМ ГОТОВОГО РЕЗУЛЬТАТА ---
 @router.post("/fishhook/submit_result")
 async def submit_result_from_colab(
@@ -1466,69 +1492,70 @@ async def submit_result_from_colab(
             print(f"⚠️ [TEXT SAVE ERROR]: {e}")
 
     # Сохраняем аудио
+    audio_url = None
     if audio:
         try:
             audio_path = os.path.join(session_dir, "bot_response.wav")
             contents = await audio.read()
             with open(audio_path, "wb") as f:
                 f.write(contents)
+            audio_url = f"/api/studio/fishhook/get_audio/{session_id}"
             print(f"🔊 [AUDIO SAVED]: Аудио сохранено в {audio_path}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
 
     # Сохраняем изображение (если есть)
+    image_url = None
     if image:
         try:
             image_path = os.path.join(session_dir, "generated_image.jpg")
             contents = await image.read()
             with open(image_path, "wb") as f:
                 f.write(contents)
+            image_url = f"/api/studio/fishhook/get_image/{session_id}"
             print(f"🖼️ [IMAGE SAVED]: Изображение сохранено в {image_path}")
         except Exception as e:
             print(f"⚠️ [IMAGE SAVE ERROR]: Не удалось записать изображение: {e}")
 
-    # Формируем URL для фронтенда
-    result_url = f"/api/studio/preview/{session_id}/after"
-
+    # Сохраняем URL в задачу для фронтенда
     task["status"] = "completed"
-    task["result_url"] = result_url
     task["bot_text"] = bot_text
+    task["user_text"] = user_text
+    task["audio_url"] = audio_url
+    task["image_url"] = image_url
 
-    return {"status": "received", "bot_text": bot_text}
+    return {
+        "status": "received",
+        "bot_text": bot_text,
+        "audio_url": audio_url,
+        "image_url": image_url
+    }
 
 
 # --- 7. НОВЫЙ ЭНДПОИНТ: ГОЛОСОВОЙ ЧАТ С ПЕРСОНАЖАМИ ---
 @router.post("/fishhook/voice_chat")
 async def voice_chat_endpoint(
     user_login: str = Form(...),
-    character: str = Form("anna"),           # ← Ключ персонажа
-    text_message: Optional[str] = Form(""),  # ← Текстовый ввод (опционально)
-    generate_image: Optional[bool] = Form(False),  # ← Генерировать изображение?
-    image_prompt: Optional[str] = Form(""),  # ← Промпт для генерации
-    audio_file: Optional[UploadFile] = File(None),  # ← Аудио (опционально)
+    character: str = Form("anna"),
+    text_message: Optional[str] = Form(""),
+    generate_image: Optional[bool] = Form(False),
+    image_prompt: Optional[str] = Form(""),
+    audio_file: Optional[UploadFile] = File(None),
     role: Optional[str] = Form("assistant"),
     gender: Optional[str] = Form("male")
 ):
     """
-    УНИВЕРСАЛЬНЫЙ ЭНДПОИНТ ГОЛОСОВОГО/ТЕКСТОВОГО ЧАТА:
-
-    Параметры:
-    - character: ключ персонажа (anna, kate, maria, lisa)
-    - text_message: текстовый ввод (если нет аудио)
-    - generate_image: true если нужно сгенерировать изображение
-    - image_prompt: описание изображения для генерации
-    - audio_file: голосовое сообщение (опционально)
+    УНИВЕРСАЛЬНЫЙ ЭНДПОИНТ ГОЛОСОВОГО/ТЕКСТОВОГО ЧАТА
     """
     clean_login = user_login.lower().strip()
 
-    # 1. Генерируем уникальный ID для задачи
     voice_task_id = f"voice_{int(time.time())}"
     session_id = f"v_sess_{clean_login}"
 
     session_dir = f"./uploads/{session_id}"
     os.makedirs(session_dir, exist_ok=True)
 
-    # 2. Сохраняем аудио если есть
+    # Сохраняем аудио если есть
     if audio_file:
         input_audio_path = os.path.join(session_dir, "user_voice.wav")
         try:
@@ -1539,7 +1566,7 @@ async def voice_chat_endpoint(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
 
-    # 3. ПУБЛИКУЕМ ЗАДАЧУ В ОЧЕРЕДЬ
+    # ПУБЛИКУЕМ ЗАДАЧУ В ОЧЕРЕДЬ
     task_data = {
         "status": "pending",
         "task_id": voice_task_id,
@@ -1548,10 +1575,10 @@ async def voice_chat_endpoint(
         "prompt_style": "voice_chat",
         "voice_role": role,
         "voice_gender": gender,
-        "character": character,              # ← Ключ персонажа
-        "text_message": text_message,        # ← Текстовый ввод
-        "generate_image": generate_image,    # ← Флаг генерации изображения
-        "image_prompt": image_prompt         # ← Промпт для генерации
+        "character": character,
+        "text_message": text_message,
+        "generate_image": generate_image,
+        "image_prompt": image_prompt
     }
 
     FISHHOOK_TASKS[clean_login] = task_data
@@ -1571,7 +1598,7 @@ async def voice_chat_endpoint(
 # --- 8. НОВЫЙ ЭНДПОИНТ: СПИСОК ДОСТУПНЫХ ПЕРСОНАЖЕЙ ---
 @router.get("/fishhook/characters")
 async def get_available_characters():
-    """Возвращает список доступных персонажей с их описаниями"""
+    """Возвращает список доступных персонажей"""
     characters = {
         "anna": {
             "name": "Анна",
@@ -1616,11 +1643,7 @@ async def upload_voice_sample(
     character: str = Form(...),
     voice_file: UploadFile = File(...)
 ):
-    """
-    Загружает образец голоса для персонажа.
-    Файл сохраняется в voices/{character}.wav
-    """
-    # Валидация персонажа
+    """Загружает образец голоса для персонажа"""
     valid_characters = ["anna", "kate", "maria", "lisa"]
     if character not in valid_characters:
         raise HTTPException(
@@ -1628,11 +1651,9 @@ async def upload_voice_sample(
             detail=f"Неизвестный персонаж '{character}'. Доступные: {', '.join(valid_characters)}"
         )
 
-    # Создаём папку voices если её нет
     voices_dir = "./voices"
     os.makedirs(voices_dir, exist_ok=True)
 
-    # Сохраняем файл
     voice_path = os.path.join(voices_dir, f"{character}.wav")
     try:
         contents = await voice_file.read()
@@ -1652,9 +1673,7 @@ async def upload_voice_sample(
 # --- 10. НОВЫЙ ЭНДПОИНТ: ПОЛУЧЕНИЕ РЕЗУЛЬТАТА С ИЗОБРАЖЕНИЕМ ---
 @router.get("/fishhook/get_result/{session_id}")
 async def get_chat_result(session_id: str):
-    """
-    Возвращает полный результат чата: текст, аудио, изображение
-    """
+    """Возвращает полный результат чата: текст, аудио, изображение"""
     session_dir = f"./uploads/{session_id}"
 
     if not os.path.exists(session_dir):
@@ -1700,7 +1719,6 @@ async def get_chat_result(session_id: str):
 
 import asyncio
 
-# Для совместимости с остальным кодом
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 async def check_file_size(file: UploadFile):
