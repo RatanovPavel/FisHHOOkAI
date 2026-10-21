@@ -10,27 +10,22 @@ import requests
 import torch
 
 # ============================================================
-# 📦 АВТОУСТАНОВКА ЗАВИСИМОСТЕЙ (для Colab / Kaggle)
+# 📦 АВТОУСТАНОВКА ЗАВИСИМОСТЕЙ
 # ============================================================
 def install_dependencies():
-    """
-    Устанавливает все необходимые пакеты, если их нет.
-    Словарь: {pip-имя пакета : имя модуля для импорта}
-    """
     packages = {
         "transformers":       "transformers",
         "accelerate":         "accelerate",
         "bitsandbytes":       "bitsandbytes",
         "optimum":            "optimum",
-        "coqui-tts":          "TTS",  # ← Coqui TTS форк (поддерживает Python 3.12!)
-        "diffusers":          "diffusers",  # ← Для генерации изображений
+        "coqui-tts":          "TTS",
+        "diffusers":          "diffusers",
         "openai-whisper":     "whisper",
         "SpeechRecognition":  "speech_recognition",
         "gtts":               "gtts",
         "pydub":              "pydub",
     }
 
-    # Устанавливаем пакеты
     for pip_name, import_name in packages.items():
         try:
             __import__(import_name)
@@ -41,52 +36,69 @@ def install_dependencies():
                 sys.executable, "-m", "pip", "install", "-q", pip_name
             ])
 
-    # FFmpeg — критичен для обработки аудио
     if not shutil.which("ffmpeg"):
         print("📦 Устанавливаю ffmpeg...")
         os.system("apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null 2>&1")
 
 install_dependencies()
 
-# ============================================================
-# 📥 ДОПОЛНИТЕЛЬНЫЕ ИМПОРТЫ (после установки)
-# ============================================================
 import speech_recognition as sr
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # ============================================================
-# ⚙️ КОНФИГУРАЦИЯ — МЕНЯЙТЕ ЗДЕСЬ
+# ⚙️ КОНФИГУРАЦИЯ
 # ============================================================
 USER_LOGIN = "RATANOV_PAVEL"
 SERVER_URL = "https://skulla.ru"
 DEMO_MODE  = False
+NSFW_ENABLED = True  # Включить режим 18+
 
 # ============================================================
-# 👥 СИСТЕМА ПЕРСОНАЖЕЙ
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ С ДЕТАЛЬНЫМ ОПИСАНИЕМ ВНЕШНОСТИ
 # ============================================================
 CHARACTERS = {
     "anna": {
         "name": "Анна",
         "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
         "voice_sample": "voices/anna.wav",
+        "appearance": {
+            "en": "25 year old beautiful woman, long wavy chestnut brown hair, bright green eyes, oval face, soft delicate features, light porcelain skin, slender elegant figure, natural makeup, gentle smile",
+            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
+        },
+        "seed": 42,
         "style": "romantic"
     },
     "kate": {
         "name": "Катя",
         "personality": "Ты — Катя, 23 года. Дерзкая, уверенная в себе, любишь флиртовать и подкалывать. Говоришь прямо, иногда грубовато, но с обаянием.",
         "voice_sample": "voices/kate.wav",
+        "appearance": {
+            "en": "23 year old stunning woman, short platinum blonde bob hair, piercing blue eyes, heart-shaped face, sharp confident features, fair skin with light freckles, athletic toned figure, bold red lipstick, smoky eyes",
+            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
+        },
+        "seed": 123,
         "style": "bold"
     },
     "maria": {
         "name": "Мария",
         "personality": "Ты — Мария, 28 лет. Интеллектуалка, любишь философию и глубокие разговоры. Говоришь спокойно, вдумчиво, с академическим уклоном.",
         "voice_sample": "voices/maria.wav",
+        "appearance": {
+            "en": "28 year old elegant woman, long straight dark brown hair with subtle highlights, deep brown intelligent eyes, refined oval face, sophisticated features, olive skin, graceful slender figure, minimal natural makeup, glasses optional",
+            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
+        },
+        "seed": 456,
         "style": "intellectual"
     },
     "lisa": {
         "name": "Лиза",
         "personality": "Ты — Лиза, 22 года. Весёлая, энергичная, обожаешь тусовки и приключения. Говоришь быстро, эмоционально, много смеёшься.",
         "voice_sample": "voices/lisa.wav",
+        "appearance": {
+            "en": "22 year old gorgeous woman, long straight bright red hair with bangs, sparkling hazel eyes, round youthful face, cute playful features, fair skin with rosy cheeks, slim fit figure, colorful makeup, energetic expression",
+            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
+        },
+        "seed": 789,
         "style": "energetic"
     }
 }
@@ -94,11 +106,51 @@ CHARACTERS = {
 ACTIVE_CHARACTER = "anna"
 
 # ============================================================
+# 🎬 СИСТЕМА СЦЕН (ОБСТАНОВОК)
+# ============================================================
+SCENES = {
+    "nature": {
+        "name": "🌿 Природа",
+        "prompt_en": "outdoor nature scene, lush green forest, dappled sunlight through trees, wildflowers, soft bokeh background, golden hour lighting, serene atmosphere",
+        "nsfw": False
+    },
+    "sea": {
+        "name": "🌊 Море",
+        "prompt_en": "beautiful beach scene, turquoise ocean waves, white sand, sunset golden hour, warm tropical lighting, palm trees in background, cinematic composition",
+        "nsfw": False
+    },
+    "shower": {
+        "name": "🚿 Душ",
+        "prompt_en": "intimate bathroom scene, glass shower, water droplets on skin, steam, soft warm lighting, wet hair, sensual atmosphere, artistic composition",
+        "nsfw": True
+    },
+    "pastel": {
+        "name": "🌸 Пастель",
+        "prompt_en": "cozy bedroom scene, soft pastel colors, pink and lavender tones, dreamy soft lighting, fluffy pillows, warm intimate atmosphere, fairy lights",
+        "nsfw": False
+    },
+    "nsfw": {
+        "name": "🔥 18+",
+        "prompt_en": "intimate boudoir scene, sensual pose, artistic nude, soft dramatic lighting, tasteful composition, professional boudoir photography style",
+        "nsfw": True
+    },
+    "cafe": {
+        "name": "☕ Кафе",
+        "prompt_en": "cozy cafe interior, warm ambient lighting, coffee cup on table, window with city view, relaxed atmosphere, lifestyle photography",
+        "nsfw": False
+    },
+    "gym": {
+        "name": "💪 Спортзал",
+        "prompt_en": "modern gym interior, fitness equipment, athletic pose, dynamic lighting, energetic atmosphere, sportswear, motivational setting",
+        "nsfw": False
+    }
+}
+
+# ============================================================
 # 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
 # ============================================================
 IMAGE_MODEL = None
 
-# Глобальные переменные для удержания ИИ-моделей в VRAM
 VOICE_MODEL     = None
 VOICE_TOKENIZER = None
 TTS_ENGINE      = None
@@ -107,33 +159,66 @@ TTS_ENGINE      = None
 # 🔧 УТИЛИТЫ
 # ============================================================
 def check_gpu():
-    """Проверяет доступность GPU и выводит информацию."""
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
         vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
         print(f"✅ GPU: {gpu_name} | VRAM: {vram:.1f} GB")
         return True
     else:
-        print("❌ GPU не обнаружен! Код требует CUDA.")
+        print("❌ GPU не обнаружен!")
         return False
 
 def ensure_dir(path):
-    """Создаёт директорию, если её нет."""
     os.makedirs(path, exist_ok=True)
     return path
+
+def has_cyrillic(text):
+    """Проверяет наличие кириллицы в тексте"""
+    return bool(re.search('[а-яА-Я]', text))
+
+def translate_to_english(russian_text):
+    """Переводит промпт с русского на английский через Qwen"""
+    global VOICE_MODEL, VOICE_TOKENIZER
+
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+        print("⚠️ Qwen не загружен, пропускаю перевод")
+        return russian_text
+
+    try:
+        prompt = f"Translate the following Russian text to English for image generation prompt. Output ONLY the English translation, nothing else. Be concise and descriptive:\n\n{russian_text}"
+        inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+
+        with torch.no_grad():
+            outputs = VOICE_MODEL.generate(
+                **inputs,
+                max_new_tokens=100,
+                temperature=0.3,
+                do_sample=False
+            )
+
+        translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+        translation = translation.replace(prompt, "").strip()
+
+        # Убираем возможные артефакты
+        translation = re.sub(r'^["\']|["\']$', '', translation)
+
+        print(f"🌐 Перевод: {translation[:50]}...")
+        return translation
+    except Exception as e:
+        print(f"⚠️ Ошибка перевода: {e}")
+        return russian_text
 
 # ============================================================
 # 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ В VRAM
 # ============================================================
 def init_models():
-    """Загружает все ИИ-модели в видеопамять."""
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
 
     if not check_gpu():
         print("⛔ Без GPU дальнейшая работа невозможна.")
         return False
 
-    # --- Qwen-7B (LLM) с 4-bit квантованием через bitsandbytes ---
+    # --- Qwen-7B (LLM) ---
     print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
     try:
         from transformers import BitsAndBytesConfig
@@ -160,7 +245,7 @@ def init_models():
         VOICE_MODEL = None
         VOICE_TOKENIZER = None
 
-    # --- XTTS v2 (TTS) через Coqui TTS ---
+    # --- XTTS v2 (TTS) ---
     print("\n⏳ Загрузка XTTS v2...")
     try:
         from TTS.api import TTS
@@ -173,35 +258,48 @@ def init_models():
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
 
-    # --- Stable Diffusion (генерация изображений) ---
-    print("\n⏳ Загрузка Stable Diffusion...")
+    # --- Realistic Vision V6.0 (фотореалистичная генерация) ---
+    print("\n⏳ Загрузка Realistic Vision V6.0 (фотореализм)...")
     try:
         from diffusers import StableDiffusionPipeline
 
-        model_id = "runwayml/stable-diffusion-v1-5"
+        model_id = "SG161222/Realistic_Vision_V6.0_B1_noVAE"
         IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
             model_id,
             torch_dtype=torch.float16,
-            safety_checker=None,
+            safety_checker=None,  # Отключаем цензуру
         ).to("cuda")
-        print("✅ Stable Diffusion загружен в VRAM!")
-    except Exception as e:
-        print(f"⚠️ Ошибка загрузки Stable Diffusion: {e}")
-        print("   Генерация изображений будет недоступна")
-        IMAGE_MODEL = None
 
-    # --- Освобождаем кэш ---
+        # Улучшаем настройки для фотореализма
+        IMAGE_MODEL.enable_attention_slicing()
+
+        print("✅ Realistic Vision V6.0 загружен в VRAM!")
+    except Exception as e:
+        print(f"⚠️ Ошибка загрузки Realistic Vision: {e}")
+        print("   Пробую загрузить стандартную SD 1.5...")
+        try:
+            from diffusers import StableDiffusionPipeline
+            IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
+                "runwayml/stable-diffusion-v1-5",
+                torch_dtype=torch.float16,
+                safety_checker=None,
+            ).to("cuda")
+            print("✅ SD 1.5 загружен (fallback)")
+        except Exception as e2:
+            print(f"❌ Ошибка загрузки SD 1.5: {e2}")
+            IMAGE_MODEL = None
+
     gc.collect()
     torch.cuda.empty_cache()
 
     return VOICE_MODEL is not None
 
 # ============================================================
-# 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
+# 🖼️ ГЕНЕРАЦИЯ ФОТОРЕАЛИСТИЧНЫХ ИЗОБРАЖЕНИЙ
 # ============================================================
-def generate_image(prompt: str, output_path: str, character: str = None) -> bool:
+def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
     """
-    Генерирует изображение по промпту с учётом персонажа.
+    Генерирует фотореалистичное изображение с постоянством лица
     """
     global IMAGE_MODEL
 
@@ -210,31 +308,48 @@ def generate_image(prompt: str, output_path: str, character: str = None) -> bool
         return False
 
     try:
-        enhanced_prompt = prompt
-        if character and character in CHARACTERS:
-            char_info = CHARACTERS[character]
-            style_map = {
-                "romantic": "soft lighting, romantic atmosphere, warm colors",
-                "bold": "dramatic lighting, confident pose, vibrant colors",
-                "intellectual": "elegant setting, sophisticated atmosphere, muted tones",
-                "energetic": "dynamic composition, bright colors, lively atmosphere"
-            }
-            style = style_map.get(char_info.get("style", ""), "")
-            if style:
-                enhanced_prompt = f"{prompt}, {style}"
+        character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
+        scene = SCENES.get(scene_key, SCENES["nature"])
 
-        print(f"🎨 Генерация изображения: {enhanced_prompt[:50]}...")
+        # Переводим промпт на английский если есть кириллица
+        if has_cyrillic(user_prompt):
+            translated_prompt = translate_to_english(user_prompt)
+        else:
+            translated_prompt = user_prompt
+
+        # Собираем полный промпт
+        quality_tags = "photorealistic, masterpiece, best quality, ultra detailed, 8k uhd, high resolution, sharp focus, professional photography, dslr, cinematic lighting"
+        character_desc = character["appearance"]["en"]
+        scene_desc = scene["prompt_en"]
+
+        full_prompt = f"{quality_tags}, {character_desc}, {translated_prompt}, {scene_desc}"
+
+        # Negative prompt
+        negative_prompt = f"{character['appearance']['negative']}, blurry, low quality, jpeg artifacts, watermark, text, signature, cartoon, anime, painting, drawing, illustration, 3d render, cgi, plastic, doll, mannequin"
+
+        if not nsfw and not NSFW_ENABLED:
+            negative_prompt += ", nude, naked, nsfw, explicit, lingerie, underwear"
+
+        print(f"🎨 Генерация изображения...")
+        print(f"   Персонаж: {character['name']}")
+        print(f"   Сцена: {scene['name']}")
+        print(f"   Промпт: {full_prompt[:80]}...")
+
+        # Генерируем с seed для воспроизводимости
+        generator = torch.Generator(device="cuda").manual_seed(character["seed"])
 
         with torch.inference_mode():
             image = IMAGE_MODEL(
-                enhanced_prompt,
-                num_inference_steps=30,
+                full_prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=35,
                 guidance_scale=7.5,
                 width=512,
-                height=512
+                height=768,  # Портретная ориентация
+                generator=generator,
             ).images[0]
 
-        image.save(output_path)
+        image.save(output_path, quality=95)
         print(f"✅ Изображение сохранено: {output_path}")
         return True
 
@@ -246,11 +361,6 @@ def generate_image(prompt: str, output_path: str, character: str = None) -> bool
 # 🎙️ КОНВЕЙЕР ГОЛОСОВОГО ЧАТА
 # ============================================================
 def process_voice_chat(task_data):
-    """
-    Полный цикл:
-      STT (Whisper) → LLM (Qwen-7B) → TTS (Coqui XTTS v2) → Push
-    С поддержкой персонажей и генерации изображений
-    """
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, ACTIVE_CHARACTER
 
     actual_task = task_data.get("task_data", {})
@@ -264,6 +374,8 @@ def process_voice_chat(task_data):
 
     generate_img = actual_task.get("generate_image", False)
     image_prompt = actual_task.get("image_prompt", "")
+    scene_key = actual_task.get("scene", "nature")
+    nsfw = actual_task.get("nsfw", False)
 
     print(f"\n🎙️ Обработка задачи {task_id} (персонаж: {character['name']}) ...")
 
@@ -271,12 +383,9 @@ def process_voice_chat(task_data):
     local_input_audio = os.path.join(session_dir, "user_voice.wav")
     output_audio_name = os.path.join(session_dir, "bot_response.wav")
 
-    # ── Скачиваем аудио с сервера ──
+    # Скачиваем аудио
     if not DEMO_MODE:
-        download_url = (
-            f"{SERVER_URL}/api/studio/fishhook/"
-            f"download_source/{session_id}?filename=user_voice.wav"
-        )
+        download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=user_voice.wav"
         try:
             res = requests.get(download_url, timeout=20)
             if res.status_code == 200:
@@ -286,7 +395,7 @@ def process_voice_chat(task_data):
         except Exception as e:
             print(f"⚠️ Не удалось скачать аудио: {e}")
 
-    # ── ШАГ 1: Получение текста ──
+    # ШАГ 1: Получение текста
     user_text = ""
     if web_text.strip():
         user_text = web_text.strip()
@@ -296,11 +405,7 @@ def process_voice_chat(task_data):
             import whisper
             model_w = whisper.load_model("base")
             converted = os.path.join(session_dir, "clean_pcm.wav")
-            os.system(
-                f'ffmpeg -y -i "{local_input_audio}" '
-                f'-ar 16000 -ac 1 -c:a pcm_s16le "{converted}" '
-                f'> /dev/null 2>&1'
-            )
+            os.system(f'ffmpeg -y -i "{local_input_audio}" -ar 16000 -ac 1 -c:a pcm_s16le "{converted}" > /dev/null 2>&1')
             if os.path.exists(converted):
                 result = model_w.transcribe(converted, language="ru")
                 user_text = result.get("text", "").strip()
@@ -315,7 +420,7 @@ def process_voice_chat(task_data):
     if not user_text.strip():
         user_text = "Привет!"
 
-    # ── ШАГ 2: Генерация ответа (LLM) с характером персонажа ──
+    # ШАГ 2: Генерация ответа (LLM)
     bot_text = ""
     try:
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
@@ -337,9 +442,7 @@ def process_voice_chat(task_data):
                     pass
 
             if not chat_history:
-                chat_history.append(
-                    {"role": "system", "content": system_prompt}
-                )
+                chat_history.append({"role": "system", "content": system_prompt})
 
             chat_history.append({"role": "user", "content": user_text})
 
@@ -360,9 +463,7 @@ def process_voice_chat(task_data):
                     top_p=0.9,
                 )
 
-            full_output = VOICE_TOKENIZER.decode(
-                outputs[0], skip_special_tokens=True
-            )
+            full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
             bot_text = full_output.replace(prompt, "").strip()
 
             if "assistant" in bot_text:
@@ -378,7 +479,7 @@ def process_voice_chat(task_data):
         print(f"❌ Сбой LLM: {e}")
         bot_text = "Произошла ошибка при генерации ответа."
 
-    # ── ШАГ 3: Синтез речи (TTS) с голосом персонажа ──
+    # ШАГ 3: Синтез речи (TTS)
     clean_text = re.sub(r'\*.*?\*', '', bot_text).strip()
     try:
         if TTS_ENGINE is not None:
@@ -401,7 +502,7 @@ def process_voice_chat(task_data):
                 )
                 print("✅ XTTS v2: голос синтезирован!")
             else:
-                raise FileNotFoundError("Нет reference wav для клонирования")
+                raise FileNotFoundError("Нет reference wav")
         else:
             raise RuntimeError("TTS_ENGINE is None")
     except Exception as e:
@@ -416,15 +517,21 @@ def process_voice_chat(task_data):
             with open(output_audio_name, "wb") as f:
                 f.write(b"")
 
-    # ── ШАГ 3.5: Генерация изображения (если запрошено) ──
+    # ШАГ 3.5: Генерация фотореалистичного изображения
     output_image_name = None
     if generate_img and image_prompt:
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
-        success = generate_image(image_prompt, output_image_name, character_key)
+        success = generate_photorealistic_image(
+            image_prompt,
+            character_key,
+            scene_key,
+            output_image_name,
+            nsfw=nsfw
+        )
         if not success:
             output_image_name = None
 
-    # ── ШАГ 4: Отправка результата (аудио + изображение) ──
+    # ШАГ 4: Отправка результата
     if not DEMO_MODE:
         try:
             upload_url = f"{SERVER_URL}/api/studio/fishhook/submit_result"
@@ -453,9 +560,9 @@ def process_voice_chat(task_data):
 
             if response.status_code == 200:
                 if "image" in files:
-                    print(f"🏁 Результат отправлен на сервер (аудио + изображение)!")
+                    print(f"🏁 Результат отправлен (аудио + изображение)!")
                 else:
-                    print(f"🏁 Результат отправлен на сервер (только аудио)!")
+                    print(f"🏁 Результат отправлен (только аудио)!")
             else:
                 print(f"❌ Ошибка отправки: HTTP {response.status_code}")
 
@@ -477,27 +584,21 @@ def process_voice_chat(task_data):
             except Exception:
                 pass
 
-
-# ============================================================
-# 🎬 ЗАГЛУШКИ ДЛЯ НЕРЕАЛИЗОВАННЫХ ФУНКЦИЙ
-# ============================================================
+# Заглушки
 def process_video_animation(task_data):
-    """Заглушка — видео-анимация пока не реализована."""
     print("⚠️ process_video_animation() — ещё не реализована.")
 
 def process_heavy_tryon_naked(task_data):
-    """Заглушка — виртуальная примерка пока не реализована."""
     print("⚠️ process_heavy_tryon_naked() — ещё не реализована.")
 
-
 # ============================================================
-# 🔄 ГЛАВНЫЙ ЦИКЛ ОПРОСА СЕРВЕРА
+# 🔄 ГЛАВНЫЙ ЦИКЛ
 # ============================================================
 def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1 — ЗАПУСК")
     print("=" * 60)
 
     if not init_models():
@@ -520,6 +621,9 @@ def main_loop(login: str):
                     "session_id": "demo",
                     "user_login": clean_login,
                     "text_message": user_input,
+                    "generate_image": True,
+                    "image_prompt": "красивый портрет",
+                    "scene": "nature"
                 }
             }
             process_voice_chat(fake_task)
@@ -536,9 +640,7 @@ def main_loop(login: str):
                 status = task_data.get("status")
 
                 if status == "success":
-                    style = task_data.get("task_data", {}).get(
-                        "prompt_style", ""
-                    )
+                    style = task_data.get("task_data", {}).get("prompt_style", "")
                     if style == "animate_video":
                         process_video_animation(task_data)
                     elif style == "voice_chat":
@@ -559,10 +661,6 @@ def main_loop(login: str):
 
         time.sleep(1)
 
-
-# ============================================================
-# 🏁 ТОЧКА ВХОДА
-# ============================================================
 if __name__ == "__main__":
     try:
         import argparse
