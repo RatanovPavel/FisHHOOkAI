@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FishHook ИИ v2.1.1 — Фотореалистичные Персонажи</title>
+    <title>FishHook ИИ v2.1.2 — Фотореалистичные Персонажи</title>
     <script src="/static/tailwind.min.js"></script>
     <style>
         @keyframes pulse-ring {
@@ -26,7 +26,7 @@
 
         <!-- Заголовок -->
         <div class="text-center space-y-1">
-            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.1.1</h1>
+            <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.1.2</h1>
             <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Фотореалистичные Персонажи • Автоперевод • 7 Сцен</p>
         </div>
 
@@ -90,7 +90,7 @@
             <div id="imagePromptBlock" class="space-y-1.5">
                 <input type="text" id="imagePromptInput" placeholder="Опишите сцену на русском (например: девушка пьёт кофе и смотрит в окно)"
                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
-                <p class="text-[9px] text-slate-500">💡 Промпт будет автоматически переведён на английский. Черты лица сохранятся благодаря детальному описанию персонажа.</p>
+                <p class="text-[9px] text-slate-500">💡 Промпт будет автоматически переведён на английский. Черты лица сохранятся, но изображение будет уникальным для каждого промпта.</p>
             </div>
         </div>
 
@@ -247,7 +247,7 @@
             }
         };
 
-        // 🚀 Отправка формы на сервер с поддержкой персонажей, сцен и генерации изображений
+        // 🚀 Отправка формы на сервер
         async function sendVoiceData(audioBlob, textMessage) {
             const currentRole = document.getElementById("roleSelect").value;
             const currentCharacter = document.getElementById("characterSelect").value;
@@ -263,7 +263,7 @@
             formData.append("user_login", "RATANOV_PAVEL");
             formData.append("text_message", textMessage);
             formData.append("character", currentCharacter);
-            formData.append("scene", currentScene);  // ← ДОБАВЛЕНО: передача сцены
+            formData.append("scene", currentScene);
             formData.append("generate_image", generateImage);
 
             if (generateImage && imagePrompt) {
@@ -273,7 +273,7 @@
             // Определяем NSFW флаг на основе сцены
             const nsfwScenes = ["shower", "nsfw"];
             const isNsfw = nsfwScenes.includes(currentScene);
-            formData.append("nsfw", isNsfw);  // ← ДОБАВЛЕНО: передача NSFW флага
+            formData.append("nsfw", isNsfw);
 
             if (generateImage) {
                 statusText.innerText = "ГЕНЕРАЦИЯ ФОТОРЕАЛИСТИЧНОГО ИЗОБРАЖЕНИЯ...";
