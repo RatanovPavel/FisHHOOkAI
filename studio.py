@@ -1238,16 +1238,16 @@ async def voice_chat_endpoint(
 
 
 # ==============================================================================
-# 🔥 FISHHOOK AI v2.1.1 — ФИНАЛЬНАЯ ВЕРСИЯ
+# 🔥 FISHHOOK AI v2.1.2 — ПОЛНАЯ ВЕРСИЯ
 # ==============================================================================
-# Версия: 2.1.1 (с исправлениями качества изображений и передачи сцены)
-# Дата: 2024
+# Версия: 2.1.2 (с исправлениями seed, перевода и длины промпта)
 # ==============================================================================
 
 import os
 import time
 import json
 import hashlib
+import asyncio
 from typing import Optional
 from datetime import datetime
 
@@ -1273,48 +1273,43 @@ WORKER_ONLINE = {}
 
 
 # ==============================================================================
-# 📋 PYDANTIC-СХЕМЫ ДЛЯ ВАЛИДАЦИИ ЗАПРОСОВ
+# 📋 PYDANTIC-СХЕМЫ
 # ==============================================================================
 
 class FishHookTaskRequest(BaseModel):
-    """Базовая схема для создания задачи"""
     user_login: str
     session_id: str
     prompt_style: str
 
 
 class VoiceChatRequest(BaseModel):
-    """Схема для голосового чата с поддержкой персонажей и генерации изображений"""
     user_login: str
     role: Optional[str] = "assistant"
     gender: Optional[str] = "male"
     character: Optional[str] = "anna"
-    scene: Optional[str] = "nature"  # ← ДОБАВЛЕНО
+    scene: Optional[str] = "nature"
     text_message: Optional[str] = ""
     generate_image: Optional[bool] = False
     image_prompt: Optional[str] = ""
-    nsfw: Optional[bool] = False  # ← ДОБАВЛЕНО
+    nsfw: Optional[bool] = False
 
 
 # ==============================================================================
-# 🔥 СЕКЦИЯ СИСТЕМЫ GPU ГЕНЕРАЦИИ (FISHHOOK AI)
+# 🔥 FISHHOOK AI ENDPOINTS
 # ==============================================================================
 
-# --- 1. ЭНДПОИНТ СТАТУСА (СВЕТОФОР) ---
+# --- 1. СТАТУС ВОКЕРА ---
 @router.get("/fishhook/status/{user_login}")
 async def get_worker_status(user_login: str):
-    """Проверяет, онлайн ли воркер Colab/Kaggle"""
     clean_login = user_login.lower().strip()
-
     last_ping = WORKER_ONLINE.get(clean_login, 0)
     is_online = (time.time() - last_ping) < 15.0
     return {"online": is_online}
 
 
-# --- 2. ЭНДПОИНТ СОЗДАНИЯ ЗАДАЧИ (КНОПКА НА САЙТЕ) ---
+# --- 2. СОЗДАНИЕ ЗАДАЧИ ---
 @router.post("/fishhook/create_task")
 async def create_fishhook_task(payload: FishHookTaskRequest):
-    """Создаёт задачу для обработки воркером"""
     task_id = f"task_{int(time.time())}"
     clean_login = payload.user_login.lower().strip()
 
@@ -1338,10 +1333,9 @@ async def create_fishhook_task(payload: FishHookTaskRequest):
     return {"status": "queued", "task_id": task_id}
 
 
-# --- 3. ЭНДПОИНТ ОПРОСА ГОТОВНОСТИ (ЛОАДЕР НА САЙТЕ) ---
+# --- 3. ОПРОС ГОТОВНОСТИ ---
 @router.get("/fishhook/check_task/{user_login}/{task_id}")
 async def check_task_readiness(user_login: str, task_id: str):
-    """Проверяет статус задачи и возвращает URL аудио/изображения"""
     clean_login = user_login.lower().strip()
 
     task = FISHHOOK_TASKS.get(clean_login)
@@ -1349,7 +1343,6 @@ async def check_task_readiness(user_login: str, task_id: str):
         return {"status": "not_found"}
 
     if task["status"] == "completed":
-        # Возвращаем все URL для фронтенда
         response = {
             "status": "completed",
             "bot_text": task.get("bot_text", ""),
@@ -1362,13 +1355,10 @@ async def check_task_readiness(user_login: str, task_id: str):
     return {"status": task["status"]}
 
 
-# --- 4. ДЛЯ КОЛАБА: ЗАПРОС ЗАДАЧИ И ФИКСАЦИЯ ОНЛАЙНА (LONG POLLING) ---
+# --- 4. LONG POLLING ДЛЯ ВОКЕРА ---
 @router.get("/fishhook/get_task/{user_login}")
 async def get_task_for_colab(user_login: str):
-    """Воркер Colab/Kaggle опрашивает этот эндпоинт для получения задач"""
     clean_login = user_login.lower().strip()
-
-    # Фиксируем время входящего пинга от воркера
     WORKER_ONLINE[clean_login] = time.time()
 
     max_wait_time = 4
@@ -1381,7 +1371,6 @@ async def get_task_for_colab(user_login: str):
         if task and task.get("status") == "pending":
             task["status"] = "processing"
 
-            # Формируем ответ с ВСЕМИ параметрами задачи
             response_data = {
                 "task_id": task["task_id"],
                 "session_id": task["session_id"],
@@ -1389,14 +1378,13 @@ async def get_task_for_colab(user_login: str):
                 "prompt_style": task["prompt_style"]
             }
 
-            # Добавляем параметры голосового чата если есть
             if "voice_role" in task:
                 response_data["voice_role"] = task["voice_role"]
             if "voice_gender" in task:
                 response_data["voice_gender"] = task["voice_gender"]
             if "character" in task:
                 response_data["character"] = task["character"]
-            if "scene" in task:  # ← ДОБАВЛЕНО
+            if "scene" in task:
                 response_data["scene"] = task["scene"]
             if "text_message" in task:
                 response_data["text_message"] = task["text_message"]
@@ -1404,7 +1392,7 @@ async def get_task_for_colab(user_login: str):
                 response_data["generate_image"] = task["generate_image"]
             if "image_prompt" in task:
                 response_data["image_prompt"] = task["image_prompt"]
-            if "nsfw" in task:  # ← ДОБАВЛЕНО
+            if "nsfw" in task:
                 response_data["nsfw"] = task["nsfw"]
 
             return {
@@ -1418,13 +1406,11 @@ async def get_task_for_colab(user_login: str):
     return {"status": "no_tasks"}
 
 
-# --- 5. ДЛЯ КОЛАБА: СКАЧИВАНИЕ ИСХОДНИКА ИЗ ПАПКИ СЕССИИ ---
+# --- 5. СКАЧИВАНИЕ ФАЙЛА ИЗ СЕССИИ ---
 @router.get("/fishhook/download_source/{session_id}")
 async def download_source_from_session(session_id: str, filename: str = "user_voice.wav"):
-    """Колаб дергает этот роут, чтобы скачать файл из папки сессии"""
     file_path = f"./uploads/{session_id}/{filename}"
     if os.path.exists(file_path):
-        # Определяем MIME-тип по расширению
         if filename.endswith('.wav'):
             media_type = "audio/wav"
         elif filename.endswith('.png'):
@@ -1435,30 +1421,28 @@ async def download_source_from_session(session_id: str, filename: str = "user_vo
             media_type = "application/octet-stream"
 
         return FileResponse(file_path, media_type=media_type)
-    raise HTTPException(status_code=404, detail=f"Файл {filename} физически отсутствует на диске сессии")
+    raise HTTPException(status_code=404, detail=f"Файл {filename} не найден")
 
 
-# --- 5.1. ЭНДПОИНТ ПОЛУЧЕНИЯ АУДИО ОТВЕТА ДЛЯ ФРОНТЕНДА ---
+# --- 5.1. ПОЛУЧЕНИЕ АУДИО ---
 @router.get("/fishhook/get_audio/{session_id}")
 async def get_audio_response(session_id: str):
-    """Фронтенд дергает этот роут, чтобы получить аудио ответ бота"""
     file_path = f"./uploads/{session_id}/bot_response.wav"
     if os.path.exists(file_path):
         return FileResponse(file_path, media_type="audio/wav")
     raise HTTPException(status_code=404, detail="Аудио ответ не найден")
 
 
-# --- 5.2. ЭНДПОИНТ ПОЛУЧЕНИЯ СГЕНЕРИРОВАННОГО ИЗОБРАЖЕНИЯ ДЛЯ ФРОНТЕНДА ---
+# --- 5.2. ПОЛУЧЕНИЕ ИЗОБРАЖЕНИЯ ---
 @router.get("/fishhook/get_image/{session_id}")
 async def get_generated_image(session_id: str):
-    """Фронтенд дергает этот роут, чтобы получить сгенерированное изображение"""
     file_path = f"./uploads/{session_id}/generated_image.jpg"
     if os.path.exists(file_path):
         return FileResponse(file_path, media_type="image/jpeg")
-    raise HTTPException(status_code=404, detail="Сгенерированное изображение не найдено")
+    raise HTTPException(status_code=404, detail="Изображение не найдено")
 
 
-# --- 6. ДЛЯ КОЛАБА: ПРИЕМ ГОТОВОГО РЕЗУЛЬТАТА ---
+# --- 6. ПРИЁМ РЕЗУЛЬТАТА ОТ ВОКЕРА ---
 @router.post("/fishhook/submit_result")
 async def submit_result_from_colab(
     task_id: str = Form(...),
@@ -1468,34 +1452,25 @@ async def submit_result_from_colab(
     audio: Optional[UploadFile] = File(None),
     image: Optional[UploadFile] = File(None)
 ):
-    """
-    Принимает результат от воркера:
-    - audio: голосовой ответ (обязательно)
-    - image: сгенерированное изображение (опционально)
-    - user_text: текст пользователя
-    - bot_text: текст ответа бота
-    """
     clean_login = user_login.lower().strip()
 
     task = FISHHOOK_TASKS.get(clean_login)
     if not task or task["task_id"] != task_id:
-        raise HTTPException(status_code=400, detail="Задача устарела, была перехвачена или не найдена")
+        raise HTTPException(status_code=400, detail="Задача устарела или не найдена")
 
     session_id = task["session_id"]
     session_dir = f"./uploads/{session_id}"
     os.makedirs(session_dir, exist_ok=True)
 
-    # Сохраняем текст ответа
     if bot_text:
         try:
             text_path = os.path.join(session_dir, "bot_response.txt")
             with open(text_path, "w", encoding="utf-8") as f:
                 f.write(bot_text)
-            print(f"📝 [TEXT SAVED]: Текст ответа сохранён в {text_path}")
+            print(f"📝 [TEXT SAVED]: {text_path}")
         except Exception as e:
             print(f"⚠️ [TEXT SAVE ERROR]: {e}")
 
-    # Сохраняем аудио
     audio_url = None
     if audio:
         try:
@@ -1504,11 +1479,10 @@ async def submit_result_from_colab(
             with open(audio_path, "wb") as f:
                 f.write(contents)
             audio_url = f"/api/studio/fishhook/get_audio/{session_id}"
-            print(f"🔊 [AUDIO SAVED]: Аудио сохранено в {audio_path}")
+            print(f"🔊 [AUDIO SAVED]: {audio_path}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
 
-    # Сохраняем изображение (если есть)
     image_url = None
     if image:
         try:
@@ -1517,11 +1491,10 @@ async def submit_result_from_colab(
             with open(image_path, "wb") as f:
                 f.write(contents)
             image_url = f"/api/studio/fishhook/get_image/{session_id}"
-            print(f"🖼️ [IMAGE SAVED]: Изображение сохранено в {image_path}")
+            print(f"🖼️ [IMAGE SAVED]: {image_path}")
         except Exception as e:
-            print(f"⚠️ [IMAGE SAVE ERROR]: Не удалось записать изображение: {e}")
+            print(f"⚠️ [IMAGE SAVE ERROR]: {e}")
 
-    # Сохраняем URL в задачу для фронтенда
     task["status"] = "completed"
     task["bot_text"] = bot_text
     task["user_text"] = user_text
@@ -1536,24 +1509,20 @@ async def submit_result_from_colab(
     }
 
 
-# --- 7. НОВЫЙ ЭНДПОИНТ: ГОЛОСОВОЙ ЧАТ С ПЕРСОНАЖАМИ И СЦЕНАМИ ---
+# --- 7. ГОЛОСОВОЙ ЧАТ С ПЕРСОНАЖАМИ И СЦЕНАМИ ---
 @router.post("/fishhook/voice_chat")
 async def voice_chat_endpoint(
     user_login: str = Form(...),
     character: str = Form("anna"),
-    scene: str = Form("nature"),  # ← ДОБАВЛЕНО: сцена
+    scene: str = Form("nature"),
     text_message: Optional[str] = Form(""),
     generate_image: Optional[bool] = Form(False),
     image_prompt: Optional[str] = Form(""),
-    nsfw: Optional[bool] = Form(False),  # ← ДОБАВЛЕНО: NSFW флаг
+    nsfw: Optional[bool] = Form(False),
     audio_file: Optional[UploadFile] = File(None),
     role: Optional[str] = Form("assistant"),
     gender: Optional[str] = Form("male")
 ):
-    """
-    УНИВЕРСАЛЬНЫЙ ЭНДПОИНТ ГОЛОСОВОГО/ТЕКСТОВОГО ЧАТА
-    С поддержкой персонажей, сцен и генерации изображений
-    """
     clean_login = user_login.lower().strip()
 
     voice_task_id = f"voice_{int(time.time())}"
@@ -1562,18 +1531,16 @@ async def voice_chat_endpoint(
     session_dir = f"./uploads/{session_id}"
     os.makedirs(session_dir, exist_ok=True)
 
-    # Сохраняем аудио если есть
     if audio_file:
         input_audio_path = os.path.join(session_dir, "user_voice.wav")
         try:
             contents = await audio_file.read()
             with open(input_audio_path, "wb") as f:
                 f.write(contents)
-            print(f"🎙️ [AUDIO SAVED]: Голос сохранён в {input_audio_path}")
+            print(f"🎙️ [AUDIO SAVED]: {input_audio_path}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
 
-    # ПУБЛИКУЕМ ЗАДАЧУ В ОЧЕРЕДЬ
     task_data = {
         "status": "pending",
         "task_id": voice_task_id,
@@ -1583,18 +1550,18 @@ async def voice_chat_endpoint(
         "voice_role": role,
         "voice_gender": gender,
         "character": character,
-        "scene": scene,  # ← ДОБАВЛЕНО
+        "scene": scene,
         "text_message": text_message,
         "generate_image": generate_image,
         "image_prompt": image_prompt,
-        "nsfw": nsfw  # ← ДОБАВЛЕНО
+        "nsfw": nsfw
     }
 
     FISHHOOK_TASKS[clean_login] = task_data
 
-    print(f"🎙️ [ОЧЕРЕДЬ]: Задача {voice_task_id} создана для персонажа '{character}', сцена '{scene}'")
+    print(f"🎙️ [ОЧЕРЕДЬ]: Задача {voice_task_id} для '{character}', сцена '{scene}'")
     if generate_image:
-        print(f"🖼️ [IMAGE GEN]: Запрошена генерация изображения: {image_prompt[:50]}... (сцена: {scene})")
+        print(f"🖼️ [IMAGE GEN]: {image_prompt[:50]}... (сцена: {scene})")
 
     return {
         "status": "queued",
@@ -1605,61 +1572,27 @@ async def voice_chat_endpoint(
     }
 
 
-# --- 8. НОВЫЙ ЭНДПОИНТ: СПИСОК ДОСТУПНЫХ ПЕРСОНАЖЕЙ ---
+# --- 8. СПИСОК ПЕРСОНАЖЕЙ ---
 @router.get("/fishhook/characters")
 async def get_available_characters():
-    """Возвращает список доступных персонажей"""
     characters = {
-        "anna": {
-            "name": "Анна",
-            "age": 25,
-            "personality": "Нежная, романтичная девушка с чувством юмора",
-            "style": "romantic",
-            "emoji": "💕"
-        },
-        "kate": {
-            "name": "Катя",
-            "age": 23,
-            "personality": "Дерзкая, уверенная в себе, любит флиртовать",
-            "style": "bold",
-            "emoji": "🔥"
-        },
-        "maria": {
-            "name": "Мария",
-            "age": 28,
-            "personality": "Интеллектуалка, любит философию и глубокие разговоры",
-            "style": "intellectual",
-            "emoji": "📚"
-        },
-        "lisa": {
-            "name": "Лиза",
-            "age": 22,
-            "personality": "Весёлая, энергичная, обожает тусовки",
-            "style": "energetic",
-            "emoji": "⚡"
-        }
+        "anna": {"name": "Анна", "age": 25, "personality": "Нежная, романтичная", "style": "romantic", "emoji": "💕"},
+        "kate": {"name": "Катя", "age": 23, "personality": "Дерзкая, уверенная", "style": "bold", "emoji": "🔥"},
+        "maria": {"name": "Мария", "age": 28, "personality": "Интеллектуалка", "style": "intellectual", "emoji": "📚"},
+        "lisa": {"name": "Лиза", "age": 22, "personality": "Весёлая, энергичная", "style": "energetic", "emoji": "⚡"}
     }
-
-    return {
-        "status": "success",
-        "characters": characters,
-        "default": "anna"
-    }
+    return {"status": "success", "characters": characters, "default": "anna"}
 
 
-# --- 9. НОВЫЙ ЭНДПОИНТ: ЗАГРУЗКА ГОЛОСОВОГО ОБРАЗЦА ПЕРСОНАЖА ---
+# --- 9. ЗАГРУЗКА ГОЛОСА ---
 @router.post("/fishhook/upload_voice_sample")
 async def upload_voice_sample(
     character: str = Form(...),
     voice_file: UploadFile = File(...)
 ):
-    """Загружает образец голоса для персонажа"""
     valid_characters = ["anna", "kate", "maria", "lisa"]
     if character not in valid_characters:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Неизвестный персонаж '{character}'. Доступные: {', '.join(valid_characters)}"
-        )
+        raise HTTPException(status_code=400, detail=f"Неизвестный персонаж '{character}'")
 
     voices_dir = "./voices"
     os.makedirs(voices_dir, exist_ok=True)
@@ -1669,21 +1602,16 @@ async def upload_voice_sample(
         contents = await voice_file.read()
         with open(voice_path, "wb") as f:
             f.write(contents)
-        print(f"🎤 [VOICE SAVED]: Голос персонажа '{character}' сохранён в {voice_path}")
+        print(f"🎤 [VOICE SAVED]: {voice_path}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Не удалось сохранить голос: {e}")
 
-    return {
-        "status": "success",
-        "character": character,
-        "voice_path": voice_path
-    }
+    return {"status": "success", "character": character, "voice_path": voice_path}
 
 
-# --- 10. НОВЫЙ ЭНДПОИНТ: ПОЛУЧЕНИЕ РЕЗУЛЬТАТА С ИЗОБРАЖЕНИЕМ ---
+# --- 10. ПОЛУЧЕНИЕ РЕЗУЛЬТАТА ---
 @router.get("/fishhook/get_result/{session_id}")
 async def get_chat_result(session_id: str):
-    """Возвращает полный результат чата: текст, аудио, изображение"""
     session_dir = f"./uploads/{session_id}"
 
     if not os.path.exists(session_dir):
@@ -1698,19 +1626,16 @@ async def get_chat_result(session_id: str):
         "bot_text": ""
     }
 
-    # Проверяем наличие аудио
     audio_path = os.path.join(session_dir, "bot_response.wav")
     if os.path.exists(audio_path):
         result["has_audio"] = True
         result["audio_url"] = f"/uploads/{session_id}/bot_response.wav"
 
-    # Проверяем наличие изображения
     image_path = os.path.join(session_dir, "generated_image.jpg")
     if os.path.exists(image_path):
         result["has_image"] = True
         result["image_url"] = f"/uploads/{session_id}/generated_image.jpg"
 
-    # Проверяем наличие текста
     text_path = os.path.join(session_dir, "bot_response.txt")
     if os.path.exists(text_path):
         result["has_text"] = True
@@ -1727,12 +1652,9 @@ async def get_chat_result(session_id: str):
 # 🔧 ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 # ==============================================================================
 
-import asyncio
-
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 async def check_file_size(file: UploadFile):
-    """Проверяет размер загружаемого файла"""
     file_size = getattr(file, "size", None)
     if file_size is None:
         file.file.seek(0, 2)
@@ -1740,7 +1662,4 @@ async def check_file_size(file: UploadFile):
         file.file.seek(0)
 
     if file_size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail="ERROR_FILE_TOO_LARGE"
-        )
+        raise HTTPException(status_code=413, detail="ERROR_FILE_TOO_LARGE")
