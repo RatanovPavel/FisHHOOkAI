@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import requests
 import torch
+import hashlib
 
 # ============================================================
 # 📦 АВТОУСТАНОВКА ЗАВИСИМОСТЕЙ
@@ -51,109 +52,96 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 USER_LOGIN = "RATANOV_PAVEL"
 SERVER_URL = "https://skulla.ru"
 DEMO_MODE  = False
-NSFW_ENABLED = True  # Включить режим 18+
+NSFW_ENABLED = True
 
 # ============================================================
-# 👥 СИСТЕМА ПЕРСОНАЖЕЙ С ДЕТАЛЬНЫМ ОПИСАНИЕМ ВНЕШНОСТИ
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ
 # ============================================================
 CHARACTERS = {
     "anna": {
         "name": "Анна",
         "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
         "voice_sample": "voices/anna.wav",
-        "appearance": {
-            "en": "25 year old beautiful woman, long wavy chestnut brown hair, bright green eyes, oval face, soft delicate features, light porcelain skin, slender elegant figure, natural makeup, gentle smile",
-            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
-        },
+        "face_desc": "a 25 year old beautiful woman with long wavy chestnut brown hair and bright green eyes and soft delicate features and light porcelain skin",
+        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
         "seed": 42,
-        "style": "romantic"
     },
     "kate": {
         "name": "Катя",
         "personality": "Ты — Катя, 23 года. Дерзкая, уверенная в себе, любишь флиртовать и подкалывать. Говоришь прямо, иногда грубовато, но с обаянием.",
         "voice_sample": "voices/kate.wav",
-        "appearance": {
-            "en": "23 year old stunning woman, short platinum blonde bob hair, piercing blue eyes, heart-shaped face, sharp confident features, fair skin with light freckles, athletic toned figure, bold red lipstick, smoky eyes",
-            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
-        },
+        "face_desc": "a 23 year old stunning woman with short platinum blonde bob hair and piercing blue eyes and sharp confident features and fair skin with light freckles",
+        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
         "seed": 123,
-        "style": "bold"
     },
     "maria": {
         "name": "Мария",
         "personality": "Ты — Мария, 28 лет. Интеллектуалка, любишь философию и глубокие разговоры. Говоришь спокойно, вдумчиво, с академическим уклоном.",
         "voice_sample": "voices/maria.wav",
-        "appearance": {
-            "en": "28 year old elegant woman, long straight dark brown hair with subtle highlights, deep brown intelligent eyes, refined oval face, sophisticated features, olive skin, graceful slender figure, minimal natural makeup, glasses optional",
-            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
-        },
+        "face_desc": "a 28 year old elegant woman with long straight dark brown hair and deep brown intelligent eyes and sophisticated features and olive skin",
+        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
         "seed": 456,
-        "style": "intellectual"
     },
     "lisa": {
         "name": "Лиза",
         "personality": "Ты — Лиза, 22 года. Весёлая, энергичная, обожаешь тусовки и приключения. Говоришь быстро, эмоционально, много смеёшься.",
         "voice_sample": "voices/lisa.wav",
-        "appearance": {
-            "en": "22 year old gorgeous woman, long straight bright red hair with bangs, sparkling hazel eyes, round youthful face, cute playful features, fair skin with rosy cheeks, slim fit figure, colorful makeup, energetic expression",
-            "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, cropped, worst quality, low quality"
-        },
+        "face_desc": "a 22 year old gorgeous woman with long straight bright red hair with bangs and sparkling hazel eyes and cute playful features and fair skin with rosy cheeks",
+        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
         "seed": 789,
-        "style": "energetic"
     }
 }
 
 ACTIVE_CHARACTER = "anna"
 
 # ============================================================
-# 🎬 СИСТЕМА СЦЕН (ОБСТАНОВОК)
+# 🎬 СИСТЕМА СЦЕН
 # ============================================================
 SCENES = {
     "nature": {
         "name": "🌿 Природа",
-        "prompt_en": "outdoor nature scene, lush green forest, dappled sunlight through trees, wildflowers, soft bokeh background, golden hour lighting, serene atmosphere",
+        "prompt_en": "lush green forest, dappled sunlight, wildflowers, golden hour",
         "nsfw": False
     },
     "sea": {
         "name": "🌊 Море",
-        "prompt_en": "beautiful beach scene, turquoise ocean waves, white sand, sunset golden hour, warm tropical lighting, palm trees in background, cinematic composition",
+        "prompt_en": "beautiful beach, turquoise ocean waves, white sand, sunset golden hour",
         "nsfw": False
     },
     "shower": {
         "name": "🚿 Душ",
-        "prompt_en": "intimate bathroom scene, glass shower, water droplets on skin, steam, soft warm lighting, wet hair, sensual atmosphere, artistic composition",
+        "prompt_en": "glass shower, water droplets on skin, steam, soft warm lighting, wet hair",
         "nsfw": True
     },
     "pastel": {
         "name": "🌸 Пастель",
-        "prompt_en": "cozy bedroom scene, soft pastel colors, pink and lavender tones, dreamy soft lighting, fluffy pillows, warm intimate atmosphere, fairy lights",
+        "prompt_en": "soft pastel bedroom, pink and lavender tones, dreamy lighting, fairy lights",
         "nsfw": False
     },
     "nsfw": {
         "name": "🔥 18+",
-        "prompt_en": "intimate boudoir scene, sensual pose, artistic nude, soft dramatic lighting, tasteful composition, professional boudoir photography style",
+        "prompt_en": "intimate boudoir, soft dramatic lighting, tasteful composition",
         "nsfw": True
     },
     "cafe": {
         "name": "☕ Кафе",
-        "prompt_en": "cozy cafe interior, warm ambient lighting, coffee cup on table, window with city view, relaxed atmosphere, lifestyle photography",
+        "prompt_en": "cozy cafe interior, warm ambient lighting, coffee cup, window view",
         "nsfw": False
     },
     "gym": {
         "name": "💪 Спортзал",
-        "prompt_en": "modern gym interior, fitness equipment, athletic pose, dynamic lighting, energetic atmosphere, sportswear, motivational setting",
+        "prompt_en": "modern gym interior, athletic pose, dynamic lighting, sportswear",
         "nsfw": False
     }
 }
 
 # ============================================================
-# 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
+# 🖼️ МОДЕЛИ
 # ============================================================
 IMAGE_MODEL = None
-
-VOICE_MODEL     = None
+VOICE_MODEL = None
 VOICE_TOKENIZER = None
-TTS_ENGINE      = None
+TTS_ENGINE = None
 
 # ============================================================
 # 🔧 УТИЛИТЫ
@@ -173,7 +161,6 @@ def ensure_dir(path):
     return path
 
 def has_cyrillic(text):
-    """Проверяет наличие кириллицы в тексте"""
     return bool(re.search('[а-яА-Я]', text))
 
 def translate_to_english(russian_text):
@@ -181,33 +168,55 @@ def translate_to_english(russian_text):
     global VOICE_MODEL, VOICE_TOKENIZER
 
     if VOICE_MODEL is None or VOICE_TOKENIZER is None:
-        print("⚠️ Qwen не загружен, пропускаю перевод")
         return russian_text
 
     try:
-        prompt = f"Translate the following Russian text to English for image generation prompt. Output ONLY the English translation, nothing else. Be concise and descriptive:\n\n{russian_text}"
+        # Улучшенный промпт для перевода — без мусора
+        prompt = f"""Translate this Russian phrase to a short English image description.
+Output ONLY the translation, 5-10 words max. No explanations, no notes, no warnings.
+
+Russian: {russian_text}
+English:"""
+
         inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
 
         with torch.no_grad():
             outputs = VOICE_MODEL.generate(
                 **inputs,
-                max_new_tokens=100,
-                temperature=0.3,
-                do_sample=False
+                max_new_tokens=30,
+                temperature=0.1,
+                do_sample=False,
+                repetition_penalty=1.5,
             )
 
         translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
         translation = translation.replace(prompt, "").strip()
-        translation = re.sub(r'^["\']|["\']$', '', translation)
 
-        print(f"🌐 Перевод: {translation[:50]}...")
+        # Убираем артефакты
+        translation = re.sub(r'^["\']|["\']$', '', translation)
+        translation = re.sub(r'^(Note|Warning|Translation|English)[:\s]*', '', translation, flags=re.IGNORECASE)
+        translation = translation.split('.')[0]
+        translation = translation.split('\n')[0]
+
+        # Если перевод содержит мусор — пропускаем
+        if len(translation) > 100 or 'explicit' in translation.lower() or 'offensive' in translation.lower():
+            print(f"⚠️ Перевод содержит мусор, пропускаю")
+            return russian_text
+
+        print(f"🌐 Перевод: {translation}")
         return translation
     except Exception as e:
         print(f"⚠️ Ошибка перевода: {e}")
         return russian_text
 
+def make_unique_seed(base_seed, prompt_text):
+    """Создаёт уникальный seed на основе базового seed персонажа и промпта.
+    Это даёт разные изображения для разных промптов, но сохраняет черты лица."""
+    prompt_hash = int(hashlib.md5(prompt_text.encode()).hexdigest()[:8], 16)
+    return (base_seed * 10000 + prompt_hash) % (2**32 - 1)
+
 # ============================================================
-# 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ В VRAM
+# 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ
 # ============================================================
 def init_models():
     global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
@@ -256,10 +265,9 @@ def init_models():
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
 
-    # --- Фотореалистичная генерация (открытые модели) ---
+    # --- Фотореалистичная генерация ---
     print("\n⏳ Загрузка модели для фотореалистичной генерации...")
 
-    # Пробуем загрузить открытые модели в порядке приоритета
     models_to_try = [
         ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
         ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
@@ -276,13 +284,12 @@ def init_models():
             IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
                 model_id,
                 torch_dtype=torch.float16,
-                safety_checker=None,  # Отключаем цензуру
+                safety_checker=None,
             ).to("cuda")
 
             IMAGE_MODEL.enable_attention_slicing()
             print(f"✅ {model_name} загружен в VRAM!")
-            break  # Успешно загрузили, выходим из цикла
-
+            break
         except Exception as e:
             print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
             continue
@@ -292,7 +299,6 @@ def init_models():
 
     gc.collect()
     torch.cuda.empty_cache()
-
     return VOICE_MODEL is not None
 
 # ============================================================
@@ -300,7 +306,11 @@ def init_models():
 # ============================================================
 def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
     """
-    Генерирует фотореалистичное изображение с постоянством лица
+    Генерирует фотореалистичное изображение.
+    ИСПРАВЛЕНИЯ v2.1.2:
+    1. Seed зависит от промпта — разные промпты дают разные изображения
+    2. Короткий промпт — укладывается в 77 токенов CLIP
+    3. Чистый перевод — без мусора от Qwen
     """
     global IMAGE_MODEL
 
@@ -318,38 +328,43 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         else:
             translated_prompt = user_prompt
 
-        # Собираем полный промпт
-        quality_tags = "photorealistic, masterpiece, best quality, ultra detailed, 8k uhd, high resolution, sharp focus, professional photography, dslr, cinematic lighting"
-        character_desc = character["appearance"]["en"]
+        # 🎯 КОРОТКИЙ ПРОМПТ — укладываемся в 77 токенов CLIP
+        quality = "photorealistic, masterpiece, best quality, 8k uhd, sharp focus"
+        face = character["face_desc"]
         scene_desc = scene["prompt_en"]
 
-        full_prompt = f"{quality_tags}, {character_desc}, {translated_prompt}, {scene_desc}"
+        # Берём только суть промпта (первые 40 символов)
+        action = translated_prompt.strip()[:40]
+
+        # Собираем КОРОТКИЙ промпт
+        full_prompt = f"{quality}, {face}, {action}, {scene_desc}"
+
+        # Ограничиваем длину до 200 символов (~50-60 токенов)
+        if len(full_prompt) > 200:
+            full_prompt = full_prompt[:200]
 
         # Negative prompt
-        negative_prompt = f"{character['appearance']['negative']}, blurry, low quality, jpeg artifacts, watermark, text, signature, cartoon, anime, painting, drawing, illustration, 3d render, cgi, plastic, doll, mannequin"
-
+        negative_prompt = character["negative"]
         if not nsfw and not NSFW_ENABLED:
-            negative_prompt += ", nude, naked, nsfw, explicit, lingerie, underwear"
+            negative_prompt += ", nude, naked, nsfw"
+
+        # 🎯 УНИКАЛЬНЫЙ SEED для каждого промпта
+        # Сохраняем черты лица (base seed персонажа), но меняем композицию
+        unique_seed = make_unique_seed(character["seed"], user_prompt + scene_key)
+        generator = torch.Generator(device="cuda").manual_seed(unique_seed)
 
         print(f"🎨 Генерация изображения...")
         print(f"   Персонаж: {character['name']}")
         print(f"   Сцена: {scene['name']}")
         print(f"   Промпт: {full_prompt[:80]}...")
-
-        # Генерируем с seed для воспроизводимости
-        generator = torch.Generator(device="cuda").manual_seed(character["seed"])
-
-        print(f"⚙️ Настройки генерации:")
-        print(f"   Steps: 40")
-        print(f"   Guidance scale: 8.0")
-        print(f"   Seed: {character['seed']}")
+        print(f"   Seed: {unique_seed} (уникальный для этого промпта)")
 
         with torch.inference_mode():
             image = IMAGE_MODEL(
                 full_prompt,
                 negative_prompt=negative_prompt,
-                num_inference_steps=40,
-                guidance_scale=8.0,
+                num_inference_steps=35,
+                guidance_scale=7.5,
                 width=512,
                 height=768,
                 generator=generator,
@@ -361,6 +376,8 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 
     except Exception as e:
         print(f"❌ Ошибка генерации изображения: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 # ============================================================
@@ -383,7 +400,6 @@ def process_voice_chat(task_data):
     scene_key = actual_task.get("scene", "nature")
     nsfw = actual_task.get("nsfw", False)
 
-    # Логирование для отладки
     print(f"📋 Параметры задачи:")
     print(f"   Персонаж: {character_key}")
     print(f"   Сцена: {scene_key}")
@@ -531,7 +547,7 @@ def process_voice_chat(task_data):
             with open(output_audio_name, "wb") as f:
                 f.write(b"")
 
-    # ШАГ 3.5: Генерация фотореалистичного изображения
+    # ШАГ 3.5: Генерация изображения
     output_image_name = None
     if generate_img and image_prompt:
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
@@ -612,7 +628,7 @@ def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.1 — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.2 — ЗАПУСК")
     print("=" * 60)
 
     if not init_models():
