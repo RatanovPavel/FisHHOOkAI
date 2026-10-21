@@ -1238,10 +1238,10 @@ async def voice_chat_endpoint(
 
 
 # ==============================================================================
-# 🔥 FISHHOOK AI — ФИНАЛЬНАЯ ВЕРСИЯ С ПЕРСОНАЖАМИ И ГЕНЕРАЦИЕЙ ИЗОБРАЖЕНИЙ
+# 🔥 FISHHOOK AI v2.1.1 — ФИНАЛЬНАЯ ВЕРСИЯ
 # ==============================================================================
-# ВЕРСИЯ: 2.1 (с исправлениями для фронтенда)
-# ДАТА: 2024
+# Версия: 2.1.1 (с исправлениями качества изображений и передачи сцены)
+# Дата: 2024
 # ==============================================================================
 
 import os
@@ -1289,9 +1289,11 @@ class VoiceChatRequest(BaseModel):
     role: Optional[str] = "assistant"
     gender: Optional[str] = "male"
     character: Optional[str] = "anna"
+    scene: Optional[str] = "nature"  # ← ДОБАВЛЕНО
     text_message: Optional[str] = ""
     generate_image: Optional[bool] = False
     image_prompt: Optional[str] = ""
+    nsfw: Optional[bool] = False  # ← ДОБАВЛЕНО
 
 
 # ==============================================================================
@@ -1355,8 +1357,6 @@ async def check_task_readiness(user_login: str, task_id: str):
             "audio_url": task.get("audio_url"),
             "image_url": task.get("image_url")
         }
-        # НЕ удаляем задачу сразу - даём фронтенду время скачать файлы
-        # del FISHHOOK_TASKS[clean_login]
         return response
 
     return {"status": task["status"]}
@@ -1396,12 +1396,16 @@ async def get_task_for_colab(user_login: str):
                 response_data["voice_gender"] = task["voice_gender"]
             if "character" in task:
                 response_data["character"] = task["character"]
+            if "scene" in task:  # ← ДОБАВЛЕНО
+                response_data["scene"] = task["scene"]
             if "text_message" in task:
                 response_data["text_message"] = task["text_message"]
             if "generate_image" in task:
                 response_data["generate_image"] = task["generate_image"]
             if "image_prompt" in task:
                 response_data["image_prompt"] = task["image_prompt"]
+            if "nsfw" in task:  # ← ДОБАВЛЕНО
+                response_data["nsfw"] = task["nsfw"]
 
             return {
                 "status": "success",
@@ -1532,20 +1536,23 @@ async def submit_result_from_colab(
     }
 
 
-# --- 7. НОВЫЙ ЭНДПОИНТ: ГОЛОСОВОЙ ЧАТ С ПЕРСОНАЖАМИ ---
+# --- 7. НОВЫЙ ЭНДПОИНТ: ГОЛОСОВОЙ ЧАТ С ПЕРСОНАЖАМИ И СЦЕНАМИ ---
 @router.post("/fishhook/voice_chat")
 async def voice_chat_endpoint(
     user_login: str = Form(...),
     character: str = Form("anna"),
+    scene: str = Form("nature"),  # ← ДОБАВЛЕНО: сцена
     text_message: Optional[str] = Form(""),
     generate_image: Optional[bool] = Form(False),
     image_prompt: Optional[str] = Form(""),
+    nsfw: Optional[bool] = Form(False),  # ← ДОБАВЛЕНО: NSFW флаг
     audio_file: Optional[UploadFile] = File(None),
     role: Optional[str] = Form("assistant"),
     gender: Optional[str] = Form("male")
 ):
     """
     УНИВЕРСАЛЬНЫЙ ЭНДПОИНТ ГОЛОСОВОГО/ТЕКСТОВОГО ЧАТА
+    С поддержкой персонажей, сцен и генерации изображений
     """
     clean_login = user_login.lower().strip()
 
@@ -1576,21 +1583,24 @@ async def voice_chat_endpoint(
         "voice_role": role,
         "voice_gender": gender,
         "character": character,
+        "scene": scene,  # ← ДОБАВЛЕНО
         "text_message": text_message,
         "generate_image": generate_image,
-        "image_prompt": image_prompt
+        "image_prompt": image_prompt,
+        "nsfw": nsfw  # ← ДОБАВЛЕНО
     }
 
     FISHHOOK_TASKS[clean_login] = task_data
 
-    print(f"🎙️ [ОЧЕРЕДЬ]: Задача {voice_task_id} создана для персонажа '{character}'")
+    print(f"🎙️ [ОЧЕРЕДЬ]: Задача {voice_task_id} создана для персонажа '{character}', сцена '{scene}'")
     if generate_image:
-        print(f"🖼️ [IMAGE GEN]: Запрошена генерация изображения: {image_prompt[:50]}...")
+        print(f"🖼️ [IMAGE GEN]: Запрошена генерация изображения: {image_prompt[:50]}... (сцена: {scene})")
 
     return {
         "status": "queued",
         "task_id": voice_task_id,
         "character": character,
+        "scene": scene,
         "generate_image": generate_image
     }
 
