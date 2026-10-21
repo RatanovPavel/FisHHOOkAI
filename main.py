@@ -258,36 +258,57 @@ def init_models():
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
 
-    # --- Realistic Vision V6.0 (фотореалистичная генерация) ---
-    print("\n⏳ Загрузка Realistic Vision V6.0 (фотореализм)...")
+    # --- Realistic Vision V6.0 B1 (фотореалистичная генерация с VAE) ---
+    print("\n⏳ Загрузка Realistic Vision V6.0 B1 (фотореализм)...")
     try:
-        from diffusers import StableDiffusionPipeline
+        from diffusers import StableDiffusionPipeline, AutoencoderKL
 
-        model_id = "SG161222/Realistic_Vision_V6.0_B1_noVAE"
+        # Используем версию с VAE для лучшего качества
+        model_id = "SG161222/Realistic_Vision_V6.0_B1"
+
+        # Загружаем VAE отдельно для лучшего качества
+        vae = AutoencoderKL.from_pretrained(
+            "stabilityai/sd-vae-ft-mse",
+            torch_dtype=torch.float16
+        ).to("cuda")
+
         IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
             model_id,
+            vae=vae,
             torch_dtype=torch.float16,
             safety_checker=None,  # Отключаем цензуру
         ).to("cuda")
 
-        # Улучшаем настройки для фотореализма
+        # Оптимизация для лучшего качества
         IMAGE_MODEL.enable_attention_slicing()
 
-        print("✅ Realistic Vision V6.0 загружен в VRAM!")
+        print("✅ Realistic Vision V6.0 B1 загружен в VRAM!")
     except Exception as e:
-        print(f"⚠️ Ошибка загрузки Realistic Vision: {e}")
-        print("   Пробую загрузить стандартную SD 1.5...")
+        print(f"⚠️ Ошибка загрузки Realistic Vision V6.0 B1: {e}")
+        print("   Пробую загрузить Realistic Vision V5.1...")
         try:
             from diffusers import StableDiffusionPipeline
             IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
-                "runwayml/stable-diffusion-v1-5",
+                "SG161222/Realistic_Vision_V5.1",
                 torch_dtype=torch.float16,
                 safety_checker=None,
             ).to("cuda")
-            print("✅ SD 1.5 загружен (fallback)")
+            IMAGE_MODEL.enable_attention_slicing()
+            print("✅ Realistic Vision V5.1 загружен (fallback)")
         except Exception as e2:
-            print(f"❌ Ошибка загрузки SD 1.5: {e2}")
-            IMAGE_MODEL = None
+            print(f"❌ Ошибка загрузки V5.1: {e2}")
+            print("   Пробую загрузить стандартную SD 1.5...")
+            try:
+                from diffusers import StableDiffusionPipeline
+                IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
+                    "runwayml/stable-diffusion-v1-5",
+                    torch_dtype=torch.float16,
+                    safety_checker=None,
+                ).to("cuda")
+                print("✅ SD 1.5 загружен (fallback)")
+            except Exception as e3:
+                print(f"❌ Ошибка загрузки SD 1.5: {e3}")
+                IMAGE_MODEL = None
 
     gc.collect()
     torch.cuda.empty_cache()
@@ -338,19 +359,24 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         # Генерируем с seed для воспроизводимости
         generator = torch.Generator(device="cuda").manual_seed(character["seed"])
 
+        print(f"⚙️ Настройки генерации:")
+        print(f"   Steps: 40")
+        print(f"   Guidance scale: 8.0")
+        print(f"   Seed: {character['seed']}")
+
         with torch.inference_mode():
             image = IMAGE_MODEL(
                 full_prompt,
                 negative_prompt=negative_prompt,
-                num_inference_steps=35,
-                guidance_scale=7.5,
+                num_inference_steps=40,  # Увеличено с 35 до 40 для лучшего качества
+                guidance_scale=8.0,      # Увеличено с 7.5 до 8.0 для лучшего соответствия промпту
                 width=512,
                 height=768,  # Портретная ориентация
                 generator=generator,
             ).images[0]
 
         image.save(output_path, quality=95)
-        print(f"✅ Изображение сохранено: {output_path}")
+        print(f"✅ Изображение успешно сгенерировано и сохранено: {output_path}")
         return True
 
     except Exception as e:
@@ -376,6 +402,14 @@ def process_voice_chat(task_data):
     image_prompt = actual_task.get("image_prompt", "")
     scene_key = actual_task.get("scene", "nature")
     nsfw = actual_task.get("nsfw", False)
+
+    # Логирование для отладки
+    print(f"📋 Параметры задачи:")
+    print(f"   Персонаж: {character_key}")
+    print(f"   Сцена: {scene_key}")
+    print(f"   Генерация изображения: {generate_img}")
+    print(f"   Промпт: {image_prompt[:50] if image_prompt else 'нет'}...")
+    print(f"   NSFW: {nsfw}")
 
     print(f"\n🎙️ Обработка задачи {task_id} (персонаж: {character['name']}) ...")
 
@@ -598,7 +632,7 @@ def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1 — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.1 — ЗАПУСК")
     print("=" * 60)
 
     if not init_models():
