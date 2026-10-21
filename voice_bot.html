@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FishHook ИИ — Персонажи и Генерация Изображений</title>
+    <title>FishHook ИИ v2.1 — Фотореалистичные Персонажи</title>
     <script src="/static/tailwind.min.js"></script>
     <style>
         @keyframes pulse-ring {
@@ -27,23 +27,37 @@
         <!-- Заголовок -->
         <div class="text-center space-y-1">
             <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.1</h1>
-            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Персонажи • Голос • Генерация Изображений</p>
+            <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Фотореалистичные Персонажи • Автоперевод • 7 Сцен</p>
         </div>
 
         <!-- 🎭 НАСТРОЙКА 1: ВЫБОР ПЕРСОНАЖА -->
         <div class="space-y-1.5">
             <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Выберите персонажа</label>
             <select id="characterSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
-                <option value="anna">💕 Анна — Нежная и романтичная</option>
-                <option value="kate">🔥 Катя — Дерзкая и уверенная</option>
-                <option value="maria">📚 Мария — Интеллектуалка</option>
-                <option value="lisa">⚡ Лиза — Весёлая и энергичная</option>
+                <option value="anna">💕 Анна — Нежная, 25 лет, каштановые волосы, зелёные глаза</option>
+                <option value="kate">🔥 Катя — Дерзкая, 23 года, блондинка, голубые глаза</option>
+                <option value="maria">📚 Мария — Интеллектуалка, 28 лет, брюнетка, карие глаза</option>
+                <option value="lisa">⚡ Лиза — Весёлая, 22 года, рыжая, ореховые глаза</option>
             </select>
         </div>
 
-        <!-- 🎭 НАСТРОЙКА 2: ВЫБОР РОЛИ (опционально) -->
+        <!-- 🎬 НАСТРОЙКА 2: ВЫБОР СЦЕНЫ -->
         <div class="space-y-1.5">
-            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Выберите роль для ИИ (опционально)</label>
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">2. Выберите сцену (обстановку)</label>
+            <select id="sceneSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
+                <option value="nature">🌿 Природа — лес, цветы, солнечный свет</option>
+                <option value="sea">🌊 Море — пляж, закат, волны</option>
+                <option value="cafe">☕ Кафе — уютная атмосфера, кофе</option>
+                <option value="gym">💪 Спортзал — фитнес, энергия</option>
+                <option value="pastel">🌸 Пастель — спальня, мягкий свет</option>
+                <option value="shower">🚿 Душ — интимная сцена, вода</option>
+                <option value="nsfw">🔥 18+ — откровенная сцена</option>
+            </select>
+        </div>
+
+        <!-- 🎭 НАСТРОЙКА 3: ВЫБОР РОЛИ (опционально) -->
+        <div class="space-y-1.5">
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">3. Выберите роль для ИИ (опционально)</label>
             <select id="roleSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-blue-500">
                 <option value="assistant">🤖 Вежливый ИИ-Ассистент</option>
                 <option value="psychologist">🧠 Эмпатичный Психолог</option>
@@ -52,9 +66,9 @@
             </select>
         </div>
 
-        <!-- 🎤 НАСТРОЙКА 3: ВЫБОР ГОЛОСА -->
+        <!-- 🎤 НАСТРОЙКА 4: ВЫБОР ГОЛОСА -->
         <div class="space-y-1.5">
-            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">3. Пол голоса озвучки</label>
+            <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">4. Пол голоса озвучки</label>
             <div class="grid grid-cols-2 gap-3">
                 <button id="voiceMaleBtn" class="bg-blue-500/20 border border-blue-500 text-blue-400 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all">
                     👨 Мужской
@@ -65,18 +79,18 @@
             </div>
         </div>
 
-        <!-- 🖼️ НАСТРОЙКА 4: ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ -->
+        <!-- 🖼️ НАСТРОЙКА 5: ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ -->
         <div class="space-y-2 p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
             <div class="flex items-center gap-2">
-                <input type="checkbox" id="generateImageCheck" class="w-4 h-4 accent-purple-500 cursor-pointer">
+                <input type="checkbox" id="generateImageCheck" class="w-4 h-4 accent-purple-500 cursor-pointer" checked>
                 <label for="generateImageCheck" class="text-[10px] font-black uppercase tracking-widest text-purple-400 cursor-pointer">
-                    🖼️ Сгенерировать изображение
+                    🖼️ Сгенерировать фотореалистичное изображение
                 </label>
             </div>
-            <div id="imagePromptBlock" class="hidden space-y-1.5">
-                <input type="text" id="imagePromptInput" placeholder="Опишите изображение (например: девушка в кафе, пьёт кофе)"
+            <div id="imagePromptBlock" class="space-y-1.5">
+                <input type="text" id="imagePromptInput" placeholder="Опишите сцену на русском (например: девушка пьёт кофе и смотрит в окно)"
                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
-                <p class="text-[9px] text-slate-500">💡 Совет: используйте описательные фразы для лучшего качества</p>
+                <p class="text-[9px] text-slate-500">💡 Промпт будет автоматически переведён на английский. Черты лица сохранятся благодаря детальному описанию персонажа.</p>
             </div>
         </div>
 
@@ -109,7 +123,7 @@
         <!-- 🖼️ БЛОК ОТОБРАЖЕНИЯ СГЕНЕРИРОВАННОГО ИЗОБРАЖЕНИЯ -->
         <div id="imageBlock" class="hidden space-y-3 p-4 bg-purple-950/60 border border-purple-500/30 rounded-lg animate-fade-in">
             <div class="flex items-center justify-between">
-                <span class="text-purple-400 font-bold uppercase text-[10px] tracking-widest">🖼️ Сгенерированное изображение:</span>
+                <span class="text-purple-400 font-bold uppercase text-[10px] tracking-widest">🖼️ Фотореалистичное изображение:</span>
                 <button id="closeImageBtn" class="text-slate-500 hover:text-slate-300 text-lg">×</button>
             </div>
             <div class="flex justify-center">
@@ -186,7 +200,7 @@
             document.getElementById("voiceMaleBtn").className = "bg-slate-950 border border-slate-800 text-slate-500 font-black uppercase text-[10px] py-2.5 rounded-lg transition-all";
         };
 
-        // 🚀 КНОПКА ОТПРАВКИ ТЕКСТА РУКАМИ
+        // 🚀 КНОПКА ОТПРАВКИ ТЕКСТА
         sendTextBtn.onclick = async () => {
             const rawText = textInput.value.trim();
             if (!rawText) return;
@@ -199,7 +213,6 @@
             await sendVoiceData(fakeBlob, rawText);
         };
 
-        // Поддержка отправки по нажатию Enter в инпуте
         textInput.onkeydown = (e) => {
             if (e.key === "Enter") sendTextBtn.click();
         };
@@ -234,10 +247,11 @@
             }
         };
 
-        // 🚀 Отправка формы на сервер с поддержкой персонажей и генерации изображений
+        // 🚀 Отправка формы на сервер с поддержкой персонажей, сцен и генерации изображений
         async function sendVoiceData(audioBlob, textMessage) {
             const currentRole = document.getElementById("roleSelect").value;
             const currentCharacter = document.getElementById("characterSelect").value;
+            const currentScene = document.getElementById("sceneSelect").value;
             const generateImage = generateImageCheck.checked;
             const imagePrompt = imagePromptInput.value.trim();
 
@@ -249,13 +263,20 @@
             formData.append("user_login", "RATANOV_PAVEL");
             formData.append("text_message", textMessage);
             formData.append("character", currentCharacter);
+            formData.append("scene", currentScene);
             formData.append("generate_image", generateImage);
+
             if (generateImage && imagePrompt) {
                 formData.append("image_prompt", imagePrompt);
             }
 
+            // Определяем NSFW флаг на основе сцены
+            const nsfwScenes = ["shower", "nsfw"];
+            const isNsfw = nsfwScenes.includes(currentScene);
+            formData.append("nsfw", isNsfw);
+
             if (generateImage) {
-                statusText.innerText = "ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЯ...";
+                statusText.innerText = "ГЕНЕРАЦИЯ ФОТОРЕАЛИСТИЧНОГО ИЗОБРАЖЕНИЯ...";
                 statusText.className = "text-purple-500 font-black uppercase tracking-widest animate-pulse";
             }
 
@@ -276,7 +297,7 @@
             }
         }
 
-        // 🚀 Циклический опрос готовности Колаба с поддержкой изображений
+        // 🚀 Циклический опрос готовности Колаба
         function checkVoiceTaskStatus(taskId) {
             const checkInterval = setInterval(async () => {
                 try {
@@ -286,11 +307,9 @@
                         if (data.status === "completed") {
                             clearInterval(checkInterval);
 
-                            // Отображаем тексты
                             userTranscriptText.innerText = data.user_text || "Текстовый запрос принят.";
                             botResponseText.innerText = data.bot_text || "Ответ сформирован.";
 
-                            // Обновляем заголовок с именем персонажа
                             const characterSelect = document.getElementById("characterSelect");
                             const characterName = characterSelect.options[characterSelect.selectedIndex].text;
                             botRoleTitle.innerText = `Ответ ${characterName}:`;
@@ -299,24 +318,18 @@
                             statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
                             statusText.className = "text-slate-500 font-black uppercase tracking-widest";
 
-                            // 🎵 ВОСПРОИЗВОДИМ АУДИО если есть audio_url
                             if (data.audio_url) {
                                 console.log("🔊 Загружаем аудио:", data.audio_url);
                                 audioPlayer.src = data.audio_url + "?t=" + new Date().getTime();
                                 audioPlayer.play().catch(err => {
                                     console.error("❌ Ошибка воспроизведения аудио:", err);
                                 });
-                            } else {
-                                console.warn("⚠️ audio_url не получен от сервера");
                             }
 
-                            // 🖼️ ОТОБРАЖАЕМ СГЕНЕРИРОВАННОЕ ИЗОБРАЖЕНИЕ если есть image_url
                             if (data.image_url) {
                                 console.log("🖼️ Загружаем изображение:", data.image_url);
                                 generatedImage.src = data.image_url + "?t=" + new Date().getTime();
                                 imageBlock.classList.remove("hidden");
-                            } else {
-                                console.log("ℹ️ Изображение не запрошено или не сгенерировано");
                             }
                         }
                     }
