@@ -26,7 +26,7 @@ def install_dependencies():
         "gtts":               "gtts",
         "pydub":              "pydub",
     }
-
+    
     for pip_name, import_name in packages.items():
         try:
             __import__(import_name)
@@ -62,32 +62,32 @@ CHARACTERS = {
         "name": "Анна",
         "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
         "voice_sample": "voices/anna.wav",
-        "face_desc": "a 25 year old beautiful woman with long wavy chestnut brown hair and bright green eyes and soft delicate features and light porcelain skin",
-        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
+        "face_desc": "25yo woman, long wavy chestnut hair, green eyes, delicate features, porcelain skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 42,
     },
     "kate": {
         "name": "Катя",
         "personality": "Ты — Катя, 23 года. Дерзкая, уверенная в себе, любишь флиртовать и подкалывать. Говоришь прямо, иногда грубовато, но с обаянием.",
         "voice_sample": "voices/kate.wav",
-        "face_desc": "a 23 year old stunning woman with short platinum blonde bob hair and piercing blue eyes and sharp confident features and fair skin with light freckles",
-        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
+        "face_desc": "23yo woman, short platinum blonde bob, blue eyes, sharp features, fair skin, freckles",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 123,
     },
     "maria": {
         "name": "Мария",
         "personality": "Ты — Мария, 28 лет. Интеллектуалка, любишь философию и глубокие разговоры. Говоришь спокойно, вдумчиво, с академическим уклоном.",
         "voice_sample": "voices/maria.wav",
-        "face_desc": "a 28 year old elegant woman with long straight dark brown hair and deep brown intelligent eyes and sophisticated features and olive skin",
-        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
+        "face_desc": "28yo woman, long straight dark brown hair, brown eyes, sophisticated features, olive skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 456,
     },
     "lisa": {
         "name": "Лиза",
         "personality": "Ты — Лиза, 22 года. Весёлая, энергичная, обожаешь тусовки и приключения. Говоришь быстро, эмоционально, много смеёшься.",
         "voice_sample": "voices/lisa.wav",
-        "face_desc": "a 22 year old gorgeous woman with long straight bright red hair with bangs and sparkling hazel eyes and cute playful features and fair skin with rosy cheeks",
-        "negative": "ugly, deformed, disfigured, bad anatomy, bad hands, extra fingers, missing fingers, worst quality, low quality, blurry",
+        "face_desc": "22yo woman, long bright red hair with bangs, hazel eyes, playful features, fair skin, rosy cheeks",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 789,
     }
 }
@@ -166,43 +166,40 @@ def has_cyrillic(text):
 def translate_to_english(russian_text):
     """Переводит промпт с русского на английский через Qwen"""
     global VOICE_MODEL, VOICE_TOKENIZER
-
+    
     if VOICE_MODEL is None or VOICE_TOKENIZER is None:
         return russian_text
-
+    
     try:
-        # Улучшенный промпт для перевода — без мусора
-        prompt = f"""Translate this Russian phrase to a short English image description.
+        prompt = f"""Translate this Russian phrase to a short English image description. 
 Output ONLY the translation, 5-10 words max. No explanations, no notes, no warnings.
 
 Russian: {russian_text}
 English:"""
-
+        
         inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
-
+        
         with torch.no_grad():
             outputs = VOICE_MODEL.generate(
-                **inputs,
+                **inputs, 
                 max_new_tokens=30,
                 temperature=0.1,
                 do_sample=False,
                 repetition_penalty=1.5,
             )
-
+        
         translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
         translation = translation.replace(prompt, "").strip()
-
-        # Убираем артефакты
+        
         translation = re.sub(r'^["\']|["\']$', '', translation)
         translation = re.sub(r'^(Note|Warning|Translation|English)[:\s]*', '', translation, flags=re.IGNORECASE)
         translation = translation.split('.')[0]
         translation = translation.split('\n')[0]
-
-        # Если перевод содержит мусор — пропускаем
+        
         if len(translation) > 100 or 'explicit' in translation.lower() or 'offensive' in translation.lower():
             print(f"⚠️ Перевод содержит мусор, пропускаю")
             return russian_text
-
+        
         print(f"🌐 Перевод: {translation}")
         return translation
     except Exception as e:
@@ -210,8 +207,7 @@ English:"""
         return russian_text
 
 def make_unique_seed(base_seed, prompt_text):
-    """Создаёт уникальный seed на основе базового seed персонажа и промпта.
-    Это даёт разные изображения для разных промптов, но сохраняет черты лица."""
+    """Создаёт уникальный seed на основе базового seed персонажа и промпта."""
     prompt_hash = int(hashlib.md5(prompt_text.encode()).hexdigest()[:8], 16)
     return (base_seed * 10000 + prompt_hash) % (2**32 - 1)
 
@@ -229,17 +225,17 @@ def init_models():
     print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
     try:
         from transformers import BitsAndBytesConfig
-
+        
         model_id = "Qwen/Qwen2.5-7B-Instruct"
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
-
+        
         quantization_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4"
         )
-
+        
         VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
@@ -267,33 +263,33 @@ def init_models():
 
     # --- Фотореалистичная генерация ---
     print("\n⏳ Загрузка модели для фотореалистичной генерации...")
-
+    
     models_to_try = [
         ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
         ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
         ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
         ("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
     ]
-
+    
     IMAGE_MODEL = None
     for model_id, model_name in models_to_try:
         try:
             print(f"   Пробую загрузить {model_name}...")
             from diffusers import StableDiffusionPipeline
-
+            
             IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
                 model_id,
                 torch_dtype=torch.float16,
                 safety_checker=None,
             ).to("cuda")
-
+            
             IMAGE_MODEL.enable_attention_slicing()
             print(f"✅ {model_name} загружен в VRAM!")
             break
         except Exception as e:
             print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
             continue
-
+    
     if IMAGE_MODEL is None:
         print("❌ Критическая ошибка: ни одна модель не загрузилась!")
 
@@ -307,58 +303,56 @@ def init_models():
 def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
     """
     Генерирует фотореалистичное изображение.
-    ИСПРАВЛЕНИЯ v2.1.2:
-    1. Seed зависит от промпта — разные промпты дают разные изображения
-    2. Короткий промпт — укладывается в 77 токенов CLIP
-    3. Чистый перевод — без мусора от Qwen
+    v2.1.3: Промпт переструктурирован — ДЕЙСТВИЕ в начале, лимит 300 символов.
     """
     global IMAGE_MODEL
-
+    
     if IMAGE_MODEL is None:
         print("⚠️ Модель генерации изображений не загружена")
         return False
-
+    
     try:
         character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
         scene = SCENES.get(scene_key, SCENES["nature"])
-
+        
         # Переводим промпт на английский если есть кириллица
         if has_cyrillic(user_prompt):
             translated_prompt = translate_to_english(user_prompt)
         else:
             translated_prompt = user_prompt
-
-        # 🎯 КОРОТКИЙ ПРОМПТ — укладываемся в 77 токенов CLIP
-        quality = "photorealistic, masterpiece, best quality, 8k uhd, sharp focus"
+        
+        # 🎯 ПРОМПТ — укладываемся в 77 токенов CLIP (~300 символов)
+        # Структура: ДЕЙСТВИЕ → ЛИЦО → СЦЕНА → КАЧЕСТВО
+        # Действие в начале, чтобы не обрезалось!
+        quality = "photorealistic, masterpiece, 8k, sharp focus"
         face = character["face_desc"]
         scene_desc = scene["prompt_en"]
-
-        # Берём только суть промпта (первые 40 символов)
-        action = translated_prompt.strip()[:40]
-
-        # Собираем КОРОТКИЙ промпт
-        full_prompt = f"{quality}, {face}, {action}, {scene_desc}"
-
-        # Ограничиваем длину до 200 символов (~50-60 токенов)
-        if len(full_prompt) > 200:
-            full_prompt = full_prompt[:200]
-
+        
+        # Берём действие (до 60 символов)
+        action = translated_prompt.strip()[:60]
+        
+        # Собираем промпт: действие ПЕРВЫМ (важнее всего!)
+        full_prompt = f"{action}, {face}, {scene_desc}, {quality}"
+        
+        # CLIP поддерживает ~77 токенов (~300 символов)
+        if len(full_prompt) > 300:
+            full_prompt = full_prompt[:300]
+        
         # Negative prompt
         negative_prompt = character["negative"]
         if not nsfw and not NSFW_ENABLED:
             negative_prompt += ", nude, naked, nsfw"
-
+        
         # 🎯 УНИКАЛЬНЫЙ SEED для каждого промпта
-        # Сохраняем черты лица (base seed персонажа), но меняем композицию
         unique_seed = make_unique_seed(character["seed"], user_prompt + scene_key)
         generator = torch.Generator(device="cuda").manual_seed(unique_seed)
-
+        
         print(f"🎨 Генерация изображения...")
         print(f"   Персонаж: {character['name']}")
         print(f"   Сцена: {scene['name']}")
-        print(f"   Промпт: {full_prompt[:80]}...")
+        print(f"   Промпт ({len(full_prompt)} симв): {full_prompt}")
         print(f"   Seed: {unique_seed} (уникальный для этого промпта)")
-
+        
         with torch.inference_mode():
             image = IMAGE_MODEL(
                 full_prompt,
@@ -369,11 +363,11 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
                 height=768,
                 generator=generator,
             ).images[0]
-
+        
         image.save(output_path, quality=95)
         print(f"✅ Изображение успешно сгенерировано и сохранено: {output_path}")
         return True
-
+        
     except Exception as e:
         print(f"❌ Ошибка генерации изображения: {e}")
         import traceback
@@ -391,15 +385,15 @@ def process_voice_chat(task_data):
     session_id  = actual_task.get("session_id", "demo_session")
     user_login  = actual_task.get("user_login", USER_LOGIN)
     web_text    = actual_task.get("text_message", "")
-
+    
     character_key = actual_task.get("character", ACTIVE_CHARACTER)
     character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
-
+    
     generate_img = actual_task.get("generate_image", False)
     image_prompt = actual_task.get("image_prompt", "")
     scene_key = actual_task.get("scene", "nature")
     nsfw = actual_task.get("nsfw", False)
-
+    
     print(f"📋 Параметры задачи:")
     print(f"   Персонаж: {character_key}")
     print(f"   Сцена: {scene_key}")
@@ -515,14 +509,14 @@ def process_voice_chat(task_data):
         if TTS_ENGINE is not None:
             voice_sample = character.get("voice_sample")
             speaker_wav = None
-
+            
             if voice_sample and os.path.exists(voice_sample):
                 speaker_wav = voice_sample
                 print(f"🎤 Используем голос персонажа: {voice_sample}")
             elif os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
                 speaker_wav = local_input_audio
                 print("🎤 Клонируем голос из входящего аудио")
-
+            
             if speaker_wav:
                 TTS_ENGINE.tts_to_file(
                     text=clean_text,
@@ -546,15 +540,15 @@ def process_voice_chat(task_data):
             print(f"❌ gTTS тоже упал: {e2}")
             with open(output_audio_name, "wb") as f:
                 f.write(b"")
-
+    
     # ШАГ 3.5: Генерация изображения
     output_image_name = None
     if generate_img and image_prompt:
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
         success = generate_photorealistic_image(
-            image_prompt,
-            character_key,
-            scene_key,
+            image_prompt, 
+            character_key, 
+            scene_key, 
             output_image_name,
             nsfw=nsfw
         )
@@ -565,29 +559,29 @@ def process_voice_chat(task_data):
     if not DEMO_MODE:
         try:
             upload_url = f"{SERVER_URL}/api/studio/fishhook/submit_result"
-
+            
             data = {
                 "task_id": task_id,
                 "user_login": user_login,
                 "user_text": user_text,
                 "bot_text": bot_text
             }
-
+            
             files = {}
-
+            
             if os.path.exists(output_audio_name):
                 files["audio"] = ("bot_response.wav", open(output_audio_name, "rb"), "audio/wav")
-
+            
             if output_image_name and os.path.exists(output_image_name):
                 files["image"] = ("generated_image.jpg", open(output_image_name, "rb"), "image/jpeg")
-
+            
             response = requests.post(
                 upload_url,
                 data=data,
                 files=files if files else None,
                 timeout=60
             )
-
+            
             if response.status_code == 200:
                 if "image" in files:
                     print(f"🏁 Результат отправлен (аудио + изображение)!")
@@ -595,10 +589,10 @@ def process_voice_chat(task_data):
                     print(f"🏁 Результат отправлен (только аудио)!")
             else:
                 print(f"❌ Ошибка отправки: HTTP {response.status_code}")
-
+                
             for key, file_tuple in files.items():
                 file_tuple[1].close()
-
+                
         except Exception as e:
             print(f"❌ Ошибка отправки: {e}")
     else:
@@ -628,7 +622,7 @@ def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.2 — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.3 — ЗАПУСК")
     print("=" * 60)
 
     if not init_models():
@@ -679,7 +673,7 @@ def main_loop(login: str):
                     print(f"   Generate Image: {task_info.get('generate_image', False)}")
                     if task_info.get('image_prompt'):
                         print(f"   Image Prompt: {task_info.get('image_prompt')[:50]}...")
-
+                    
                     style = task_info.get("prompt_style", "")
                     if style == "animate_video":
                         process_video_animation(task_data)
