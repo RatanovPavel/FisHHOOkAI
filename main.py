@@ -198,8 +198,6 @@ def translate_to_english(russian_text):
 
         translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
         translation = translation.replace(prompt, "").strip()
-
-        # Убираем возможные артефакты
         translation = re.sub(r'^["\']|["\']$', '', translation)
 
         print(f"🌐 Перевод: {translation[:50]}...")
@@ -258,57 +256,39 @@ def init_models():
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
 
-    # --- Realistic Vision V6.0 B1 (фотореалистичная генерация с VAE) ---
-    print("\n⏳ Загрузка Realistic Vision V6.0 B1 (фотореализм)...")
-    try:
-        from diffusers import StableDiffusionPipeline, AutoencoderKL
+    # --- Фотореалистичная генерация (открытые модели) ---
+    print("\n⏳ Загрузка модели для фотореалистичной генерации...")
 
-        # Используем версию с VAE для лучшего качества
-        model_id = "SG161222/Realistic_Vision_V6.0_B1"
+    # Пробуем загрузить открытые модели в порядке приоритета
+    models_to_try = [
+        ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
+        ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
+        ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
+        ("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
+    ]
 
-        # Загружаем VAE отдельно для лучшего качества
-        vae = AutoencoderKL.from_pretrained(
-            "stabilityai/sd-vae-ft-mse",
-            torch_dtype=torch.float16
-        ).to("cuda")
-
-        IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
-            model_id,
-            vae=vae,
-            torch_dtype=torch.float16,
-            safety_checker=None,  # Отключаем цензуру
-        ).to("cuda")
-
-        # Оптимизация для лучшего качества
-        IMAGE_MODEL.enable_attention_slicing()
-
-        print("✅ Realistic Vision V6.0 B1 загружен в VRAM!")
-    except Exception as e:
-        print(f"⚠️ Ошибка загрузки Realistic Vision V6.0 B1: {e}")
-        print("   Пробую загрузить Realistic Vision V5.1...")
+    IMAGE_MODEL = None
+    for model_id, model_name in models_to_try:
         try:
+            print(f"   Пробую загрузить {model_name}...")
             from diffusers import StableDiffusionPipeline
+
             IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
-                "SG161222/Realistic_Vision_V5.1",
+                model_id,
                 torch_dtype=torch.float16,
-                safety_checker=None,
+                safety_checker=None,  # Отключаем цензуру
             ).to("cuda")
+
             IMAGE_MODEL.enable_attention_slicing()
-            print("✅ Realistic Vision V5.1 загружен (fallback)")
-        except Exception as e2:
-            print(f"❌ Ошибка загрузки V5.1: {e2}")
-            print("   Пробую загрузить стандартную SD 1.5...")
-            try:
-                from diffusers import StableDiffusionPipeline
-                IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
-                    "runwayml/stable-diffusion-v1-5",
-                    torch_dtype=torch.float16,
-                    safety_checker=None,
-                ).to("cuda")
-                print("✅ SD 1.5 загружен (fallback)")
-            except Exception as e3:
-                print(f"❌ Ошибка загрузки SD 1.5: {e3}")
-                IMAGE_MODEL = None
+            print(f"✅ {model_name} загружен в VRAM!")
+            break  # Успешно загрузили, выходим из цикла
+
+        except Exception as e:
+            print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
+            continue
+
+    if IMAGE_MODEL is None:
+        print("❌ Критическая ошибка: ни одна модель не загрузилась!")
 
     gc.collect()
     torch.cuda.empty_cache()
@@ -368,10 +348,10 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
             image = IMAGE_MODEL(
                 full_prompt,
                 negative_prompt=negative_prompt,
-                num_inference_steps=40,  # Увеличено с 35 до 40 для лучшего качества
-                guidance_scale=8.0,      # Увеличено с 7.5 до 8.0 для лучшего соответствия промпту
+                num_inference_steps=40,
+                guidance_scale=8.0,
                 width=512,
-                height=768,  # Портретная ориентация
+                height=768,
                 generator=generator,
             ).images[0]
 
@@ -674,7 +654,17 @@ def main_loop(login: str):
                 status = task_data.get("status")
 
                 if status == "success":
-                    style = task_data.get("task_data", {}).get("prompt_style", "")
+                    print(f"\n📨 Получена задача от сервера!")
+                    task_info = task_data.get("task_data", {})
+                    print(f"   Task ID: {task_info.get('task_id', 'N/A')}")
+                    print(f"   Style: {task_info.get('prompt_style', 'N/A')}")
+                    print(f"   Character: {task_info.get('character', 'N/A')}")
+                    print(f"   Scene: {task_info.get('scene', 'N/A')}")
+                    print(f"   Generate Image: {task_info.get('generate_image', False)}")
+                    if task_info.get('image_prompt'):
+                        print(f"   Image Prompt: {task_info.get('image_prompt')[:50]}...")
+
+                    style = task_info.get("prompt_style", "")
                     if style == "animate_video":
                         process_video_animation(task_data)
                     elif style == "voice_chat":
