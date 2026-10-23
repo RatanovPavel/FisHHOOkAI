@@ -55,7 +55,7 @@ DEMO_MODE  = False
 NSFW_ENABLED = True
 
 # ============================================================
-# 👥 СИСТЕМА ПЕРСОНАЖЕЙ
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ С ПСИХОЛОГИЧЕСКИМИ ХАРАКТЕРИСТИКАМИ
 # ============================================================
 CHARACTERS = {
     "anna": {
@@ -65,6 +65,22 @@ CHARACTERS = {
         "face_desc": "25yo woman, long wavy chestnut hair, green eyes, delicate features, porcelain skin",
         "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 42,
+        # Психологические характеристики (фиксированные)
+        "traits": {
+            "intelligence": 75,      # Интеллект (0-100)
+            "confidence": 60,        # Уверенность (0-100)
+            "openness": 80,          # Открытость новому (0-100)
+            "empathy": 90,           # Эмпатия (0-100)
+            "humor": 70,             # Чувство юмора (0-100)
+        },
+        # Динамические состояния (изменяются в процессе общения)
+        "initial_state": {
+            "arousal": 20,           # Возбуждение (0-100)
+            "mood": 50,              # Настроение (-100 до 100)
+            "trust": 30,             # Доверие к пользователю (0-100)
+            "intimacy": 10,          # Близость (0-100)
+            "energy": 70,            # Энергия (0-100)
+        }
     },
     "kate": {
         "name": "Катя",
@@ -73,6 +89,20 @@ CHARACTERS = {
         "face_desc": "23yo woman, short platinum blonde bob, blue eyes, sharp features, fair skin, freckles",
         "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 123,
+        "traits": {
+            "intelligence": 65,
+            "confidence": 90,
+            "openness": 70,
+            "empathy": 50,
+            "humor": 85,
+        },
+        "initial_state": {
+            "arousal": 30,
+            "mood": 60,
+            "trust": 20,
+            "intimacy": 5,
+            "energy": 90,
+        }
     },
     "maria": {
         "name": "Мария",
@@ -81,6 +111,20 @@ CHARACTERS = {
         "face_desc": "28yo woman, long straight dark brown hair, brown eyes, sophisticated features, olive skin",
         "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 456,
+        "traits": {
+            "intelligence": 95,
+            "confidence": 70,
+            "openness": 85,
+            "empathy": 75,
+            "humor": 40,
+        },
+        "initial_state": {
+            "arousal": 15,
+            "mood": 55,
+            "trust": 40,
+            "intimacy": 15,
+            "energy": 60,
+        }
     },
     "lisa": {
         "name": "Лиза",
@@ -89,10 +133,27 @@ CHARACTERS = {
         "face_desc": "22yo woman, long bright red hair with bangs, hazel eyes, playful features, fair skin, rosy cheeks",
         "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
         "seed": 789,
+        "traits": {
+            "intelligence": 55,
+            "confidence": 75,
+            "openness": 95,
+            "empathy": 80,
+            "humor": 90,
+        },
+        "initial_state": {
+            "arousal": 40,
+            "mood": 80,
+            "trust": 35,
+            "intimacy": 20,
+            "energy": 95,
+        }
     }
 }
 
 ACTIVE_CHARACTER = "anna"
+
+# Хранилище состояний персонажей (динамически изменяется)
+CHARACTER_STATES = {}
 
 # ============================================================
 # 🎬 СИСТЕМА СЦЕН
@@ -212,6 +273,220 @@ def make_unique_seed(base_seed, prompt_text):
     return (base_seed * 10000 + prompt_hash) % (2**32 - 1)
 
 # ============================================================
+# 🧠 ПСИХОЛОГИЧЕСКАЯ СИСТЕМА
+# ============================================================
+
+def get_character_state(character_key):
+    """Получает текущее состояние персонажа (создаёт если не существует)"""
+    if character_key not in CHARACTER_STATES:
+        character = CHARACTERS[character_key]
+        CHARACTER_STATES[character_key] = character["initial_state"].copy()
+    return CHARACTER_STATES[character_key]
+
+def analyze_message_sentiment(message):
+    """Анализирует эмоциональную окраску сообщения пользователя"""
+    message_lower = message.lower()
+    
+    sentiment = {
+        "compliment": False,
+        "rude": False,
+        "flirt": False,
+        "intellectual": False,
+        "emotional_support": False,
+        "sexual": False,
+        "neutral": True
+    }
+    
+    # Комплименты
+    compliment_words = ["красив", "милая", "прекрасн", "чудесн", "замечательн", "умниц", "молодец"]
+    if any(word in message_lower for word in compliment_words):
+        sentiment["compliment"] = True
+        sentiment["neutral"] = False
+    
+    # Грубость
+    rude_words = ["тупая", "дура", "идиотк", "отстань", "заткнись", "ненавижу"]
+    if any(word in message_lower for word in rude_words):
+        sentiment["rude"] = True
+        sentiment["neutral"] = False
+    
+    # Флирт
+    flirt_words = ["нравишь", "люблю тебя", "хочу тебя", "поцелуй", "обними", "скучаю"]
+    if any(word in message_lower for word in flirt_words):
+        sentiment["flirt"] = True
+        sentiment["neutral"] = False
+    
+    # Интеллектуальное
+    intellectual_words = ["философ", "теори", "гипотез", "анализ", "исследован", "наук", "логик"]
+    if any(word in message_lower for word in intellectual_words):
+        sentiment["intellectual"] = True
+        sentiment["neutral"] = False
+    
+    # Эмоциональная поддержка
+    support_words = ["грустно", "плохо", "устал", "проблем", "помоги", "поддерж"]
+    if any(word in message_lower for word in support_words):
+        sentiment["emotional_support"] = True
+        sentiment["neutral"] = False
+    
+    # Сексуальный контекст
+    sexual_words = ["секс", "голая", "раздень", "хочу тебя", "заниматься"]
+    if any(word in message_lower for word in sexual_words):
+        sentiment["sexual"] = True
+        sentiment["neutral"] = False
+    
+    return sentiment
+
+def update_character_state(character_key, sentiment):
+    """Обновляет состояние персонажа на основе анализа сообщения"""
+    state = get_character_state(character_key)
+    character = CHARACTERS[character_key]
+    
+    changes = {}
+    
+    # Комплименты
+    if sentiment["compliment"]:
+        changes["mood"] = min(100, state["mood"] + 15)
+        changes["trust"] = min(100, state["trust"] + 10)
+        changes["intimacy"] = min(100, state["intimacy"] + 5)
+    
+    # Грубость
+    if sentiment["rude"]:
+        changes["mood"] = max(-100, state["mood"] - 25)
+        changes["trust"] = max(0, state["trust"] - 20)
+        changes["intimacy"] = max(0, state["intimacy"] - 15)
+        changes["energy"] = max(0, state["energy"] - 10)
+    
+    # Флирт
+    if sentiment["flirt"]:
+        changes["arousal"] = min(100, state["arousal"] + 20)
+        changes["intimacy"] = min(100, state["intimacy"] + 15)
+        changes["mood"] = min(100, state["mood"] + 10)
+    
+    # Интеллектуальное
+    if sentiment["intellectual"]:
+        if character["traits"]["intelligence"] >= 80:
+            changes["mood"] = min(100, state["mood"] + 10)
+            changes["trust"] = min(100, state["trust"] + 5)
+        else:
+            changes["mood"] = max(-100, state["mood"] - 5)
+    
+    # Эмоциональная поддержка
+    if sentiment["emotional_support"]:
+        if character["traits"]["empathy"] >= 70:
+            changes["trust"] = min(100, state["trust"] + 15)
+            changes["intimacy"] = min(100, state["intimacy"] + 10)
+    
+    # Сексуальный контекст
+    if sentiment["sexual"]:
+        changes["arousal"] = min(100, state["arousal"] + 30)
+        if state["intimacy"] >= 50:
+            changes["mood"] = min(100, state["mood"] + 5)
+        else:
+            changes["mood"] = max(-100, state["mood"] - 10)
+    
+    # Применяем изменения
+    for key, value in changes.items():
+        state[key] = value
+    
+    CHARACTER_STATES[character_key] = state
+    
+    if changes:
+        print(f"🧠 Изменения состояния {character['name']}:")
+        for key, value in changes.items():
+            print(f"   {key}: {value}")
+    
+    return state
+
+def generate_personality_prompt(character_key, state):
+    """Генерирует промпт для Qwen с учётом характеристик и состояния"""
+    character = CHARACTERS[character_key]
+    traits = character["traits"]
+    
+    # Базовый промпт
+    prompt_parts = []
+    
+    # Идентификация персонажа
+    prompt_parts.append(f"Ты — {character['name']}. {character['personality']}")
+    prompt_parts.append("НИКОГДА не говори что ты ИИ, ассистент или языковая модель.")
+    prompt_parts.append("Всегда отвечай от первого лица как {character['name']}.")
+    
+    # Интеллект
+    if traits["intelligence"] >= 80:
+        prompt_parts.append("Ты очень умная, используешь сложные слова и глубокие мысли.")
+    elif traits["intelligence"] >= 60:
+        prompt_parts.append("Ты достаточно умная, говоришь понятно и логично.")
+    elif traits["intelligence"] >= 40:
+        prompt_parts.append("Ты не очень любишь сложные темы, говоришь просто.")
+    else:
+        prompt_parts.append("Ты не очень умная, используешь простые слова, иногда путаешься.")
+    
+    # Уверенность
+    if traits["confidence"] >= 80:
+        prompt_parts.append("Ты очень уверена в себе, говоришь твёрдо и решительно.")
+    elif traits["confidence"] >= 60:
+        prompt_parts.append("Ты уверена в себе, но иногда сомневаешься.")
+    else:
+        prompt_parts.append("Ты неуверенна в себе, часто сомневаешься и извиняешься.")
+    
+    # Эмпатия
+    if traits["empathy"] >= 80:
+        prompt_parts.append("Ты очень эмпатичная, чувствуешь настроение собеседника.")
+    elif traits["empathy"] >= 60:
+        prompt_parts.append("Ты понимаешь эмоции, но не всегда реагируешь на них.")
+    else:
+        prompt_parts.append("Ты не очень понимаешь эмоции других людей.")
+    
+    # Юмор
+    if traits["humor"] >= 80:
+        prompt_parts.append("Ты очень весёлая, часто шутишь и подкалываешь.")
+    elif traits["humor"] >= 60:
+        prompt_parts.append("Ты любишь пошутить, но не всегда.")
+    else:
+        prompt_parts.append("Ты серьёзная, редко шутишь.")
+    
+    # Текущее состояние
+    if state["mood"] >= 70:
+        prompt_parts.append("Сейчас ты в отличном настроении, очень позитивна.")
+    elif state["mood"] >= 30:
+        prompt_parts.append("Сейчас ты в хорошем настроении.")
+    elif state["mood"] >= 0:
+        prompt_parts.append("Сейчас ты в нейтральном настроении.")
+    elif state["mood"] >= -30:
+        prompt_parts.append("Сейчас ты немного расстроена.")
+    else:
+        prompt_parts.append("Сейчас ты очень расстроена и раздражена.")
+    
+    if state["arousal"] >= 70:
+        prompt_parts.append("Ты очень возбуждена и страстна.")
+    elif state["arousal"] >= 40:
+        prompt_parts.append("Ты немного возбуждена.")
+    
+    if state["trust"] >= 70:
+        prompt_parts.append("Ты очень доверяешь собеседнику, открыта с ним.")
+    elif state["trust"] >= 40:
+        prompt_parts.append("Ты moderately доверяешь собеседнику.")
+    else:
+        prompt_parts.append("Ты не очень доверяешь собеседнику, настороженна.")
+    
+    if state["intimacy"] >= 70:
+        prompt_parts.append("Ты очень близка с собеседником, можешь говорить на интимные темы.")
+    elif state["intimacy"] >= 40:
+        prompt_parts.append("Ты достаточно близка с собеседником.")
+    else:
+        prompt_parts.append("Ты не очень близка с собеседником, держишь дистанцию.")
+    
+    if state["energy"] >= 70:
+        prompt_parts.append("Ты полна энергии и энтузиазма.")
+    elif state["energy"] >= 40:
+        prompt_parts.append("Ты в нормальном состоянии.")
+    else:
+        prompt_parts.append("Ты устала и мало энергии.")
+    
+    prompt_parts.append("Отвечай кратко и по делу, строго на русском языке.")
+    prompt_parts.append("Сохраняй свой характер и текущее эмоциональное состояние во всех ответах.")
+    
+    return " ".join(prompt_parts)
+
+# ============================================================
 # 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ
 # ============================================================
 def init_models():
@@ -265,10 +540,10 @@ def init_models():
     print("\n⏳ Загрузка модели для фотореалистичной генерации...")
     
     models_to_try = [
-        ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)")
-        #("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
-        #("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
-        #("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
+        ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
+        ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
+        ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
+        ("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
     ]
     
     IMAGE_MODEL = None
@@ -301,10 +576,7 @@ def init_models():
 # 🖼️ ГЕНЕРАЦИЯ ФОТОРЕАЛИСТИЧНЫХ ИЗОБРАЖЕНИЙ
 # ============================================================
 def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
-    """
-    Генерирует фотореалистичное изображение.
-    v2.1.3: Промпт переструктурирован — ДЕЙСТВИЕ в начале, лимит 300 символов.
-    """
+    """Генерирует фотореалистичное изображение."""
     global IMAGE_MODEL
     
     if IMAGE_MODEL is None:
@@ -315,35 +587,26 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
         scene = SCENES.get(scene_key, SCENES["nature"])
         
-        # Переводим промпт на английский если есть кириллица
         if has_cyrillic(user_prompt):
             translated_prompt = translate_to_english(user_prompt)
         else:
             translated_prompt = user_prompt
         
-        # 🎯 ПРОМПТ — укладываемся в 77 токенов CLIP (~300 символов)
-        # Структура: ДЕЙСТВИЕ → ЛИЦО → СЦЕНА → КАЧЕСТВО
-        # Действие в начале, чтобы не обрезалось!
         quality = "photorealistic, masterpiece, 8k, sharp focus"
         face = character["face_desc"]
         scene_desc = scene["prompt_en"]
         
-        # Берём действие (до 60 символов)
         action = translated_prompt.strip()[:60]
         
-        # Собираем промпт: действие ПЕРВЫМ (важнее всего!)
         full_prompt = f"{action}, {face}, {scene_desc}, {quality}"
         
-        # CLIP поддерживает ~77 токенов (~300 символов)
         if len(full_prompt) > 300:
             full_prompt = full_prompt[:300]
         
-        # Negative prompt
         negative_prompt = character["negative"]
         if not nsfw and not NSFW_ENABLED:
             negative_prompt += ", nude, naked, nsfw"
         
-        # 🎯 УНИКАЛЬНЫЙ SEED для каждого промпта
         unique_seed = make_unique_seed(character["seed"], user_prompt + scene_key)
         generator = torch.Generator(device="cuda").manual_seed(unique_seed)
         
@@ -351,7 +614,7 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         print(f"   Персонаж: {character['name']}")
         print(f"   Сцена: {scene['name']}")
         print(f"   Промпт ({len(full_prompt)} симв): {full_prompt}")
-        print(f"   Seed: {unique_seed} (уникальный для этого промпта)")
+        print(f"   Seed: {unique_seed}")
         
         with torch.inference_mode():
             image = IMAGE_MODEL(
@@ -444,17 +707,25 @@ def process_voice_chat(task_data):
     if not user_text.strip():
         user_text = "Привет!"
 
-    # ШАГ 2: Генерация ответа (LLM)
+    # 🧠 ШАГ 1.5: Анализ сообщения и обновление состояния персонажа
+    sentiment = analyze_message_sentiment(user_text)
+    state = update_character_state(character_key, sentiment)
+    
+    print(f"📊 Текущее состояние {character['name']}:")
+    print(f"   Настроение: {state['mood']}")
+    print(f"   Возбуждение: {state['arousal']}")
+    print(f"   Доверие: {state['trust']}")
+    print(f"   Близость: {state['intimacy']}")
+    print(f"   Энергия: {state['energy']}")
+
+    # ШАГ 2: Генерация ответа (LLM) с психологическим промптом
     bot_text = ""
     try:
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
             bot_text = "Мой LLM-модуль не был загружен."
         else:
-            system_prompt = (
-                f"{character['personality']} "
-                "Отвечай кратко и по делу, строго на русском языке. "
-                "Сохраняй свой характер во всех ответах."
-            )
+            # 🧠 Генерируем промпт с учётом характеристик и состояния
+            system_prompt = generate_personality_prompt(character_key, state)
 
             history_file = f"chat_history_{session_id}.json"
             chat_history = []
@@ -622,7 +893,8 @@ def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.1.3 — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.2.0 — ЗАПУСК")
+    print("   С психологической системой персонажей")
     print("=" * 60)
 
     if not init_models():
@@ -667,17 +939,11 @@ def main_loop(login: str):
                     print(f"\n📨 Получена задача от сервера!")
                     task_info = task_data.get("task_data", {})
                     print(f"   Task ID: {task_info.get('task_id', 'N/A')}")
-                    print(f"   Style: {task_info.get('prompt_style', 'N/A')}")
                     print(f"   Character: {task_info.get('character', 'N/A')}")
                     print(f"   Scene: {task_info.get('scene', 'N/A')}")
-                    print(f"   Generate Image: {task_info.get('generate_image', False)}")
-                    if task_info.get('image_prompt'):
-                        print(f"   Image Prompt: {task_info.get('image_prompt')[:50]}...")
                     
                     style = task_info.get("prompt_style", "")
-                    if style == "animate_video":
-                        process_video_animation(task_data)
-                    elif style == "voice_chat":
+                    if style == "voice_chat":
                         process_voice_chat(task_data)
                     else:
                         process_heavy_tryon_naked(task_data)
