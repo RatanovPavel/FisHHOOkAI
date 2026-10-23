@@ -265,7 +265,7 @@ def init_models():
     print("\n⏳ Загрузка модели для фотореалистичной генерации...")
     
     models_to_try = [
-        ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
+        #("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
         ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
         ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
         ("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
