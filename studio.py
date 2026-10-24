@@ -1312,13 +1312,13 @@ async def get_worker_status(user_login: str):
 async def create_fishhook_task(payload: FishHookTaskRequest):
     task_id = f"task_{int(time.time())}"
     clean_login = payload.user_login.lower().strip()
-
+    
     session_dir = f"./uploads/{payload.session_id}"
     source_file = os.path.join(session_dir, "original.png")
-
+    
     if not os.path.exists(source_file):
         raise HTTPException(
-            status_code=404,
+            status_code=404, 
             detail=f"Исходное изображение 'original.png' не найдено в сессии {payload.session_id}!"
         )
 
@@ -1337,11 +1337,11 @@ async def create_fishhook_task(payload: FishHookTaskRequest):
 @router.get("/fishhook/check_task/{user_login}/{task_id}")
 async def check_task_readiness(user_login: str, task_id: str):
     clean_login = user_login.lower().strip()
-
+    
     task = FISHHOOK_TASKS.get(clean_login)
     if not task or task["task_id"] != task_id:
         return {"status": "not_found"}
-
+        
     if task["status"] == "completed":
         response = {
             "status": "completed",
@@ -1351,7 +1351,7 @@ async def check_task_readiness(user_login: str, task_id: str):
             "image_url": task.get("image_url")
         }
         return response
-
+        
     return {"status": task["status"]}
 
 
@@ -1367,17 +1367,17 @@ async def get_task_for_colab(user_login: str):
 
     while elapsed_time < max_wait_time:
         task = FISHHOOK_TASKS.get(clean_login)
-
+        
         if task and task.get("status") == "pending":
             task["status"] = "processing"
-
+            
             response_data = {
                 "task_id": task["task_id"],
                 "session_id": task["session_id"],
                 "user_login": task["user_login"],
                 "prompt_style": task["prompt_style"]
             }
-
+            
             if "voice_role" in task:
                 response_data["voice_role"] = task["voice_role"]
             if "voice_gender" in task:
@@ -1394,7 +1394,7 @@ async def get_task_for_colab(user_login: str):
                 response_data["image_prompt"] = task["image_prompt"]
             if "nsfw" in task:
                 response_data["nsfw"] = task["nsfw"]
-
+            
             return {
                 "status": "success",
                 "task_data": response_data
@@ -1419,7 +1419,7 @@ async def download_source_from_session(session_id: str, filename: str = "user_vo
             media_type = "image/jpeg"
         else:
             media_type = "application/octet-stream"
-
+            
         return FileResponse(file_path, media_type=media_type)
     raise HTTPException(status_code=404, detail=f"Файл {filename} не найден")
 
@@ -1453,15 +1453,15 @@ async def submit_result_from_colab(
     image: Optional[UploadFile] = File(None)
 ):
     clean_login = user_login.lower().strip()
-
+    
     task = FISHHOOK_TASKS.get(clean_login)
     if not task or task["task_id"] != task_id:
         raise HTTPException(status_code=400, detail="Задача устарела или не найдена")
-
+        
     session_id = task["session_id"]
     session_dir = f"./uploads/{session_id}"
     os.makedirs(session_dir, exist_ok=True)
-
+    
     if bot_text:
         try:
             text_path = os.path.join(session_dir, "bot_response.txt")
@@ -1470,7 +1470,7 @@ async def submit_result_from_colab(
             print(f"📝 [TEXT SAVED]: {text_path}")
         except Exception as e:
             print(f"⚠️ [TEXT SAVE ERROR]: {e}")
-
+    
     audio_url = None
     if audio:
         try:
@@ -1482,7 +1482,7 @@ async def submit_result_from_colab(
             print(f"🔊 [AUDIO SAVED]: {audio_path}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
-
+    
     image_url = None
     if image:
         try:
@@ -1494,15 +1494,15 @@ async def submit_result_from_colab(
             print(f"🖼️ [IMAGE SAVED]: {image_path}")
         except Exception as e:
             print(f"⚠️ [IMAGE SAVE ERROR]: {e}")
-
+    
     task["status"] = "completed"
     task["bot_text"] = bot_text
     task["user_text"] = user_text
     task["audio_url"] = audio_url
     task["image_url"] = image_url
-
+    
     return {
-        "status": "received",
+        "status": "received", 
         "bot_text": bot_text,
         "audio_url": audio_url,
         "image_url": image_url
@@ -1524,13 +1524,13 @@ async def voice_chat_endpoint(
     gender: Optional[str] = Form("male")
 ):
     clean_login = user_login.lower().strip()
-
+    
     voice_task_id = f"voice_{int(time.time())}"
     session_id = f"v_sess_{clean_login}"
-
+    
     session_dir = f"./uploads/{session_id}"
     os.makedirs(session_dir, exist_ok=True)
-
+    
     if audio_file:
         input_audio_path = os.path.join(session_dir, "user_voice.wav")
         try:
@@ -1540,7 +1540,7 @@ async def voice_chat_endpoint(
             print(f"🎙️ [AUDIO SAVED]: {input_audio_path}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Не удалось записать аудио: {e}")
-
+    
     task_data = {
         "status": "pending",
         "task_id": voice_task_id,
@@ -1556,15 +1556,15 @@ async def voice_chat_endpoint(
         "image_prompt": image_prompt,
         "nsfw": nsfw
     }
-
+    
     FISHHOOK_TASKS[clean_login] = task_data
-
+    
     print(f"🎙️ [ОЧЕРЕДЬ]: Задача {voice_task_id} для '{character}', сцена '{scene}'")
     if generate_image:
         print(f"🖼️ [IMAGE GEN]: {image_prompt[:50]}... (сцена: {scene})")
-
+    
     return {
-        "status": "queued",
+        "status": "queued", 
         "task_id": voice_task_id,
         "character": character,
         "scene": scene,
@@ -1576,10 +1576,21 @@ async def voice_chat_endpoint(
 @router.get("/fishhook/characters")
 async def get_available_characters():
     characters = {
-        "anna": {"name": "Анна", "age": 25, "personality": "Нежная, романтичная", "style": "romantic", "emoji": "💕"},
-        "kate": {"name": "Катя", "age": 23, "personality": "Дерзкая, уверенная", "style": "bold", "emoji": "🔥"},
-        "maria": {"name": "Мария", "age": 28, "personality": "Интеллектуалка", "style": "intellectual", "emoji": "📚"},
-        "lisa": {"name": "Лиза", "age": 22, "personality": "Весёлая, энергичная", "style": "energetic", "emoji": "⚡"}
+        # Женщины
+        "anna": {"name": "Анна", "age": 25, "gender": "female", "personality": "Нежная, романтичная", "style": "romantic", "emoji": "💕"},
+        "kate": {"name": "Катя", "age": 23, "gender": "female", "personality": "Дерзкая, уверенная", "style": "bold", "emoji": "🔥"},
+        "maria": {"name": "Мария", "age": 28, "gender": "female", "personality": "Интеллектуалка", "style": "intellectual", "emoji": "📚"},
+        "lisa": {"name": "Лиза", "age": 22, "gender": "female", "personality": "Весёлая, энергичная", "style": "energetic", "emoji": "⚡"},
+        "sophie": {"name": "Софи", "age": 18, "gender": "female", "personality": "Мечтательная, наивная", "style": "dreamy", "emoji": "🌸"},
+        "elena": {"name": "Елена", "age": 30, "gender": "female", "personality": "Бизнес-леди, властная", "style": "dominant", "emoji": "👑"},
+        "olga": {"name": "Ольга", "age": 35, "gender": "female", "personality": "Заботливая, мудрая", "style": "caring", "emoji": "🤗"},
+        "natasha": {"name": "Наташа", "age": 28, "gender": "female", "personality": "Спортивная, энергичная", "style": "athletic", "emoji": "💪"},
+        "victoria": {"name": "Виктория", "age": 40, "gender": "female", "personality": "Строгая, интеллектуальная", "style": "strict", "emoji": "🎓"},
+        "diana": {"name": "Диана", "age": 22, "gender": "female", "personality": "Гламурная, уверенная", "style": "glamorous", "emoji": "💎"},
+        # Мужчины
+        "alex": {"name": "Алекс", "age": 20, "gender": "male", "personality": "Романтичный, застенчивый", "style": "shy", "emoji": "🎵"},
+        "maxim": {"name": "Максим", "age": 30, "gender": "male", "personality": "Уверенный, харизматичный", "style": "charismatic", "emoji": "💼"},
+        "sergey": {"name": "Сергей", "age": 40, "gender": "male", "personality": "Спокойный, мудрый", "style": "wise", "emoji": "⚕️"}
     }
     return {"status": "success", "characters": characters, "default": "anna"}
 
@@ -1590,13 +1601,18 @@ async def upload_voice_sample(
     character: str = Form(...),
     voice_file: UploadFile = File(...)
 ):
-    valid_characters = ["anna", "kate", "maria", "lisa"]
+    valid_characters = [
+        # Женщины
+        "anna", "kate", "maria", "lisa", "sophie", "elena", "olga", "natasha", "victoria", "diana",
+        # Мужчины
+        "alex", "maxim", "sergey"
+    ]
     if character not in valid_characters:
-        raise HTTPException(status_code=400, detail=f"Неизвестный персонаж '{character}'")
-
+        raise HTTPException(status_code=400, detail=f"Неизвестный персонаж '{character}'. Доступные: {', '.join(valid_characters)}")
+    
     voices_dir = "./voices"
     os.makedirs(voices_dir, exist_ok=True)
-
+    
     voice_path = os.path.join(voices_dir, f"{character}.wav")
     try:
         contents = await voice_file.read()
@@ -1605,7 +1621,7 @@ async def upload_voice_sample(
         print(f"🎤 [VOICE SAVED]: {voice_path}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Не удалось сохранить голос: {e}")
-
+    
     return {"status": "success", "character": character, "voice_path": voice_path}
 
 
@@ -1613,10 +1629,10 @@ async def upload_voice_sample(
 @router.get("/fishhook/get_result/{session_id}")
 async def get_chat_result(session_id: str):
     session_dir = f"./uploads/{session_id}"
-
+    
     if not os.path.exists(session_dir):
         raise HTTPException(status_code=404, detail="Сессия не найдена")
-
+    
     result = {
         "status": "success",
         "session_id": session_id,
@@ -1625,17 +1641,17 @@ async def get_chat_result(session_id: str):
         "has_text": False,
         "bot_text": ""
     }
-
+    
     audio_path = os.path.join(session_dir, "bot_response.wav")
     if os.path.exists(audio_path):
         result["has_audio"] = True
         result["audio_url"] = f"/uploads/{session_id}/bot_response.wav"
-
+    
     image_path = os.path.join(session_dir, "generated_image.jpg")
     if os.path.exists(image_path):
         result["has_image"] = True
         result["image_url"] = f"/uploads/{session_id}/generated_image.jpg"
-
+    
     text_path = os.path.join(session_dir, "bot_response.txt")
     if os.path.exists(text_path):
         result["has_text"] = True
@@ -1644,7 +1660,7 @@ async def get_chat_result(session_id: str):
                 result["bot_text"] = f.read()
         except Exception as e:
             print(f"⚠️ [TEXT READ ERROR]: {e}")
-
+    
     return result
 
 
@@ -1660,6 +1676,6 @@ async def check_file_size(file: UploadFile):
         file.file.seek(0, 2)
         file_size = file.file.tell()
         file.file.seek(0)
-
+    
     if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="ERROR_FILE_TOO_LARGE")
