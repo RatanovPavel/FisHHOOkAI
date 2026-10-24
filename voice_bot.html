@@ -12,7 +12,7 @@
             100% { transform: scale(1.3); opacity: 0; }
         }
         .animate-pulse-ring { animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite; }
-
+        
         @keyframes fade-in {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -23,21 +23,34 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
 
     <div class="max-w-2xl w-full bg-slate-900/40 border border-slate-900 rounded-xl p-6 space-y-5 shadow-2xl backdrop-blur-md">
-
+        
         <!-- Заголовок -->
         <div class="text-center space-y-1">
             <h1 class="text-[12px] font-black uppercase tracking-widest text-blue-400">FishHook Voice Engine v2.1.2</h1>
             <p class="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Фотореалистичные Персонажи • Автоперевод • 7 Сцен</p>
         </div>
-
+        
         <!-- 🎭 НАСТРОЙКА 1: ВЫБОР ПЕРСОНАЖА -->
         <div class="space-y-1.5">
             <label class="block text-[9px] font-black uppercase tracking-widest text-slate-400">1. Выберите персонажа</label>
             <select id="characterSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
-                <option value="anna">💕 Анна — Нежная, 25 лет, каштановые волосы, зелёные глаза</option>
-                <option value="kate">🔥 Катя — Дерзкая, 23 года, блондинка, голубые глаза</option>
-                <option value="maria">📚 Мария — Интеллектуалка, 28 лет, брюнетка, карие глаза</option>
-                <option value="lisa">⚡ Лиза — Весёлая, 22 года, рыжая, ореховые глаза</option>
+                <optgroup label="👩 Женщины">
+                    <option value="anna">💕 Анна — Нежная, 25 лет, каштановые волосы, зелёные глаза</option>
+                    <option value="kate">🔥 Катя — Дерзкая, 23 года, блондинка, голубые глаза</option>
+                    <option value="maria">📚 Мария — Интеллектуалка, 28 лет, брюнетка, карие глаза</option>
+                    <option value="lisa">⚡ Лиза — Весёлая, 22 года, рыжая, ореховые глаза</option>
+                    <option value="sophie">🌸 Софи — Мечтательная, 18 лет, блондинка, голубые глаза</option>
+                    <option value="elena">👑 Елена — Бизнес-леди, 30 лет, чёрные волосы, зелёные глаза</option>
+                    <option value="olga">🤗 Ольга — Заботливая, 35 лет, каштановые волосы, карие глаза</option>
+                    <option value="natasha">💪 Наташа — Спортивная, 28 лет, блондинка, голубые глаза</option>
+                    <option value="victoria">🎓 Виктория — Строгая, 40 лет, седые волосы, серые глаза</option>
+                    <option value="diana">💎 Диана — Гламурная, 22 года, тёмные волосы, ореховые глаза</option>
+                </optgroup>
+                <optgroup label="👨 Мужчины">
+                    <option value="alex">🎵 Алекс — Романтичный, 20 лет, каштановые волосы, голубые глаза</option>
+                    <option value="maxim">💼 Максим — Уверенный, 30 лет, тёмные волосы, карие глаза</option>
+                    <option value="sergey">⚕️ Сергей — Мудрый, 40 лет, седые волосы, карие глаза</option>
+                </optgroup>
             </select>
         </div>
 
@@ -88,7 +101,7 @@
                 </label>
             </div>
             <div id="imagePromptBlock" class="space-y-1.5">
-                <input type="text" id="imagePromptInput" placeholder="Опишите сцену на русском (например: девушка пьёт кофе и смотрит в окно)"
+                <input type="text" id="imagePromptInput" placeholder="Опишите сцену на русском (например: девушка пьёт кофе и смотрит в окно)" 
                     class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-bold text-slate-300 focus:outline-none focus:border-purple-500">
                 <p class="text-[9px] text-slate-500">💡 Промпт будет автоматически переведён на английский. Черты лица сохранятся, но изображение будет уникальным для каждого промпта.</p>
             </div>
@@ -165,7 +178,7 @@
         const audioPlayer = document.getElementById("audioResponsePlayer");
         const textInput = document.getElementById("textInput");
         const sendTextBtn = document.getElementById("sendTextBtn");
-
+        
         const generateImageCheck = document.getElementById("generateImageCheck");
         const imagePromptBlock = document.getElementById("imagePromptBlock");
         const imagePromptInput = document.getElementById("imagePromptInput");
@@ -204,11 +217,11 @@
         sendTextBtn.onclick = async () => {
             const rawText = textInput.value.trim();
             if (!rawText) return;
-
+            
             textInput.value = "";
             statusText.innerText = "ИИ ДУМАЕТ НА ВИДЕОКАРТЕ...";
             statusText.className = "text-yellow-500 font-black uppercase tracking-widest animate-pulse";
-
+            
             const fakeBlob = new Blob([new Uint8Array([0x00])], { type: 'audio/wav' });
             await sendVoiceData(fakeBlob, rawText);
         };
@@ -254,9 +267,9 @@
             const currentScene = document.getElementById("sceneSelect").value;
             const generateImage = generateImageCheck.checked;
             const imagePrompt = imagePromptInput.value.trim();
-
+            
             const formData = new FormData();
-
+            
             formData.append("audio_file", audioBlob, "user_voice.wav");
             formData.append("role", currentRole);
             formData.append("gender", selectedGender);
@@ -265,11 +278,11 @@
             formData.append("character", currentCharacter);
             formData.append("scene", currentScene);
             formData.append("generate_image", generateImage);
-
+            
             if (generateImage && imagePrompt) {
                 formData.append("image_prompt", imagePrompt);
             }
-
+            
             // Определяем NSFW флаг на основе сцены
             const nsfwScenes = ["shower", "nsfw"];
             const isNsfw = nsfwScenes.includes(currentScene);
@@ -306,18 +319,18 @@
                         const data = await res.json();
                         if (data.status === "completed") {
                             clearInterval(checkInterval);
-
+                            
                             userTranscriptText.innerText = data.user_text || "Текстовый запрос принят.";
                             botResponseText.innerText = data.bot_text || "Ответ сформирован.";
-
+                            
                             const characterSelect = document.getElementById("characterSelect");
                             const characterName = characterSelect.options[characterSelect.selectedIndex].text;
                             botRoleTitle.innerText = `Ответ ${characterName}:`;
-
+                            
                             textBlock.classList.remove("hidden");
                             statusText.innerText = "НАЖМИТЕ, ЧТОБЫ ГОВОРИТЬ";
                             statusText.className = "text-slate-500 font-black uppercase tracking-widest";
-
+                            
                             if (data.audio_url) {
                                 console.log("🔊 Загружаем аудио:", data.audio_url);
                                 audioPlayer.src = data.audio_url + "?t=" + new Date().getTime();
@@ -325,7 +338,7 @@
                                     console.error("❌ Ошибка воспроизведения аудио:", err);
                                 });
                             }
-
+                            
                             if (data.image_url) {
                                 console.log("🖼️ Загружаем изображение:", data.image_url);
                                 generatedImage.src = data.image_url + "?t=" + new Date().getTime();
@@ -333,8 +346,8 @@
                             }
                         }
                     }
-                } catch (err) {
-                    console.error("❌ Ошибка опроса задачи:", err);
+                } catch (err) { 
+                    console.error("❌ Ошибка опроса задачи:", err); 
                 }
             }, 1000);
         }
