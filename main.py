@@ -450,7 +450,8 @@ def generate_personality_prompt(character_key, state):
     # Идентификация персонажа
     prompt_parts.append(f"Ты — {character['name']}. {character['personality']}")
     prompt_parts.append("НИКОГДА не говори что ты ИИ, ассистент или языковая модель.")
-    prompt_parts.append("Всегда отвечай от первого лица как {character['name']}.")
+    prompt_parts.append(f"Всегда отвечай от первого лица как {character['name']}.")
+    prompt_parts.append(f"Ты {character['name']}, и только {character['name']}. Никогда не называй себя другим именем.")
     
     # Интеллект
     if traits["intelligence"] >= 80:
@@ -770,7 +771,9 @@ def process_voice_chat(task_data):
             # 🧠 Генерируем промпт с учётом характеристик и состояния
             system_prompt = generate_personality_prompt(character_key, state)
 
-            history_file = f"chat_history_{session_id}.json"
+            # 🧠 История чата УНИКАЛЬНА для каждого персонажа
+            # Это предотвращает путаницу имён при смене персонажа
+            history_file = f"chat_history_{session_id}_{character_key}.json"
             chat_history = []
             if os.path.exists(history_file):
                 try:
@@ -779,11 +782,15 @@ def process_voice_chat(task_data):
                 except Exception:
                     pass
 
-            if not chat_history:
-                chat_history.append({"role": "system", "content": system_prompt})
+            # Всегда перезаписываем системный промпт (на случай изменения состояния)
+            if chat_history and chat_history[0]["role"] == "system":
+                chat_history[0]["content"] = system_prompt
+            else:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
 
             chat_history.append({"role": "user", "content": user_text})
 
+            # Обрезаем контекст — системный промпт + 4 последних сообщения
             if len(chat_history) > 5:
                 chat_history = [chat_history[0]] + chat_history[-4:]
 
@@ -936,7 +943,7 @@ def main_loop(login: str):
     clean_login = login.lower().strip()
 
     print("\n" + "=" * 60)
-    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.2.0 — ЗАПУСК")
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.2.1 — ЗАПУСК")
     print("   С психологической системой персонажей")
     print("=" * 60)
 
