@@ -1,0 +1,307 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<script src="https://yastatic.net/s3/passport-sdk/autofill/v1/sdk-suggest-with-polyfills-latest.js"></script>
+<script src="https://unpkg.com/@vkid/sdk@2.6.1/dist-sdk/umd/index.js"></script>
+
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.webvisor.org/metrika/tag_ww.js?id=108990860', 'ym');
+
+    ym(108990860, 'init', {ssr:true, webvisor:true, trackHash:true, clickmap:true, referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/108990860" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+
+<!-- Стандартный фавикон -->
+<link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/favicons/favicon-16x16.png">
+
+<!-- Для iPhone -->
+<link rel="apple-touch-icon" href="/static/favicons/apple-touch-icon.png">
+
+<!-- Для Android и Chrome -->
+<link rel="manifest" href="/static/favicons/site.webmanifest">
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKULLA.RU | AI Photo Studio</title>
+    <script src="/static/tailwind.min.js"></script>
+    <script src="/static/locales/i18n.js?v=1.1"></script>
+    <link rel="stylesheet" href="/static/layout/header.css">
+    <link rel="stylesheet" href="/static/auth/auth.css">
+    <link rel="stylesheet" href="/static/economy/shop.css">
+    <link rel="stylesheet" href="/static/layout/carousel.css"> 
+    <link rel="stylesheet" href="/static/layout/filter.css">
+    <link rel="stylesheet" href="/static/layout/footer.css">
+    <style>
+        @import url('https://fonts.googleapis.com');
+        
+        body { background-color: #020617; color: #f8fafc; overflow-x: hidden; font-family: 'Inter', sans-serif; margin: 0; min-height: 100vh; }
+
+        /* Фоновая сетка */
+        .grid-background {
+            position: fixed; inset: -600px -300px; 
+            background-image: linear-gradient(to right, rgba(168, 85, 247, 0.1) 2px, transparent 2px),
+                              linear-gradient(to bottom, rgba(168, 85, 247, 0.1) 2px, transparent 2px);
+            background-size: 300px 300px;
+            mask-image: radial-gradient(circle at center, black 5%, transparent 90%);
+            -webkit-mask-image: radial-gradient(circle at center, black 5%, transparent 90%);
+            animation: grid-flow-down 20s linear infinite;
+            pointer-events: none;
+            z-index: 0; 
+        }
+        @keyframes grid-flow-down { from { transform: translateY(0); } to { transform: translateY(300px); } }
+
+        .vignette { 
+            position: fixed; 
+            inset: 0; 
+            background: radial-gradient(circle, transparent 20%, rgba(2, 6, 23, 0.9) 100%); 
+            pointer-events: none; 
+            z-index: 10; 
+        }
+
+        /* 1. УЛЬТИМАТИВНЫЙ НЕОНОВЫЙ ШИММЕР-ЛОГОТИП */
+        .logo-neon { 
+            font-weight: 900; 
+            letter-spacing: 0.15em; 
+            background: linear-gradient(90deg, #22d3ee, #c084fc, #22d3ee); 
+            background-size: 200% auto; 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            animation: shimmer 4s linear infinite; 
+        }
+
+        @keyframes shimmer { 
+            to { background-position: 200% center; } 
+        }
+
+        /* 2. КИНЕМАТОГРАФИЧЕСКАЯ ЛЕВИТАЦИЯ ЧЕРЕПА ЧЕРЕЗ АППАРАТНОЕ УСКОРЕНИЕ GPU */
+        .skull-icon { 
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            font-size: 3rem; 
+            filter: drop-shadow(0 0 15px rgba(34, 211, 238, 0.5)); 
+            animation: float 3s ease-in-out infinite; 
+            will-change: transform, filter; /* 🚀 Включает GPU-ускорение в Windows-браузере для плавности! */
+        }
+
+        @keyframes float { 
+            0%, 100% { 
+                transform: translateY(0) rotate(-5deg); 
+            } 
+            50% { 
+                transform: translateY(-8px) rotate(5deg); /* Слегка смягчили шаг взлета, чтобы не дергался */
+            } 
+        }
+
+        /* 3. АДАПТИВНАЯ ОЧИСТКА ГРАНИЦ ДЛЯ ПОЛНОЭКРАННОГО СЛИТОГО ХЕДЕРА */
+        header {
+            width: 100%;
+            max-width: 100%;
+            overflow: visible; /* Позволяет drop-shadow свечению черепа красиво вылетать за рамки */
+            margin: 0;
+            padding-left: 1.5rem;
+            padding-right: 1.5rem;
+        }
+
+        @media (min-width: 768px) {
+            header {
+                padding-left: 3rem;
+                padding-right: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="grid-background"></div>
+    <div class="vignette"></div>
+
+
+    <!-- 🎯 ДВУХЭТАЖНЫЙ B2B-ХЕДЕР ДЛЯ СЕЛЛЕРОВ (НИКАКИХ НАЕЗДОВ ТЕКСТА) -->
+    <header class="w-full pt-6 pb-6 px-6 md:px-12 relative z-50">
+        <div class="w-full flex flex-col gap-6">
+            
+            <!-- 🏢 ЭТАЖ 1: ЛОГОТИП И ЛИЧНЫЙ КАБИНЕТ РАЗЛЕТАЮТСЯ ПО КРАЯМ МОНИТОРА -->
+            <div class="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+                
+                <!-- ЛОГОТИП (Строго в крайнем левом верхнем углу) -->
+                <div class="flex items-center justify-start gap-4 select-none flex-shrink-0 w-full md:w-auto">
+                    <span class="skull-icon text-3xl sm:text-4xl flex-shrink-0 leading-none">💀</span>
+                    <h1 data-i18n="index.logo_text" class="logo-neon text-[24px] sm:text-3xl md:text-4xl uppercase tracking-tighter font-black leading-none truncate">
+                        SKULLA.RU
+                    </h1>
+                </div>
+
+                <!-- ЗОНА АВТOРИЗАЦИИ И ВАЛЮТ (Строго в крайнем правом верхнем углу) -->
+                <div class="user-header-zone flex flex-wrap gap-2 md:gap-3 items-center justify-end max-w-full md:max-w-none ml-auto shrink-0">
+                    <!-- ЯЗЫКИ -->
+                    <div class="flex gap-3 px-3 py-2.5 md:px-4 md:py-3 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl text-[10px] font-black uppercase tracking-widest shrink-0">
+                        <span onclick="i18n.setLang('ru')" class="cursor-pointer hover:text-cyan-400 transition-colors" id="lang-ru">RU</span>
+                        <span class="text-slate-800">|</span>
+                        <span onclick="i18n.setLang('en')" class="cursor-pointer hover:text-cyan-400 transition-colors" id="lang-en">EN</span>
+                    </div>
+                    <!-- БАЛАНСЫ -->
+                    <div id="token-balance-display" class="hidden flex items-center gap-3 md:gap-4 px-4 py-2.5 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">🦴</span>
+                            <span id="user-bones-count" class="text-xs font-black text-white font-mono">0</span>
+                        </div>
+                        <div class="w-px h-4 bg-slate-800"></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">💀</span>
+                            <span id="user-skulls-count" class="text-xs font-black text-cyan-400 font-mono">0</span>
+                        </div>
+                    </div>
+                    <!-- ПРОФИЛЬ -->
+                    <button onclick="openAuthModal()" class="nav-profile-btn nav-glass px-4 py-2.5 md:px-6 md:py-3 flex items-center gap-3 active:scale-95 transition-all shrink-0">
+                        <span id="header-user-label" data-i18n="index.t1" class="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">Авторизация</span>
+                        <div class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+                    </button>
+                </div>
+                
+            </div>
+
+            <!-- 📢 ЭТАЖ 2: ТЕКСТ КОНСТРУКТOРА ПЕРЕНЕСЕН НИЖЕ, ПО ЦЕНТРУ, БЕЗ НАКЛАДОК -->
+            <div class="w-full text-center pt-2 md:pt-4">
+                <p data-i18n="index.t3" class="text-slate-300 text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.3em] leading-relaxed max-w-3xl mx-auto">
+                    ПРОФЕССИОНАЛЬНЫЙ КОНСТРУКТОР КАРТОЧЕК И ИНФОГРАФИКИ
+                </p>
+            </div>
+
+        </div>
+    </header>
+
+
+    <!-- 🎯 ОТКРЫВАЕМ ЦЕНТРАЛЬНУЮ КОРОБКУ ДЛЯ ФИЛЬТРОВ И КАТАЛОГА СЕЛЛЕРОВ -->
+    <div class="max-w-6xl mx-auto px-6 py-4 relative z-20">
+
+        <!-- ПАНЕЛЬ ФИЛЬТРОВ (Добавил z-50 и четкий фон) -->
+        <div id="filter-panel" class="hidden mb-20 space-y-8 relative z-50 max-w-4xl mx-auto bg-slate-900/60 p-10 rounded-[3rem] border border-cyan-500/10 backdrop-blur-2xl shadow-2xl">
+            
+            <!-- 🎯 КРИСТАЛЬНЫЙ СЕЛЛЕР-БЛОК ПОИСКА С ЛОКАЛИЗАЦИЕЙ ПО ТИПУ DATA-I18N -->
+            <div>
+                <label data-i18n="index.search.card_type" class="text-[9px] text-slate-500 uppercase font-black tracking-[0.3em] mb-4 block">
+                    Тип карточки
+                </label>
+                <div id="category-chips" class="flex flex-wrap gap-3"></div>
+            </div>
+
+            <div>
+                <label data-i18n="index.search.design_styles" class="text-[9px] text-slate-500 uppercase font-black tracking-[0.3em] mb-4 block">
+                    Дизайн-стили
+                </label>
+                <div id="tool-chips" class="flex flex-wrap gap-3"></div>
+            </div>
+
+            <!-- Нижняя панель с кнопками Сброса и Поиска -->
+            <div class="pt-6 flex flex-col sm:flex-row items-center justify-between border-t border-slate-800/50 gap-6">
+                <!-- Счетчик фильтров -->
+                <div id="active-filter-count" class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest opacity-40">
+                    <!-- Filters: 0 -->
+                </div>
+
+                <!-- Контейнер кнопок -->
+                <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                    <button onclick="resetFilters()" 
+                            data-i18n="index.t4" class="text-[10px] text-slate-600 hover:text-white uppercase font-black tracking-widest transition-colors outline-none py-2">
+                        Reset
+                    </button>
+                    
+                    <button onclick="applySmartFilter()" 
+                            data-i18n="index.t5" class="bg-cyan-600 text-slate-950 w-full sm:w-auto px-6 sm:px-10 py-4 rounded-2xl 
+                                font-black uppercase text-[11px] tracking-[0.2em] 
+                                shadow-[0_0_15px_rgba(34,211,238,0.3)] 
+                                hover:bg-cyan-400 hover:shadow-[0_0_25px_rgba(34,211,238,0.5)] 
+                                transition-all active:scale-95 outline-none border-none">
+                        Execute_Search
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 🎯 КОНТЕЙНЕР ДЛЯ КАРУСЕЛЕЙ (Теперь лежит строго внутри max-w-6xl и отцентрирован!) -->
+        <div id="catalog-container" class="space-y-4">
+            <div class="text-center py-20 animate-pulse text-cyan-900 font-black uppercase tracking-widest">System_Sync...</div>
+        </div>
+
+    </div> <!-- 🎯 ЗДЕСЬ СТРОГО В САМОМ КОНЦЕ ЗАКРЫВАЕМ ОБЩИЙ ДИВ КОРОБКИ max-w-6xl -->
+
+
+
+    <!-- ОФИЦИАЛЬНЫЙ ФУТЕР SKULLA -->
+    <footer class="relative z-30 mt-32 border-t border-slate-900/80 bg-slate-950/40 backdrop-blur-md pt-16 pb-12">
+        <div class="max-w-6xl mx-auto px-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-16">
+                
+                <!-- Колонна 1: Бренд и Четкий Стелс-18+ -->
+                <div class="space-y-4">
+                    <div class="logo-neon text-2xl font-black tracking-tighter uppercase text-cyan-400">SKULLA.RU</div>
+                    
+                    <!-- Сделали opacity-60 и посветлее текст/рамку -->
+                    <div class="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity duration-500 cursor-default">
+                        <span data-i18n="index.t6" class="border border-slate-500 px-1.5 py-0.5 text-[9px] text-slate-300 rounded font-black tracking-tighter">18+</span>
+                        <p data-i18n="index.t7" class="text-[8px] text-slate-400 uppercase font-black tracking-widest">Neural_Lab_Access</p>
+                    </div>
+                </div>
+
+
+                <!-- Колонна 2: Документы -->
+                <div class="space-y-5">
+                    <h4 data-i18n="index.t14" class="text-[10px] text-cyan-500 uppercase font-black tracking-widest border-b border-cyan-500/20 pb-2">Legal_Protocol</h4>
+                    <nav class="flex flex-col gap-4">
+                        <a href="javascript:void(0)" onclick="openLegal('privacy')" data-i18n="index.t8" class="text-[10px] text-slate-400 hover:text-white transition-all uppercase font-black tracking-widest">Конфиденциальность</a>
+                        <a href="javascript:void(0)" onclick="openLegal('terms')" data-i18n="index.t9" class="text-[10px] text-slate-400 hover:text-white transition-all uppercase font-black tracking-widest">Оферта</a>
+                        <a href="javascript:void(0)" onclick="openLegal('refund')" data-i18n="index.t10" class="text-[10px] text-slate-400 hover:text-white transition-all uppercase font-black tracking-widest">Возврат</a>
+                        <a href="javascript:void(0)" onclick="openLegal('contacts')" data-i18n="index.t11" class="text-[10px] text-cyan-400 hover:text-white transition-all uppercase font-black tracking-widest">Контакты и Реквизиты</a>
+                    </nav>
+                </div>
+
+                <!-- Колонна 3: Поддержка + VK -->
+                <div class="space-y-5">
+                    <h4 data-i18n="index.t15" class="text-[10px] text-cyan-500 uppercase font-black tracking-widest border-b border-cyan-500/20 pb-2">Support_Line</h4>
+                    <div class="space-y-4">
+                        <div class="text-[11px] text-slate-400 font-black">
+                            <p data-i18n="index.t12" class="text-slate-200">info@skulla.ru</p>
+                        </div>
+                        <!-- Ссылка на твою новую группу -->
+                        <a href="https://vk.com/skulla_lab" target="_blank" class="flex items-center gap-2 text-[10px] text-blue-500/50 hover:text-blue-400 transition-all font-black uppercase tracking-widest">
+                            <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M13.162 18.994c-6.098 0-9.583-4.178-9.729-11.112h3.058c.11 5.088 2.356 7.243 4.133 7.688V7.882h2.876v4.39c1.76-.188 3.606-2.176 4.232-4.39h2.876a11.17 11.17 0 0 1-3.89 6.223 11.397 11.397 0 0 1 4.595 6.889h-3.153a8.214 8.214 0 0 0-4.922-4.88v4.88z"/></svg>
+                            <span data-i18n="index.t13">  VK_LAB_COMMUNITY</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+        
+
+
+    <!-- Модалка Терминала -->
+    <div id="auth-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onclick="closeAuthModal()"></div>  
+        <div id="auth-content" class="relative w-full max-w-md price-card p-8 modal-fade-in bg-slate-900/90 border-cyan-500/20"></div>
+    </div>
+
+    <script src="/static/layout/header.js?v=1.1"></script>
+    <script src="/static/auth/auth.js?v=3.1"></script>
+    <script src="/static/economy/shop.js?v=1.1"></script>
+    <script src="/static/layout/carousel.js?v=1.1"></script>
+    <script src="/static/layout/filter.js?v=1.1"></script>
+    <script src="/static/layout/footer.js?v=1.1"></script>
+    <script>
+    </script>
+
+</body>
+</html>

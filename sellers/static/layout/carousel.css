@@ -1,0 +1,270 @@
+/* УНИВЕРСАЛЬНЫЙ СТИЛЬ КАРТОЧКИ (SKULLA FINAL) */
+.effect-card {
+    display: flex;
+    flex-direction: column;
+    /* Увеличили высоту до 360px, чтобы влезли все длинные описания */
+    height: 360px; 
+    min-width: 280px; 
+    background: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(34, 211, 238, 0.1);
+    border-radius: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    /* Твой крутой эффект плавности */
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Эффект при наведении */
+.effect-card:hover {
+    border-color: rgba(34, 211, 238, 0.4) !important;
+    background: rgba(15, 23, 42, 0.8) !important;
+    transform: translateY(-8px) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(34, 211, 238, 0.1) !important;
+}
+
+/* Внутренний контейнер-ссылка */
+.effect-card a {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    /* Уменьшили padding до 1.5rem (24px), чтобы тексту было просторнее */
+    padding: 1.5rem; 
+    text-decoration: none;
+    box-sizing: border-box;
+}
+
+/* ОПИСАНИЕ: ПОЛНОЕ ОТКЛЮЧЕНИЕ ОБРЕЗКИ */
+.effect-card p {
+    display: block !important;
+    -webkit-line-clamp: none !important;
+    -webkit-box-orient: horizontal !important;
+    overflow: visible !important;
+    margin-top: 8px;
+    text-align: center;
+    line-height: 1.5;
+    white-space: normal !important;
+}
+
+/* Хелпер для прижатия плашки "Применен" к низу */
+.mt-auto {
+    margin-top: auto !important;
+}
+
+
+/* --- КАРУСЕЛИ --- */
+.group-section { position: relative; margin-bottom: 5rem; z-index: 20; padding: 0 10px; }
+
+/* Базовое состояние кнопки */
+.carousel-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) translateZ(0); /* Включаем 3D ускорение */
+    z-index: 100 !important;
+    cursor: pointer;
+    background: transparent !important;
+    border: none !important;
+    padding: 15px;
+    margin: -15px; /* Увеличиваем зону клика, не двигая кнопку */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: rgba(34, 211, 238, 0.4) !important;
+    outline: none !important;
+}
+
+/* МАГИЯ: Свечение вешаем на внутренний символ (SVG или текст) */
+.carousel-btn span, 
+.carousel-btn svg, 
+.carousel-btn i {
+    display: block;
+    transition: all 0.3s ease !important;
+    /* Базовое мягкое свечение */
+    filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.5));
+    will-change: filter; /* Заранее говорим браузеру не выключать эффекты */
+}
+
+/* ФИКС ТУХНУЩИХ СТРЕЛОК */
+.carousel-btn {
+    opacity: 1 !important; /* Всегда видна на 100% */
+    transition: all 0.3s ease !important;
+}
+
+/* Запрещаем любым внешним стилям (Tailwind и др.) приглушать кнопку */
+.carousel-btn:hover {
+    opacity: 1 !important;
+    background: transparent !important;
+    filter: none !important; /* Убираем все лишние фильтры, кроме нашего неона */
+}
+
+/* ВОЗВРАЩАЕМ ЧИСТЫЙ НЕОН (вставь это обратно, но без лишних фильтров) */
+.carousel-btn:hover span,
+.carousel-btn:hover svg {
+    color: #22d3ee !important;
+    filter: drop-shadow(0 0 10px #22d3ee) !important;
+    opacity: 1 !important;
+}
+
+
+
+.carousel-wrapper { /* или как называется главный блок, где лежат стрелки и карусель */
+    position: relative;
+    /* Разрешаем свечению выходить за пределы родителя */
+    overflow: visible !important; 
+}
+
+.carousel-container {
+    /* Чтобы карточки не перекрывали стрелки своими невидимыми тенями */
+    pointer-events: none; 
+}
+
+.carousel-item {
+    /* Возвращаем кликабельность карточкам */
+    pointer-events: auto;
+}
+
+/* Фикс для SVG внутри стрелки */
+.carousel-btn svg {
+    pointer-events: none;
+    display: block;
+}
+
+/* 3. КАРУСЕЛЬ (Контейнер) */
+.carousel-container { 
+    display: flex; 
+    overflow-x: auto; 
+    scroll-snap-type: x mandatory; 
+    gap: 24px; 
+    padding: 20px 0 40px 0; /* Увеличили отступ для теней карточек */
+    scrollbar-width: none; 
+    -ms-overflow-style: none; 
+    scroll-behavior: smooth;
+    position: relative;
+}
+.carousel-container::-webkit-scrollbar { display: none; }
+
+/* Элемент карусели */
+.carousel-item { 
+    flex: 0 0 280px; 
+    scroll-snap-align: start; 
+}
+.carousel-item img, .carousel-item a { -webkit-user-drag: none; }
+
+
+/* БАЗОВЫЙ СТИЛЬ КНОПОК ПЕРЕМОТКИ */
+/* КНОПКИ-КРУЖОЧКИ (GLASSMORPHISM STYLE) */
+.carousel-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    
+    /* Форма круга */
+    width: 46px;
+    height: 46px;
+    border-radius: 9999px; /* Круг */
+    
+    /* Эффект стекла, чтобы не сливалось с фоном */
+    background: rgba(15, 23, 42, 0.6) !important; 
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(34, 211, 238, 0.2) !important;
+    
+    color: rgba(34, 211, 238, 0.6) !important;
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+/* ЭФФЕКТ ПРИ НАВЕДЕНИИ */
+.carousel-nav-btn:hover {
+    background: rgba(34, 211, 238, 0.15) !important;
+    border-color: #22d3ee !important;
+    color: #22d3ee !important;
+    transform: translateY(-50%) scale(1.15);
+    /* Мощное свечение круга */
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+    filter: brightness(1.2);
+}
+
+/* ФИКС ДЛЯ ЛЕВОЙ И ПРАВОЙ */
+.btn-left, .btn-right {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50; /* Поднимаем над карточками */
+    transition: all 0.3s ease;
+}
+
+.btn-left { 
+    left: -25px; /* Выносим за край */
+}
+
+.btn-right { 
+    right: -25px; 
+}
+
+/* Если кнопки все равно не видно, убери прозрачность */
+.nav-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden;
+}
+
+/* Скрытое состояние */
+.nav-hidden {
+    opacity: 0 !important;
+    visibility: hidden;
+    transform: translateY(-50%) scale(0.5);
+}
+
+/* 🎯 АБСОЛЮТНЫЙ ФИКС ШЕФА В CSS: 
+   Убираем только уродливую браузерную рамку, но НЕ трогаем фон и неон кнопок! */
+   button:focus, 
+   button:focus-visible {
+       outline: 0 !important;
+       outline: none !important;
+   }
+   
+   /* Намертво страхуем динамический класс скрытия JS */
+   .btn-left.nav-hidden, .btn-right.nav-hidden {
+       opacity: 0 !important;
+       visibility: hidden !important;
+       pointer-events: none !important;
+       transform: translateY(-50%) scale(0.5) !important;
+   }
+   
+
+/* Если прямоугольник серый/черный - это может быть системный фон */
+.effect-card button {
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: rgba(0,0,0,0) !important;
+    -webkit-tap-highlight-color: transparent !important; /* Для мобилок */
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+
+/* Фикс для мобильных устройств (убирает серый квадрат при тапе) */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Улучшенное свечение для активной звезды */
+.text-yellow-400 {
+    color: #facc15; /* Tailwind yellow-400 */
+    filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.6));
+    text-shadow: 0 0 10px rgba(250, 204, 21, 0.4);
+}
+
+
+@keyframes starBounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.5); }
+    100% { transform: scale(1.25); }
+}
+

@@ -1,0 +1,109 @@
+
+
+.nav-glass {
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(34, 211, 238, 0.1);
+    border-radius: 1.2rem;
+    transition: all 0.3s ease;
+    /*
+        height: auto !important; 
+        width: auto !important;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    */
+}
+
+.nav-glass:hover {
+    border-color: rgba(34, 211, 238, 0.4);
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+}
+
+/* Стили модального окна авторизации */
+.auth-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.auth-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Цвет премиум-черепов (Skulls) */
+#user-skulls-count {
+    color: #22d3ee; /* Cyan */
+    text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+
+
+
+        /* Вставь это в самый низ блока <style> */
+        .nav-login-btn, 
+        #auth-btn, 
+        .login-trigger { 
+            height: 36px !important; 
+            min-height: 36px !important;
+            max-height: 36px !important;
+            width: auto !important;
+            padding: 0 20px !important;
+            margin: auto 0 !important; /* Центрируем по вертикали в хедере */
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            line-height: 1 !important;
+            border-radius: 99px !important;
+            transform: none !important; /* Убираем scale от стрелок */
+            filter: none !important;    /* Убираем свечение стрелок */
+            background: #0ea5e9 !important; /* Твой синий/голубой */
+        }
+
+
+                /* 6. Валидация и ошибки */
+        .auth-input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: white;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .auth-input:focus {
+            border-color: #22d3ee;
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+        }
+
+        .auth-input.error {
+            border-color: #ef4444 !important;
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .error-msg {
+            color: #ef4444;
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-top: -12px;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+

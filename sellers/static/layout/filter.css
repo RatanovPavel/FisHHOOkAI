@@ -1,0 +1,76 @@
+/* Явно задаем видимость для фильтров */
+.filter-apply-btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: #0891b2 !important; /* Твой Cyan-600 */
+    color: white !important;
+    display: block !important;
+    height: 44px !important;
+    width: 100% !important;
+    filter: none !important; /* Убираем лишний неон, если мешает тексту */
+}
+
+
+/* Возвращаем фильтры из небытия */
+.filter-btn, 
+#apply-filters,
+.filter-action-btn {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: flex !important;
+    position: relative !important;
+    top: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    height: 44px !important;
+    background: #0891b2 !important; 
+    color: white !important;
+    z-index: 50 !important;
+    pointer-events: auto !important;
+}
+
+
+
+/* Фикс фильтров: чтобы они не пропадали */
+#filter-panel {
+    transform: translateZ(0); /* Создаем слой отрисовки */
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Стиль чипсов (кнопок категорий) */
+.chip {
+    padding: 8px 16px;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.chip.active {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: #22d3ee;
+    color: #22d3ee;
+    box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+}
+
+/* Состояние: Кнопка НЕ выбрана */
+.chip-off {
+    color: #94a3b8 !important; /* slate-400 */
+    border-color: rgba(30, 41, 59, 0.5) !important;
+    background: rgba(15, 23, 42, 0.4) !important;
+}
+.chip-off .symbol { color: #22d3ee !important; } /* Плюс всегда голубой */
+
+/* Состояние: Кнопка ВЫБРАНА */
+.chip-on {
+    color: #ffffff !important; /* Белый текст */
+    border-color: #22d3ee !important; /* Голубая рамка */
+    background: rgba(34, 211, 238, 0.1) !important; /* Легкое свечение */
+}
+.chip-on .symbol { color: #ef4444 !important; } /* Крестик всегда красный */
