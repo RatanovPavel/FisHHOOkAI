@@ -584,6 +584,7 @@ def init_models():
     print("\n⏳ Загрузка модели для фотореалистичной генерации...")
     
     models_to_try = [
+        ("cagliostrolab/animagine-xl-3.1", "Animagine XL 3.1 (топовый аниме SDXL)"),
         ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
         ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
         ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
