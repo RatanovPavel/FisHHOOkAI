@@ -595,16 +595,17 @@ def init_models():
     for model_id, model_name in models_to_try:
         try:
             print(f"   Пробую загрузить {model_name}...")
-            from diffusers import StableDiffusionPipeline
-            
-            IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
+            from diffusers import AutoPipelineForText2Image
+
+            IMAGE_MODEL = AutoPipelineForText2Image.from_pretrained(
                 model_id,
                 torch_dtype=torch.float16,
                 safety_checker=None,
+                use_safetensors=True  # Рекомендуется для безопасной и быстрой загрузки
             ).to("cuda")
-            
+
             IMAGE_MODEL.enable_attention_slicing()
-            print(f"✅ {model_name} загружен в VRAM!")
+            print(f"🟩 {model_name} загружен в VRAM!")
             break
         except Exception as e:
             print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
