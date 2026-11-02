@@ -1,0 +1,334 @@
+        /* --- СТИЛИ ЛИЧНОГО КАБИНЕТА И МАГАЗИНА SKULLA --- */
+
+        /* 1. Модальное окно терминала */
+        #auth-modal {
+            background: rgba(2, 6, 23, 0.85);
+            backdrop-filter: blur(20px);
+        }
+
+
+        #auth-content {
+            background: rgba(15, 23, 42, 0.95) !important;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: 2.5rem !important;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            
+            position: relative;
+            padding: 2rem;
+            
+            /* КЛЮЧЕВЫЕ ИЗМЕНЕНИЯ */
+            max-height: 85vh; 
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Сама модалка не скроллится */
+        }
+
+        /* Яркая кнопка всегда */
+        #auth-content button {
+            color: #22d3ee !important; /* Яркий циановый */
+            opacity: 1 !important;
+            text-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+        }
+
+        /* Состояние когда нажали (ждем ответ) */
+        #auth-content button:disabled {
+            color: #475569 !important; /* Серый */
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .price-card {
+            display: flex;
+            flex-direction: column;
+            /* Устанавливаем адекватную высоту, чтобы всё влезло, но не было пустым */
+            min-width: 280px; 
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-blur: 12px;
+            border: 1px solid rgba(34, 211, 238, 0.1);
+            border-radius: 2.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s ease;
+        }
+
+        /* Отключаем подпрыгивание только для модального окна */
+        #auth-content.price-card:hover {
+            transform: none !important; /* Запрещаем подъем */
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important; /* Оставляем только тень */
+        }
+
+        .auth-card {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: 2.5rem;
+            padding: 3rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(34, 211, 238, 0.1);
+        }
+        /* Кнопка тарифа: ТОЛЬКО РАМКА, БЕЗ ТЕНИ И ПРЫЖКОВ */
+        .price-btn:hover {
+            transform: none !important;      /* Запрет движения */
+            box-shadow: none !important;     /* Убираем тень под карточкой */
+            background: rgba(30, 41, 59, 0.5) !important; /* Легкое высветление фона */
+            border-color: rgba(34, 211, 238, 0.8) !important; /* Яркая неоновая обводка */
+            z-index: 10;
+        }
+
+        /* Опционально: если хочешь, чтобы иконка короны чуть подсвечивалась (без тени под самой кнопкой) */
+        .price-btn:hover .text-3xl {
+            filter: drop-shadow(0 0 12px rgba(234, 179, 8, 0.8));
+            transition: all 0.3s ease;
+        }
+
+        /* Скролл-зона только для карточек */
+        .store-cards-wrapper {
+            flex: 1; /* Занимает всё свободное место */
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 15px 5px; /* Запас для всплытия карточек */
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Чтобы карточки НЕ СЖИМАЛИСЬ при скролле */
+        .price-btn {
+            flex-shrink: 0; /* ЗАПРЕТ СЖАТИЯ */
+            min-height: 140px; /* Фиксируем минимальную высоту */
+        }
+
+        /* Блок промокода в футере магазина */
+        .promo-static-footer {
+            border-top: 1px solid rgba(34, 211, 238, 0.1); /* Тонкая неоновая линия */
+            padding-top: 20px;
+            background: transparent !important; /* Убираем фоновый цвет, пусть просвечивает модалка */
+            margin-top: 10px;
+        }
+
+        /* Само поле ввода в промокоде, если оно было в серой плашке */
+        .promo-input-wrapper {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+        }
+
+        /* Если хочешь выделить зону промокода, лучше используй очень слабую обводку, а не фон */
+        .promo-zone-border {
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 1.5rem;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.01); /* Почти незаметный блик */
+        }
+
+        /* Стили цен */
+        .old-price {
+            text-decoration: line-through;
+            color: #64748b;
+            font-size: 14px;
+            margin-right: 10px;
+            font-weight: 700;
+        }
+        .new-price {
+            color: #4ade80 !important;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+        }
+
+        /* Тонкий скроллбар */
+        .store-cards-wrapper::-webkit-scrollbar { width: 3px; }
+        .store-cards-wrapper::-webkit-scrollbar-thumb { background: #22d3ee; border-radius: 10px; }
+
+
+        .store-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 20px 10px 10px 10px;
+            max-height: 65vh; /* Ограничиваем высоту (65% от экрана) */
+            overflow-y: auto; /* Включаем скролл только тут */
+            overflow-x: hidden;
+        }
+
+        /* КАСТОМНЫЙ КИБЕР-СКРОЛЛ */
+.custom-scrollbar-cyber::-webkit-scrollbar {
+    width: 3px;
+}
+
+.custom-scrollbar-cyber::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.1);
+    margin-block: 10px;
+}
+
+.custom-scrollbar-cyber::-webkit-scrollbar-thumb {
+    background: linear-gradient(to bottom, transparent, #22d3ee, transparent);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+}
+
+/* Скрываем скролл, когда не пользуемся (опционально) */
+.custom-scrollbar-cyber {
+    scrollbar-width: thin;
+    scrollbar-color: #22d3ee transparent;
+}
+
+        /* Кастомизируем скроллбар, чтобы он был тонким и киберпанковым */
+        .store-container::-webkit-scrollbar { width: 4px; }
+        .store-container::-webkit-scrollbar-track { background: transparent; }
+        .store-container::-webkit-scrollbar-thumb { 
+            background: rgba(34, 211, 238, 0.3); 
+            border-radius: 10px; 
+        }
+
+        .price-btn:hover {
+            z-index: 50;
+            transform: translateY(-12px) scale(1.02);
+            background: rgba(30, 41, 59, 0.6) !important;
+            border-color: rgba(34, 211, 238, 0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        }
+
+        /* 4. Плашка выгоды */
+        .benefit-tag {
+            display: inline-block;
+            background: rgba(34, 197, 94, 0.15); /* Мягкий зеленый неон */
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            font-size: 8px;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-top: 6px;
+        }
+
+        /* 5. Блок преимуществ В СТРОЧКУ (КРУПНО) */
+        .benefits-line {
+            display: flex;
+            justify-content: space-between; /* Распределяем все 4 элемента по ширине */
+            align-items: center;
+            gap: 8px; /* Небольшой зазор между ними */
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 15px;
+        }
+
+        .benefit-pill {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 7px; /* Оптимальный размер для 4-х штук */
+            font-weight: 900;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: -0.02em; /* Чуть плотнее буквы */
+            white-space: nowrap;
+        }
+
+
+        /* Чтобы иконка молнии не слипалась с текстом */
+        .benefit-pill span { 
+            color: #22d3ee; 
+            font-size: 10px; 
+        }
+
+        .price-btn:hover .benefit-pill:last-child span {
+            animation: alert-pulse 1s infinite;
+        }
+
+        @keyframes alert-pulse {
+            0%, 100% { color: #22d3ee; }
+            50% { color: #ef4444; text-shadow: 0 0 8px #ef4444; }
+        }
+
+                /* 7. Вкладки (Tabs) */
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: #475569;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: #22d3ee;
+            border-bottom-color: #22d3ee;
+            background: linear-gradient(to top, rgba(34, 211, 238, 0.05), transparent);
+        }
+
+        /* 8. Корона в балансе (Анимация) */
+        #token-balance-display.token-update {
+            transform: scale(1.1);
+            border-color: rgba(234, 179, 8, 0.6);
+            box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+        }
+
+        /* Размер короны в верхнем углу ЛК */
+        .auth-content-header-crown {
+            font-size: 24px !important; /* Тот же размер, что и в карточках */
+            filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.6));
+            line-height: 1;
+        }
+
+        /* Число баланса рядом с ней в ЛК */
+        .auth-content-header-balance {
+            font-size: 18px !important;
+            font-weight: 900;
+            color: #facc15; /* yellow-400 */
+        }
+
+        /* Размер короны в хедере */
+        #token-balance-display span:first-child {
+            font-size: 24px; /* Такой же размер, как в карточках (3xl/2xl) */
+            filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.6));
+            line-height: 1;
+        }
+
+        /* Число баланса рядом с ней */
+        #user-token-count {
+            font-size: 16px; /* Крупнее, чтобы читалось как в карточке */
+            font-weight: 900;
+            margin-left: 4px;
+        }
+
+        /* Сам контейнер чуть увеличим для баланса */
+        #token-balance-display {
+            padding: 8px 16px;
+            gap: 8px;
+        }
+
+        .old-price {
+            text-decoration: line-through;
+            color: #64748b; /* slate-500 */
+            font-size: 12px;
+            margin-right: 8px;
+            font-weight: 700;
+        }
+        .new-price {
+            color: #4ade80; /* Зеленый неон для профита */
+            animation: price-pulse 0.5s ease-out;
+        }
+        @keyframes price-pulse {
+            0% { transform: scale(1.2); filter: brightness(2); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+                /* Специальный класс для кнопки входа, чтобы она НЕ ПРЫГАЛА */
+        .nav-profile-btn.price-card:hover {
+            transform: none !important; /* Убираем подпрыгивание */
+            border-color: rgba(34, 211, 238, 0.6) !important;
+        }
+
+        /* Корона в хедере — размер 24px как в тарифах */
+        .header-crown-icon {
+            font-size: 24px !important;
+            filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.6));
+            line-height: 1;
+        }

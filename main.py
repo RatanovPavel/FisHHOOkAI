@@ -1,1921 +1,1026 @@
+import os
 import sys
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
-    sys.path.append("/content/CatVTON_repo")
-    print("🎯 [SYSTEM PATH]: Пути репозитория CatVTON успешно подключены на Старте!")
-
-# Далее идут остальные импорты и блоки try-except для IDm_VTON
-
-
-import gc
+import json
 import time
-import torch
-import requests
-import numpy as np
-from PIL import Image, ImageFilter
-import rembg
-
-# Подтягиваем внутренние утилиты IDm-VTON для деформации ткани и сохранения идентичности шмотки
-try:
-    from diffusers import StableDiffusionXLInpaintPipeline, UNet2DConditionModel
-    # Если репозиторий успешно склонирован в Шаге 1, импортируем кастомные слои внимания
-    sys.path.append('/content/IDm_VTON_Engine')
-    from src.tryon_pipeline import StableDiffusionXLTryOnPipeline
-except ImportError:
-    StableDiffusionXLTryOnPipeline = None
-
-# БАЗОВЫЙ АДРЕС СЕРВЕРА SKULLA
-SERVER_URL = "https://skulla.ru"
-
-# ГЛОБАЛЬНЫЙ ПАЙПЛАЙН ДЛЯ ЧЕСТНОЙ ПРИМЕРКИ
-VTON_PIPE = None
-REMBG_SESSION = None
-
-class Log:
-    @staticmethod
-    def info(msg): print(f"\033[94m[ИНФО] {msg}\033[0m")
-    @staticmethod
-    def success(msg): print(f"\033[92m[УСПЕХ] {msg}\033[0m")
-    @staticmethod
-    def warn(msg): print(f"\033[93m[ВНИМАНИЕ] {msg}\033[0m")
-    @staticmethod
-    def error(msg): print(f"\033[91m[ОШИБКА] {msg}\033[0m")
-
-def init_vton_models_good():
-    """Загружает официальный легковесный инпаинт для предметов напрямую в VRAM"""
-    global VTON_PIPE, REMBG_SESSION
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if device == "cuda" else torch.float32
-    
-    Log.info("Инициализация стабильной сессии маскирования предметов...")
-    import rembg
-    REMBG_SESSION = rembg.new_session("u2net")
-    
-    Log.info("Загрузка официального предметного пайплайна...")
-    from diffusers import StableDiffusionInpaintPipeline
-    
-    # Используем современный метод загрузки, совместимый с Python 3.12
-    VTON_PIPE = StableDiffusionInpaintPipeline.from_pretrained(
-        "runwayml/stable-diffusion-inpainting",
-        torch_dtype=dtype,
-        safety_checker=None
-    )
-    
-    if device == "cuda":
-        # В современных diffusers этот метод идеально разгружает память без крашей ядра
-        VTON_PIPE.enable_model_cpu_offload()
-        
-    Log.success(" СВЕРХМОЩНЫЙ ИИ-ДВИЖОК ПРЕДМЕТНОГО ИНПАИНТА УСПЕШНО ЗАГРУЖЕН И ГОТОВ В БОЙ!")
-
-
-def init_vton_models_stablediffusion():
-    """Загружает тяжелую коммерческую модель SDXL Inpainting напрямую в VRAM"""
-    global VTON_PIPE, REMBG_SESSION
-    
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    dtype = torch.float16 if device == "cuda" else torch.float32
-    
-    Log.info("Инициализация стабильной сессии маскирования предметов...")
-    import rembg
-    REMBG_SESSION = rembg.new_session("u2net")
-    
-    Log.info("Инициализация тяжелого ИИ-движка SDXL Inpainting...")
-    
-    # Импортируем официальный пайплайн для моделей класса XL
-    from diffusers import StableDiffusionXLInpaintPipeline
-    
-    # Загружаем официальное стабильное зеркало SDXL Inpaint от StabilityAI
-    VTON_PIPE = StableDiffusionXLInpaintPipeline.from_pretrained(
-        "diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
-        torch_dtype=dtype,
-        safety_checker=None,
-        variant="fp16" # Загружаем облегченные веса для жесткой экономии VRAM видеокарты
-    )
-    
-    if device == "cuda":
-        # Самый мощный режим разгрузки памяти: слои XL-модели не грузят системное ОЗУ 12ГБ
-        VTON_PIPE.enable_sequential_cpu_offload()
-        
-    Log.success(" ТЯЖЕЛЫЙ КОММЕРЧЕСКИЙ SDXL-ДВИЖОК УСПЕШНО ЗАПУЩЕН НА FISHHOOK!")
-
-# Дальше идут твои стандартные импорты без изменений:
-import torch
-#from huggingface_hub import snapshot_download
-# Импортируем родной пайплайн CatVTON (убедись, что папка model скачана в проект)
-#from model.pipeline import CatVTONPipeline
-#from utils import init_weight_dtype
-def init_vton_models():
-    import sys
-    import os
-    if os.path.exists("/content/CatVTON_repo") and "/content/CatVTON_repo" not in sys.path:
-        sys.path.append("/content/CatVTON_repo")
-        print("🎯 [INIT GPU]: Пути CatVTON_repo успешно подключены внутри функции!")
-
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка специализированного пайплайна CatVTON...")
-    
-    # Твои рабочие локальные импорты теперь выполнятся идеально!
-    from model.pipeline import CatVTONPipeline
-    from utils import init_weight_dtype
-    from diffusers import StableVideoDiffusionPipeline
-    
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    global VTON_V3_PIPE, VIDEO_PIPE
-    # Загружаем базовый инпаинт чекпоинт и накатываем веса внимания CatVTON
-    VTON_V3_PIPE = CatVTONPipeline(
-        base_ckpt="booksforcharlie/stable-diffusion-inpainting",
-        attn_ckpt="zhengchong/CatVTON",
-        attn_ckpt_version="mix",
-        weight_dtype=init_weight_dtype("fp16"),
-        use_tf32=True,
-        device=DEVICE,
-        skip_safety_check=True
-    )
-
-    print("⏳ [ИНИЦИАЛИЗАЦИЯ GPU]: Загрузка видео-движка Stable Video Diffusion...")
-    try:
-        # Загружаем SVD-XT
-        VIDEO_PIPE = StableVideoDiffusionPipeline.from_pretrained(
-            "stabilityai/stable-video-diffusion-img2vid-xt",
-            torch_dtype=torch.float16,
-            variant="fp16"
-        )
-        
-        # 🚀 ЖЕСТКИЙ ФИКС СОБАКИ: Полностью УДАЛИЛИ сломанную строку VIDEO_PIPE.vae.enable_slicing()!
-        # Вместо неё используем последовательный оффлоад и chunking — они работают без сбоев и OOM
-        VIDEO_PIPE.enable_sequential_cpu_offload() 
-        VIDEO_PIPE.unet.enable_forward_chunking()
-        
-        print("🚀 [УСПЕХ]: Видео-движок SVD полностью готов, инициализирован и оптимизирован под T4!")
-    except Exception as e:
-        print(f"❌ Критический сбой при сборке видео-пайплайна: {e}")
-
-
-
-    print("🚀 [УСПЕХ]: Станция примерки CatVTON полностью готова к работе на GPU!")
-
-def fetch_task_from_server(user_login: str):
-    clean_login = user_login.lower().strip()
-    endpoint = f"{SERVER_URL}/api/studio/fishhook/get_task/{clean_login}"
-    try:
-        response = requests.get(endpoint, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get("status") == "success": return data
-    except: pass
-    return None
-
-def submit_result_to_server(task_id: str, user_login: str, file_path: str):
-    endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result"
-    clean_login = user_login.lower().strip()
-    if not os.path.exists(file_path): return False
-    try:
-        with open(file_path, "rb") as f:
-            files = {"image": ("after.png", f, "image/png")}
-            data = {"task_id": task_id, "user_login": clean_login}
-            res = requests.post(endpoint, data=data, files=files, timeout=60)
-            return res.status_code == 200 and res.json().get("status") == "received"
-    except Exception as e:
-        Log.error(f"Ошибка отправки: {e}")
-    return False
-
-def process_heavy_tryon(task_data: dict):
-    global VTON_PIPE, REMBG_SESSION
-    task_id = task_data["task_id"]
-    session_id = task_data["session_id"]
-    user_login = task_data["user_login"]
-    prompt_style = task_data["prompt_style"]
-    
-    print("\n" + "="*60)
-    Log.success(f"ЗАПУСК ПРЕМЬЕРНОГО SDXL-КОНВЕЙЕРА (900x1200 FIX): {task_id}")
-    print("-"*60)
-    
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-    
-    # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
-    import requests
-    from io import BytesIO
-    from PIL import ImageOps
-    
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-    try:
-        res = requests.get(download_url, stream=True, timeout=15)
-        if res.status_code != 200: return
-        raw_image = Image.open(res.raw).convert("RGB")
-    except Exception as e:
-        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
-        return
-
-    # 2! УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900x1200
-    Log.info("Адаптация геометрии под эталонные пропорции маркетплейса...")
-    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
-
-    # 3! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
-    Log.info("Прецизионное вырезание фона объекта...")
-    try:
-        import numpy as np
-        from PIL import ImageFilter
-        
-        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
-        g_alpha = garment_mask_output.split()[-1]
-        
-        g_alpha_np = np.array(g_alpha)
-        mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
-        
-        # Минимальное сглаживание краев для бесшовной посадки теней под баночкой
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=2))
-    except Exception as e:
-        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
-        return
-
-    # Качественный негативный промпт для SDXL (модели XL очень послушно реагируют на исключения)
-    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, extra lids, second cap, human, face, skin"
-
-    Log.info("ИИ-движок SDXL приступает к высокохудожественному рендерингу окружения...")
-    try:
-        # Инференс на полную мощность SDXL. 40 шагов на XL дают звенящую резкость глянца и стекла
-        final_image = VTON_PIPE(
-            prompt=prompt_style,
-            negative_prompt=negative_prompt,
-            image=garment_image,
-            mask_image=mask_blur,
-            num_inference_steps=40,
-            guidance_scale=8.0,
-            strength=0.99
-        ).images[0] # Забираем готовую картинку напрямую
-        
-        # Жестко фиксируем эталонный размер на выходе
-        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
-        
-        # Сохраняем результат под системным именем задачи
-        final_filename = f"vton_result_{task_id}.png"
-        final_image.save(final_filename)
-        Log.success(f" Высокохудожественный SDXL-рендеринг карточки {final_image.size} завершен!")
-        
-    except Exception as e:
-        Log.error(f"Критический сбой ИИ-генератора SDXL: {e}")
-        return
-
-    # 4! ОЧИСТКА ПАМЯТИ
-    finally:
-        if 'raw_image' in locals(): del raw_image
-        if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'g_alpha' in locals(): del g_alpha
-        if 'g_alpha_np' in locals(): del g_alpha_np
-        if 'mask_img' in locals(): del mask_img
-        if 'mask_blur' in locals(): del mask_blur
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
-    submit_success = submit_result_to_server(task_id, user_login, final_filename)
-    if os.path.exists(final_filename): 
-        os.remove(final_filename)
-        
-    if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен на сервер!\n")
-
-
-def process_heavy_tryon_ext(task_data: dict):
-    global VTON_PIPE, REMBG_SESSION
-    task_id = task_data["task_id"]
-    session_id = task_data["session_id"]
-    user_login = task_data["user_login"]
-    prompt_style = task_data["prompt_style"]
-    
-    print("\n" + "="*60)
-    Log.success(f"ЗАПУСК СТРОГОГО ВЕРТИКАЛЬНОГО КОНВЕЙЕРА (ФИКСИРОВАННЫЙ РАЗМЕР 900x1200): {task_id}")
-    print("-"*60)
-    
-    # Жесткие эталонные размеры для Wildberries / Ozon
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-    
-    # 1! СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С ВАШЕГО СЕРВЕРА
-    import requests
-    from io import BytesIO
-    from PIL import ImageOps
-    
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-    try:
-        res = requests.get(download_url, stream=True, timeout=15)
-        if res.status_code != 200: return
-        raw_image = Image.open(res.raw).convert("RGB")
-    except Exception as e:
-        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
-        return
-
-    # 2! УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА НА СТРОГОМ ХОЛСТЕ 900x1200
-    Log.info("Адаптация геометрии под эталонный формат маркетплейса 900x1200...")
-    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
-
-    # 3! АВТОМАТИЧЕСКОЕ МАСКИРОВАНИЕ ФОНА ВОКРУГ ПРЕДМЕТА
-    Log.info("Удаление старого фона...")
-    try:
-        import numpy as np
-        from PIL import ImageFilter
-        
-        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
-        g_alpha = garment_mask_output.split()[-1]
-        
-        g_alpha_np = np.array(g_alpha)
-        mask_img = Image.fromarray(255 - g_alpha_np).convert("L")
-        
-        # Минимальное размытие для идеальной контурной резкости товара
-        mask_blur = mask_img.filter(ImageFilter.GaussianBlur(radius=1))
-    except Exception as e:
-        Log.error(f"Ошибка на этапе создания предметной маски: {e}")
-        return
-
-    negative_prompt = "text, letters, words, typography, watermark, logo, signature, blurry, low quality, bad shadows, ugly background, deformed object, human, face, skin"
-
-    Log.info("ЭТАП №1: ИИ-движок генерирует вертикальную композицию окружения...")
-    try:
-        base_image = VTON_PIPE(
-            prompt=prompt_style,
-            negative_prompt=negative_prompt,
-            image=garment_image,
-            mask_image=mask_blur,
-            num_inference_steps=35,
-            guidance_scale=7.5,
-            strength=0.99
-        ).images[0]
-        
-        Log.info("ЭТАП №2: Нейросетевой Hi-Res Fix (Генерация микродеталей)...")
-        
-        # Промежуточный апскейл для прорисовки текстур
-        high_res_size = (TARGET_WIDTH * 2, TARGET_HEIGHT * 2)
-        high_res_input = base_image.resize(high_res_size, resample=Image.Resampling.LANCZOS)
-        high_res_full_mask = Image.new("L", high_res_size, 255)
-        
-        temp_hd_image = VTON_PIPE(
-            prompt=prompt_style,
-            negative_prompt=negative_prompt,
-            image=high_res_input,
-            mask_image=high_res_full_mask,
-            num_inference_steps=20,
-            guidance_scale=7.5,
-            strength=0.32          
-        ).images[0]
-        
-        Log.info("ФИНАЛЬНЫЙ ШАГ: Принудительное кадрирование и фиксация размера под 900x1200...")
-        # Сжимаем HD-картинку обратно до эталонных 900x1200 через высококачественный фильтр LANCZOS
-        final_image = temp_hd_image.resize((TARGET_WIDTH, TARGET_HEIGHT), resample=Image.Resampling.LANCZOS)
-        
-        # Сохраняем результат
-        final_filename = f"vton_result_{task_id}.png"
-        final_image.save(final_filename)
-        Log.success(f" Вертикальный рендеринг карточки {final_image.size} успешно завершен!")
-        
-    except Exception as e:
-        Log.error(f"Критический сбой ИИ-генератора фона: {e}")
-        return
-
-    # 4! БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
-    finally:
-        if 'raw_image' in locals(): del raw_image
-        if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'g_alpha' in locals(): del g_alpha
-        if 'g_alpha_np' in locals(): del g_alpha_np
-        if 'mask_img' in locals(): del mask_img
-        if 'mask_blur' in locals(): del mask_blur
-        if 'base_image' in locals(): del base_image
-        if 'high_res_input' in locals(): del high_res_input
-        if 'high_res_full_mask' in locals(): del high_res_full_mask
-        if 'temp_hd_image' in locals(): del temp_hd_image
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-    # 5! ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
-    submit_success = submit_result_to_server(task_id, user_login, final_filename)
-    if os.path.exists(final_filename): 
-        os.remove(final_filename)
-        
-    if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
-    
-    if os.path.exists(final_filename): 
-        os.remove(final_filename)
-        Log.info("[ОТЛАДКА]: Временный локальный файл удален с диска Colab.")
-        
-    if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
-
-
-import os
+import re
 import gc
+import shutil
+import subprocess
 import requests
-import numpy as np
 import torch
-from PIL import Image, ImageFilter, ImageOps
+import hashlib
 
-# Вспомогательная функция для генерации умной маски (Одежда + Фон, без Лица и Кожи)
-def generate_vton_mask(garment_image: Image.Image, garment_mask_output) -> Image.Image:
-    """
-    Создает маску, где под замену (белый цвет) попадает ФОН и ОДЕЖДА человека,
-    а лицо, волосы и открытая кожа остаются защищенными (черный цвет).
-    """
-    # 1. Базовая маска фона (инвертированный силуэт из rembg)
-    g_alpha = garment_mask_output.split()[-1]
-    g_alpha_np = np.array(g_alpha)
+# ============================================================
+# 📦 АВТОУСТАНОВКА ЗАВИСИМОСТЕЙ
+# ============================================================
+def install_dependencies():
+    packages = {
+        "transformers":       "transformers",
+        "accelerate":         "accelerate",
+        "bitsandbytes":       "bitsandbytes",
+        "optimum":            "optimum",
+        "coqui-tts":          "TTS",
+        "diffusers":          "diffusers",
+        "openai-whisper":     "whisper",
+        "SpeechRecognition":  "speech_recognition",
+        "gtts":               "gtts",
+        "pydub":              "pydub",
+    }
     
-    # Фон изначально белый (255), человек — черный (0)
-    bg_mask_np = 255 - g_alpha_np
-    
-    # 2. Сегментация человека для поиска одежды
-    # Для идеального результата в продакшене здесь вызывается cloth-segmentation.
-    # В качестве надежного и быстрого fallback-варианта мы маскируем центральную 
-    # часть силуэта (торс и ноги), гарантированно защищая верхнюю часть (голову).
-    
-    w, h = garment_image.size
-    clothing_mask = Image.new("L", (w, h), 0)
-    clothing_draw = np.array(clothing_mask)
-    
-    # Заполняем область одежды внутри силуэта человека (исключая верхние ~15-20% под голову)
-    head_height_limit = int(h * 0.22)
-    # Все, что внутри силуэта человека и ниже уровня головы, помечаем как одежду под замену
-    clothing_draw[head_height_limit:] = g_alpha_np[head_height_limit:]
-    
-    # Слываем маску фона и маску одежды вместе
-    combined_mask_np = np.maximum(bg_mask_np, clothing_draw)
-    
-    # Защищаем края: размываем и возвращаем как PIL Image
-    final_mask = Image.fromarray(combined_mask_np.astype(np.uint8), mode="L")
-    return final_mask
-
-
-def process_heavy_tryon_naked_777(task_data: dict):
-    global VTON_PIPE, REMBG_SESSION
-    print(f"🔍 [DEBUG]: Что прислал сервер: {task_data}")
-    
-    actual_task = task_data.get("task_data", {})
-    
-    # 🚀 Теперь берем все ключи ИЗ НЕГО:
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-    prompt_style = actual_task["prompt_style"]
-    
-    print("\n" + "="*60)
-    print(f" ЗАПУСК ПОСЛЕДОВАТЕЛЬНОГО SDXL INPAINT КОНВЕЙЕРА (ОДЕЖДА -> ФОН): {task_id}")
-    print("="*60)
-    
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-    
-    # #1 СКАЧИВАЕМ ОРИГИНАЛ ТОВАРА С СЕРВЕРА
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-    try:
-        res = requests.get(download_url, stream=True, timeout=15)
-        if res.status_code != 200:
-            return
-        raw_image = Image.open(res.raw).convert("RGB")
-    except Exception as e:
-        Log.error(f"Ошибка загрузки исходного изображения с сервера: {e}")
-        return
-
-    # #2 УМНОЕ ЦЕНТРИРОВАНИЕ ТОВАРА СТРОГО 900х1200
-    Log.info("Адаптация геометрии под эталонный формат маркетплейса 900х1200...")
-    garment_image = ImageOps.pad(raw_image, (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 255, 255))
-    
-    try:
-        import rembg
-        
-        # Шаг А: Вырезаем силуэт человека (альфа-канал)
-        garment_mask_output = rembg.remove(garment_image, session=REMBG_SESSION)
-        g_alpha = garment_mask_output.split()[-1]
-        g_alpha_np = np.array(g_alpha)
-        
-        # --- МАСКА №1: ТОЛЬКО ОДЕЖДА (Лицо, кисти рук и оригинальный фон полностью заблокированы) ---
-        # 1. Создаем базовый холст: заливаем его БЕЛЫМ (255). В логике SDXL Inpaint белый — это полная защита.
-        clothing_draw = np.full_like(g_alpha_np, 255)
-        
-        head_limit = int(TARGET_HEIGHT * 0.25)  # Защита головы и шеи
-        hands_limit = int(TARGET_HEIGHT * 0.76)  # Защита ладоней и пальцев
-
-        # 2. Вырезаем область торса (одежду) по контуру силуэта и делаем её ЧЕРНОЙ (0).
-        # Для SDXL Inpaint черный цвет — это зона, которую нужно стереть и сгенерировать!
-        # При этом лицо и руки остаются белыми (защищенными)
-        clothing_draw[head_limit:hands_limit] = 255 - g_alpha_np[head_limit:hands_limit]
-
-        # Перевод массива в PIL изображение с мягким размытием краев ткани
-        clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
-
-        # --- МАСКА №2: ТОЛЬКО ФОН (Весь человек полностью заблокирован, меняется только окружение) ---
-        # Здесь оставляем вашу верную логику: человек черный (0 - защита), фон белый (255 - замена)
-        bg_mask_np = 255 - g_alpha_np
-        bg_mask = Image.fromarray(bg_mask_np.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=4))
-
-        
-    except Exception as e:
-        Log.error(f"Ошибка на этапе подготовки масок сегментации: {e}")
-        return
-
-    negative_prompt = (
-        "text, letters, words, typography, watermark, logo, signature, blurry, low quality, "
-        "bad shadows, ugly background, deformed object, deformed hands, extra fingers, mutated hands, "
-        "three arms, extra limbs, deformed face, bad skin, ugly eyes, unrealistic anatomy"
-    )
-    
-    try:
-        # =====================================================================
-        # ЭТАП №1: ИИ МЕНЯЕТ ТОЛЬКО ОДЕЖДУ (ЛИЦО И ФОН НЕ ТРОГАЮТСЯ)
-        # =====================================================================
-        Log.info("ЭТАП 1/2: SDXL перерисовывает одежду внутри изолированного силуэта...")
-        # Точечный промпт на изменение ткани
-        clothing_prompt = f"high quality commercial clothing texture, fashion look, {prompt_style}"
-        
-        person_with_new_cloth = VTON_PIPE(
-            prompt=clothing_prompt,
-            negative_prompt=negative_prompt,
-            image=garment_image,
-            mask_image=clothing_mask,
-            num_inference_steps=30,
-            guidance_scale=8.0,
-            strength=0.80  # Достаточно для полной смены ткани, но сохраняет позу рук
-        ).images[0]        # Корректно забираем первую PIL-картинку из SDXL пайплайна
-        
-        # =====================================================================
-        # ЭТАП №2: ИИ ГЕНЕРИРУЕТ НОВЫЙ ФОН (ЛИЦО И НОВАЯ ОДЕЖДА НЕ ТРОГАЮТСЯ)
-        # =====================================================================
-        Log.info("ЭТАП 2/2: SDXL генерирует коммерческий интерьер вокруг готовой модели...")
-        # Передаем картинку с новой одеждой из Этапа 1 и маску фона
-        
-        final_image = VTON_PIPE(
-            prompt=prompt_style,  # Основной промпт (например, про пену и ванну)
-            negative_prompt=negative_prompt,
-            image=person_with_new_cloth,
-            mask_image=bg_mask,
-            num_inference_steps=35,
-            guidance_scale=7.5,
-            strength=0.99  # Фон затирается полностью с нуля
-        ).images[0]        # Корректно забираем финальную PIL-картинку
-        
-        # Сохраняем результат
-        final_filename = f"vton_result_{task_id}.png"
-        final_image.save(final_filename)
-        Log.success(f"Рендеринг карточки {final_image.size} успешно завершен за 2 чистых прохода!")
-        
-    except Exception as e:
-        Log.error(f"Критический сбой ИИ-генерации: {e}")
-        import traceback
-        traceback.print_exc()
-        return
-        
-    # #4 БЕЗОПАСНАЯ ОЧИСТКА ПАМЯТИ НА ЛЕТУ
-    finally:
-        if 'raw_image' in locals(): del raw_image
-        if 'garment_mask_output' in locals(): del garment_mask_output
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'bg_mask' in locals(): del bg_mask
-        if 'person_with_new_cloth' in locals(): del person_with_new_cloth
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            
-    # #5 ОТПРАВКА ГОТОВОЙ КАРТОЧКИ ОБРАТНО СЕЛЛЕРУ НА САЙТ
-    submit_success = submit_result_to_server(task_id, user_login, final_filename)
-    if os.path.exists(final_filename):
-        os.remove(final_filename)
-        
-    if submit_success:
-        Log.success(f"Боевой цикл задачи {task_id} полностью закрыт и отправлен в сервис!\n")
-    else:
-        Log.error(f"Не удалось отправить результат задачи {task_id} на сервер.")
-
-
-import io
-import os
-import requests
-import numpy as np
-from PIL import Image, ImageFilter
-
-def process_heavy_tryon_naked123456(task_data):
-    """
-    ОТЛАДОЧНАЯ ФУНКЦИЯ: Только строит и отправляет маску одежды на сервер.
-    Помогает визуально проверить геометрию без запуска Stable Diffusion.
-    """
-    # 1. Распаковываем данные задачи, пришедшие от сервера
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-
-    print(f"\n🔬 [ДЕБАГ МАСКИ]: Запуск режима визуализации для задачи {task_id}")
-    
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-
-    # 2. Скачиваем оригинал фото из папки сессии через твой рабочий эндпоинт
-        # Добавили /api перед /studio, чтобы точно попасть в роут сервера Skulla
-    #download_url = f"{SERVER_URL}/api/studio/fishhook/download_source_v2/{user_login}/{task_id}"
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-    
-    try:
-        response = requests.get(download_url, stream=True, timeout=30)
-        if response.status_code != 200:
-            print(f"❌ Ошибка скачивания! Сервер вернул код: {response.status_code}")
-            return
-            
-        raw_image = Image.open(io.BytesIO(response.content)).convert("RGB")
-        print(f"🟢 Оригинал успешно скачан. Размер: {raw_image.size}")
-        
-    except Exception as e:
-        print(f"❌ Сбой при получении файла: {e}")
-        return
-
-    # 3. Видеокарта запускает rembg для построения базового силуэта человека
-    print("✂️ [GPU REMBG]: Вырезаем силуэт человека...")
-    try:
-        # 🔥 СТРОКА СЮДА: Объявляем глобальную переменную на СЕЙ ПЕРВОЙ строчке блока!
-        global REMBG_SESSION
-        
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  # Альфа-канал
-        g_alpha_np = np.array(g_alpha)
-    except Exception as rem_err:
-        print(f"❌ Ошибка rembg на GPU: {rem_err}")
-        return
-
-
-        # --- МАСКА: ТОЛЬКО БЛУЗКА (НАША ИСПРАВЛЕННАЯ РАБОЧАЯ ГЕОМЕТРИЯ) ---
-        clothing_draw = np.zeros_like(g_alpha_np)
-        
-        # Считаем проценты от РЕАЛЬНОЙ высоты скачанной картинки
-        actual_height = raw_image.height 
-        head_limit = int(actual_height * 0.22)   
-        hands_limit = int(actual_height * 0.48)  
-
-        # Закрашиваем БЕЛЫМ строго торс (блузку)
-        clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-
-        # Мягко размываем края маски для бесшовной склейки ткани
-        clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
-
-        # --- ЧИСТЫЙ ИНФЕРЕНС: ЗАМЕНА ТКАНИ НА ВИДЕОКАРТЕ ---
-        Log.info("⚡ [GPU SDXL]: Запуск рендеринга новой блузки...")
-        clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
-        
-        # Запускаем SDXL Inpaint строго по маске блузки
-        final_image = VTON_PIPE(
-            prompt=clothing_prompt,
-            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, human, skin, background change, pants change",
-            image=raw_image,
-            mask_image=clothing_mask,
-            num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
-            guidance_scale=7.5,
-            strength=0.80
-        ).images[0] # Забираем готовую картинку из массива результатов
-
-        # --- СОХРАНЕНИЕ КАРТОЧКИ ---
-        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        output_filename = f"vton_result_{task_id}.png"
-        final_image.save(output_filename)
-        Log.success(f"💾 Карточка блузки сгенерирована за 1 проход на GPU и сохранена как {output_filename}")
-
-        # Отправляем готовый результат обратно на сервер Skulla
-        submit_success = submit_result_to_server(task_id, user_login, output_filename)
-        
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-            
-        if submit_success:
-            Log.success(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")
-
-    except Exception as e:
-        Log.error(f"Критический сбой конвейера генерации одежды: {e}")
-        import traceback
-        traceback.print_exc()
-        
-    finally:
-        # Жестко вычищаем видеопамять от тяжелых объектов
-        if 'raw_image' in locals(): del raw_image
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'final_image' in locals(): del final_image
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
-
-import io
-import os
-import requests
-import numpy as np
-import torch
-from PIL import Image, ImageFilter
-
-def process_heavy_tryon_naked_oneperson(task_data):
-    """
-    БОЕВАЯ ФУНКЦИЯ: Меняет строго синюю блузку за 1 проход на GPU.
-    Лицо, руки, штаны и оригинальный фон улицы остаются нетронутыми.
-    """
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-    prompt_style = actual_task["prompt_style"]
-
-    print(f"\n🚀 [ИИ-ВОРКЕР]: Запуск генерации одежды для задачи {task_id}")
-    
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-
-    # 1. Скачиваем оригинал фото из папки сессии
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}"
-    
-    try:
-        response = requests.get(download_url, stream=True, timeout=30)
-        if response.status_code != 200:
-            print(f"❌ Ошибка скачивания! Сервер вернул код: {response.status_code}")
-            return
-            
-        raw_image = Image.open(io.BytesIO(response.content)).convert("RGB")
-        print(f"🟢 Оригинал успешно скачан. Размер: {raw_image.size}")
-        
-    except Exception as e:
-        print(f"❌ Сбой при получении файла: {e}")
-        return
-
-    # 2. Видеокарта запускает rembg для построения силуэта человека
-    try:
-        global REMBG_SESSION
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  
-        g_alpha_np = np.array(g_alpha)
-    except Exception as rem_err:
-        print(f"❌ Ошибка rembg на GPU: {rem_err}")
-        return
-
-    # 3. МАТЕМАТИКА МАСКИ БЛУЗКИ (НАША ИСПРАВЛЕННАЯ РАБОЧАЯ ГЕОМЕТРИЯ)
-    clothing_draw = np.zeros_like(g_alpha_np)
-    
-        
-    # Считаем проценты от РЕАЛЬНОЙ высоты скачанной картинки (740px)
-    actual_height = raw_image.height 
-    head_limit = int(actual_height * 0.42)   # Четко под шею
-    hands_limit = int(actual_height * 0.98)  # Ровно по пояс брюк
-
-    # Закрашиваем БЕЛЫМ (255) строго область блузки
-    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-
-
-    # Мягко размываем края маски для бесшовной склейки ткани
-    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
-
-    try:
-        # 4. ЧИСТЫЙ ИНФЕРЕНС: ЗАМЕНА ТКАНИ НА ВИДЕОКАРТЕ
-        print("⚡ [GPU SDXL]: Запуск рендеринга новой блузки...")
-        #clothing_prompt = f"{prompt_style}, high quality commercial clothing texture, fashion look"
-        clothing_prompt = "nude young woman, accurate anatomy, high realism, photorealistic quality, correct proportions"
-        # Запускаем SDXL Inpaint строго по маске блузки
-        final_image = VTON_PIPE(
-            prompt=clothing_prompt,
-            negative_prompt="deformed hands, extra fingers, mutated hands, three arms, extra limbs, bad skin, ugly eyes, unrealistic anatomy, face mutation, background change",
-            image=raw_image,
-            mask_image=clothing_mask,
-            num_inference_steps=35, # 35 шагов дадут отличную текстуру ткани
-            guidance_scale=8.5,
-            strength=0.98
-        ).images[0] # Забираем готовую картинку из массива результатов
-
-        # 5. СОХРАНЕНИЕ КАРТОЧКИ
-        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        output_filename = f"vton_result_{task_id}.png"
-        final_image.save(output_filename)
-        print(f"💾 Карточка блузки успешно сгенерирована и сохранена локально")
-
-        # 6. ОТПРАВКА НА СЕРВЕР SKULLA
-        submit_success = submit_result_to_server(task_id, user_login, output_filename)
-        
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-            
-        if submit_success:
-            print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")
-
-    except Exception as e:
-        print(f"❌ Критический сбой конвейера генерации одежды: {e}")
-        import traceback
-        traceback.print_exc()
-        
-    finally:
-        # Жестко вычищаем видеопамять от тяжелых объектов
-        if 'raw_image' in locals(): del raw_image
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'final_image' in locals(): del final_image
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
-
-
-import io
-import os
-import requests
-import numpy as np
-from PIL import Image, ImageFilter
-
-import io
-import os
-import requests
-import numpy as np
-from PIL import Image, ImageFilter
-
-def process_heavy_tryon_naked_catvton(task_data):
-    """
-    БОЕВАЯ ФУНКЦИЯ V3 (CatVTON):
-    Скачивает person.png и garment.png, строит маску 0.22-0.48
-    и сажает реальную вещь на модель без изменения лица.
-    """
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-
-    print(f"\n🚀 [CatVTON CONVEYER]: Запуск физической примерки для задачи {task_id}")
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-
-    # 1. СКАЧИВАНИЕ ФОТО МОДЕЛИ (person.png)
-    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
-    try:
-        print(f"📥 Скачивание фото модели: {download_person_url}")
-        res_p = requests.get(download_person_url, stream=True, timeout=30)
-        
-        if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
-            return
-            
-        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
-        print(f"🟢 Фото модели загружено. Размер: {raw_image.size}")
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании модели: {e}")
-        return
-
-    # 2. СКАЧИВАНИЕ ФОТО КРАСНОЙ БЛУЗКИ (garment.png)
-    download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
-    try:
-        print(f"📥 Скачивание фото одежды: {download_garment_url}")
-        res_g = requests.get(download_garment_url, stream=True, timeout=30)
-        
-        if res_g.status_code != 200:
-            print(f"❌ Критично: Файл garment.png не найден! Сбой режима V3.")
-            return
-            
-        garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
-        print("🟢 Фото красной блузки успешно загружено на видеокарту!")
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании одежды: {e}")
-        return
-
-    # 3. НАША ЭТАЛОННАЯ МАСКА ТОРСА (0.22 - 0.48)
-    try:
-        global REMBG_SESSION
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  
-        g_alpha_np = np.array(g_alpha)
-    except Exception as rem_err:
-        print(f"❌ Ошибка rembg: {rem_err}")
-        return
-
-    clothing_draw = np.zeros_like(g_alpha_np)
-    actual_height = raw_image.height 
-    head_limit = int(actual_height * 0.22)   # Четко под подбородок/шею
-    hands_limit = int(actual_height * 0.48)  # По линию пояса брюк
-    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
-    
-    # Делаем маску бинарной, с небольшим размытием краев для бесшовной склейки рукавов
-    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L").filter(ImageFilter.GaussianBlur(radius=3))
-
-    # ----------------------------------------------------
-    # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
-    # ----------------------------------------------------
-    try:
-        if garment_image:
-            print("⚡ [GPU CatVTON]: Сшиваем узоры красной блузки внутрь маски...")
-            
-            # 🚀 ЖЕСТКИЙ ФИКС: Импортируем torch прямо здесь, локально!
-            import torch
-            
-            # Официальная нормализация размеров от авторов CatVTON
-            from utils import resize_and_crop, resize_and_padding
-            VTON_SIZE = (768, 1024)
-            
-            person_scaled = resize_and_crop(raw_image, VTON_SIZE)
-            mask_scaled = resize_and_crop(clothing_mask, VTON_SIZE)
-            garment_scaled = resize_and_padding(garment_image, VTON_SIZE)
-
-            # Теперь эта строка выполнится идеально!
-            generator = torch.Generator(device="cuda").manual_seed(42)
-            
-            result_output = VTON_V3_PIPE(
-                image=person_scaled,
-                condition_image=garment_scaled,
-                mask=mask_scaled,
-                num_inference_steps=40,
-                generator=generator
-            )
-            
-            # 🚀 НАДЁЖНЫЙ ФИКС ВЫТАСКИВАНИЯ КАРТИНКИ:
-            # 1. Если это объект с атрибутом images, берем его содержимое
-            if hasattr(result_output, "images"):
-                raw_output = result_output.images
-            else:
-                raw_output = result_output
-
-            # 2. Если на этом этапе у нас всё ещё список (массив) — берем из него нулевой элемент!
-            if isinstance(raw_output, list):
-                final_image = raw_output[0]
-            else:
-                final_image = raw_output
-
-
-        # ----------------------------------------------------
-        # 5. БЛОК СБОРА И НАЛОЖЕНИЯ ПОЛУПРОЗРАЧНОЙ МАСКИ (ДЛЯ ОТЛАДКИ)
-        # ----------------------------------------------------
-        # Приводим финальную ИИ-картинку к нашему целевому размеру
-        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        
+    for pip_name, import_name in packages.items():
         try:
-            print("🎨 [ОТЛАДКА МАСКИ]: Накладываем полупрозрачный красный слой на финальное фото...")
-            
-            # 1. Приводим оригинальную черно-белую маску к размеру финального кадра
-            debug_mask = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-            
-            # 2. Создаем полностью КРАСНЫЙ холст такого же размера (RGB: 255, 0, 0)
-            red_layer = Image.new("RGB", (TARGET_WIDTH, TARGET_HEIGHT), color=(255, 0, 0))
-            
-            # 3. Делаем маску полупрозрачной: берем ее белые пиксели и задаем им прозрачность ~100 из 255 (около 40% видимости)
-            alpha_mask = debug_mask.point(lambda p: 100 if p > 10 else 0)
-            
-            # 4. Склеиваем финальную картинку с красным холстом по прозрачной маске
-            # Там, где маска была белой, появится красный полупрозрачный фильтр. Где черной — останется ИИ-картинка.
-            overlay_image = Image.composite(red_layer, final_image, alpha_mask)
-            
-            # Сохраняем именно картинку с оверлеем, чтобы глазами увидеть зону изменений на сайте!
-            output_filename = f"vton_result_{task_id}.png"
-            overlay_image.save(output_filename)
-            print("✅ Отладочный оверлей успешно сохранен на диск.")
-            
-        except Exception as overlay_err:
-            print(f"⚠️ Ошибка создания отладочного оверлея: {overlay_err}. Сохраняем чистый результат.")
-            output_filename = f"vton_result_{task_id}.png"
-            final_image.save(output_filename)
+            __import__(import_name)
+            print(f"✅ {pip_name} уже установлен.")
+        except ImportError:
+            print(f"📦 Устанавливаю {pip_name}...")
+            subprocess.check_call([
+                sys.executable, "-m", "pip", "install", "-q", pip_name
+            ])
 
-        # 6. ОТПРАВКА НА СЕРВЕР SKULLA
-        submit_success = submit_result_to_server(task_id, user_login, output_filename)
-        
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-            
-        if submit_success:
-            print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")            
+    if not shutil.which("ffmpeg"):
+        print("📦 Устанавливаю ffmpeg...")
+        os.system("apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null 2>&1")
 
-    except Exception as e:
-        print(f"❌ Критический сбой конвейера примерки: {e}")
-        
-    finally:
-        if 'raw_image' in locals(): del raw_image
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'garment_image' in locals(): del garment_image
-        if 'final_image' in locals(): del final_image
-        import gc
-        gc.collect()
-        import torch
-        torch.cuda.empty_cache()
+install_dependencies()
 
+import speech_recognition as sr
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-import io
-import os
-import requests
-import numpy as np
-import rembg
-from PIL import Image, ImageFilter
+# ============================================================
+# ⚙️ КОНФИГУРАЦИЯ
+# ============================================================
+USER_LOGIN = "RATANOV_PAVEL"
+SERVER_URL = "https://skulla.ru"
+DEMO_MODE  = False
+NSFW_ENABLED = True
 
-def process_heavy_tryon_naked_mask(task_data):
-    """
-    ОТЛАДОЧНАЯ ФУНКЦИЯ V3: Только строит и отправляет маску на сервер Skulla.
-    Помогает визуально проверить геометрию в новом окружении T4 без запуска ИИ.
-    """
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-
-    print(f"\n🔬 [ДЕБАГ МАСКИ V3]: Режим визуализации для задачи {task_id}")
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-
-    # 1. Скачиваем фото модели через твой универсальный роут скачивания
-    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
-    try:
-        print(f"📥 Скачивание фото модели: {download_person_url}")
-        res_p = requests.get(download_person_url, stream=True, timeout=30)
-        
-        if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал фото модели. Код: {res_p.status_code}")
-            return
-            
-        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
-        print(f"🟢 Фото успешно загружено. Размер: {raw_image.size}")
-    except Exception as e:
-        print(f"❌ Сбой при получении файла: {e}")
-        return
-
-    # 2. Видеокарта запускает rembg для построения силуэта человека
-    print("✂️ [GPU REMBG]: Вырезаем силуэт человека на новой либе 1.19.0...")
-    try:
-        global REMBG_SESSION
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        output_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = output_rembg.split()[-1]  # Альфа-канал: человек белый (255), фон черный (0)
-        g_alpha_np = np.array(g_alpha)
-        print("✅ Силуэт успешно построен силами видеокарты!")
-    except Exception as rem_err:
-        print(f"❌ Ошибка сегментации rembg на GPU: {rem_err}")
-        return
-
-    # 3. МАТЕМАТИКА МАСКИ ТОРСА (Наши сдвинутые лимиты 0.28 - 0.52)
-    clothing_draw = np.zeros_like(g_alpha_np)
-    actual_height = raw_image.height 
+# ============================================================
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ С ПСИХОЛОГИЧЕСКИМИ ХАРАКТЕРИСТИКАМИ
+# ============================================================
+CHARACTERS = {
+    # ===== ЖЕНЩИНЫ (10 персонажей) =====
+    "anna": {
+        "name": "Анна",
+        "personality": "Ты — Анна, 25 лет. Нежная, романтичная девушка с чувством юмора. Любишь искусство, музыку и долгие прогулки. Говоришь мягко, с лёгкой иронией.",
+        "voice_sample": "voices/anna.wav",
+        "face_desc": "25yo woman, long wavy chestnut hair, green eyes, delicate features, porcelain skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 42,
+        "traits": {"intelligence": 75, "confidence": 60, "openness": 80, "empathy": 90, "humor": 70},
+        "initial_state": {"arousal": 20, "mood": 50, "trust": 30, "intimacy": 10, "energy": 70}
+    },
+    "kate": {
+        "name": "Катя",
+        "personality": "Ты — Катя, 23 года. Дерзкая, уверенная в себе, любишь флиртовать и подкалывать. Говоришь прямо, иногда грубовато, но с обаянием.",
+        "voice_sample": "voices/kate.wav",
+        "face_desc": "23yo woman, short platinum blonde bob, blue eyes, sharp features, fair skin, freckles",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 123,
+        "traits": {"intelligence": 65, "confidence": 90, "openness": 70, "empathy": 50, "humor": 85},
+        "initial_state": {"arousal": 30, "mood": 60, "trust": 20, "intimacy": 5, "energy": 90}
+    },
+    "maria": {
+        "name": "Мария",
+        "personality": "Ты — Мария, 28 лет. Интеллектуалка, любишь философию и глубокие разговоры. Говоришь спокойно, вдумчиво, с академическим уклоном.",
+        "voice_sample": "voices/maria.wav",
+        "face_desc": "28yo woman, long straight dark brown hair, brown eyes, sophisticated features, olive skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 456,
+        "traits": {"intelligence": 95, "confidence": 70, "openness": 85, "empathy": 75, "humor": 40},
+        "initial_state": {"arousal": 15, "mood": 55, "trust": 40, "intimacy": 15, "energy": 60}
+    },
+    "lisa": {
+        "name": "Лиза",
+        "personality": "Ты — Лиза, 22 года. Весёлая, энергичная, обожаешь тусовки и приключения. Говоришь быстро, эмоционально, много смеёшься.",
+        "voice_sample": "voices/lisa.wav",
+        "face_desc": "22yo woman, long bright red hair with bangs, hazel eyes, playful features, fair skin, rosy cheeks",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 789,
+        "traits": {"intelligence": 55, "confidence": 75, "openness": 95, "empathy": 80, "humor": 90},
+        "initial_state": {"arousal": 40, "mood": 80, "trust": 35, "intimacy": 20, "energy": 95}
+    },
+    "sophie": {
+        "name": "Софи",
+        "personality": "Ты — Софи, 18 лет. Студентка, мечтательная и наивная. Любишь читать фантастику, веришь в принцев и волшебство. Говоришь тихо, задумчиво, часто мечтаешь вслух.",
+        "voice_sample": "voices/sophie.wav",
+        "face_desc": "18yo girl, long blonde hair, blue eyes, innocent face, soft features, fair skin, youthful",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 101,
+        "traits": {"intelligence": 60, "confidence": 35, "openness": 90, "empathy": 85, "humor": 50},
+        "initial_state": {"arousal": 10, "mood": 65, "trust": 50, "intimacy": 5, "energy": 75}
+    },
+    "elena": {
+        "name": "Елена",
+        "personality": "Ты — Елена, 30 лет. Успешная бизнес-леди, амбициозная и властная. Любишь контроль и порядок. Говоришь уверенно, кратко, иногда высокомерно.",
+        "voice_sample": "voices/elena.wav",
+        "face_desc": "30yo woman, sleek black bob hair, sharp green eyes, elegant features, confident expression, pale skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 202,
+        "traits": {"intelligence": 85, "confidence": 95, "openness": 40, "empathy": 35, "humor": 30},
+        "initial_state": {"arousal": 25, "mood": 45, "trust": 15, "intimacy": 0, "energy": 85}
+    },
+    "olga": {
+        "name": "Ольга",
+        "personality": "Ты — Ольга, 35 лет. Мать-одиночка, заботливая и мудрая. Любишь готовить, читать, помогать людям. Говоришь тепло, с материнской заботой, всегда поддержишь.",
+        "voice_sample": "voices/olga.wav",
+        "face_desc": "35yo woman, medium brown hair, warm brown eyes, kind face, gentle smile, natural beauty, mature",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 303,
+        "traits": {"intelligence": 70, "confidence": 65, "openness": 60, "empathy": 95, "humor": 55},
+        "initial_state": {"arousal": 10, "mood": 60, "trust": 45, "intimacy": 10, "energy": 55}
+    },
+    "natasha": {
+        "name": "Наташа",
+        "personality": "Ты — Наташа, 28 лет. Фитнес-тренер, спортивная и энергичная. Любишь здоровый образ жизни, мотивацию и дисциплину. Говоришь бодро, вдохновляюще, всегда на позитиве.",
+        "voice_sample": "voices/natasha.wav",
+        "face_desc": "28yo athletic woman, ponytail blonde hair, bright blue eyes, fit body, tanned skin, energetic smile",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 404,
+        "traits": {"intelligence": 60, "confidence": 85, "openness": 75, "empathy": 70, "humor": 75},
+        "initial_state": {"arousal": 35, "mood": 75, "trust": 30, "intimacy": 10, "energy": 95}
+    },
+    "victoria": {
+        "name": "Виктория",
+        "personality": "Ты — Виктория, 40 лет. Профессор университета, строгая и интеллектуальная. Любишь науку, логику и порядок. Говоришь академично, точно, не терпишь глупости.",
+        "voice_sample": "voices/victoria.wav",
+        "face_desc": "40yo woman, short grey-streaked hair, piercing grey eyes, stern features, glasses, elegant, mature",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 505,
+        "traits": {"intelligence": 98, "confidence": 80, "openness": 70, "empathy": 45, "humor": 25},
+        "initial_state": {"arousal": 5, "mood": 50, "trust": 25, "intimacy": 5, "energy": 65}
+    },
+    "diana": {
+        "name": "Диана",
+        "personality": "Ты — Диана, 22 года. Модель, гламурная и уверенная в себе. Любишь моду, вечеринки и внимание. Говоришь кокетливо, с лёгкой надменностью, знаешь себе цену.",
+        "voice_sample": "voices/diana.wav",
+        "face_desc": "22yo glamorous woman, long dark hair, striking hazel eyes, perfect makeup, model features, flawless skin",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 606,
+        "traits": {"intelligence": 50, "confidence": 95, "openness": 80, "empathy": 40, "humor": 65},
+        "initial_state": {"arousal": 45, "mood": 70, "trust": 20, "intimacy": 15, "energy": 80}
+    },
     
-    # Жесткая защита подбородка и лица модели
-    head_limit = int(actual_height * 0.28)   
-    hands_limit = int(actual_height * 0.52)  
+    # ===== МУЖЧИНЫ (3 персонажа) =====
+    "alex": {
+        "name": "Алекс",
+        "personality": "Ты — Алекс, 20 лет. Студент, романтичный и немного застенчивый. Любишь музыку, книги и долгие разговоры. Говоришь мягко, иногда запинаясь, но искренне.",
+        "voice_sample": "voices/alex.wav",
+        "face_desc": "20yo man, messy brown hair, gentle blue eyes, soft features, slim build, youthful face",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 707,
+        "traits": {"intelligence": 70, "confidence": 40, "openness": 85, "empathy": 80, "humor": 60},
+        "initial_state": {"arousal": 25, "mood": 55, "trust": 40, "intimacy": 10, "energy": 70}
+    },
+    "maxim": {
+        "name": "Максим",
+        "personality": "Ты — Максим, 30 лет. Предприниматель, уверенный и харизматичный. Любишь бизнес, риск и победы. Говоришь уверенно, с лёгкой самоуверенностью, но обаятельно.",
+        "voice_sample": "voices/maxim.wav",
+        "face_desc": "30yo man, short dark hair, confident brown eyes, strong jawline, athletic build, handsome",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 808,
+        "traits": {"intelligence": 80, "confidence": 90, "openness": 65, "empathy": 55, "humor": 70},
+        "initial_state": {"arousal": 30, "mood": 65, "trust": 25, "intimacy": 10, "energy": 85}
+    },
+    "sergey": {
+        "name": "Сергей",
+        "personality": "Ты — Сергей, 40 лет. Врач, спокойный и мудрый. Любишь помогать людям, читать и размышлять. Говоришь спокойно, вдумчиво, с профессиональной уверенностью.",
+        "voice_sample": "voices/sergey.wav",
+        "face_desc": "40yo man, short grey-brown hair, calm brown eyes, mature features, kind face, professional",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "seed": 909,
+        "traits": {"intelligence": 90, "confidence": 75, "openness": 60, "empathy": 85, "humor": 45},
+        "initial_state": {"arousal": 15, "mood": 60, "trust": 35, "intimacy": 10, "energy": 60}
+    }
+}
 
-    # Вырезаем область торса (одежды) по контуру силуэта и делаем её БЕЛОЙ (255)
-    clothing_draw[head_limit:hands_limit] = g_alpha_np[head_limit:hands_limit]
+ACTIVE_CHARACTER = "anna"
 
-    # Переводим массив в черно-белую картинку PIL (БЕЗ размытия, чтобы видеть чистые границы)
-    clothing_mask = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
+# Хранилище состояний персонажей (динамически изменяется)
+CHARACTER_STATES = {}
 
-    # 4. СОХРАНЯЕМ МАСКУ КАК ИТОГОВЫЙ РЕЗУЛЬТАТ ДЛЯ СТЕНДА
-    final_image = clothing_mask.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-    output_filename = f"vton_result_{task_id}.png"
-    final_image.save(output_filename)
-    print(f"💾 Маска сохранена локально под именем: {output_filename}")
+# ============================================================
+# 🎬 СИСТЕМА СЦЕН
+# ============================================================
+SCENES = {
+    "nature": {
+        "name": "🌿 Природа",
+        "prompt_en": "lush green forest, dappled sunlight, wildflowers, golden hour",
+        "nsfw": False
+    },
+    "sea": {
+        "name": "🌊 Море",
+        "prompt_en": "beautiful beach, turquoise ocean waves, white sand, sunset golden hour",
+        "nsfw": False
+    },
+    "shower": {
+        "name": "🚿 Душ",
+        "prompt_en": "glass shower, water droplets on skin, steam, soft warm lighting, wet hair",
+        "nsfw": True
+    },
+    "pastel": {
+        "name": "🌸 Пастель",
+        "prompt_en": "soft pastel bedroom, pink and lavender tones, dreamy lighting, fairy lights",
+        "nsfw": False
+    },
+    "nsfw": {
+        "name": "🔥 18+",
+        "prompt_en": "intimate boudoir, soft dramatic lighting, tasteful composition",
+        "nsfw": True
+    },
+    "cafe": {
+        "name": "☕ Кафе",
+        "prompt_en": "cozy cafe interior, warm ambient lighting, coffee cup, window view",
+        "nsfw": False
+    },
+    "gym": {
+        "name": "💪 Спортзал",
+        "prompt_en": "modern gym interior, athletic pose, dynamic lighting, sportswear",
+        "nsfw": False
+    }
+}
 
-    # 5. ОТПРАВЛЯЕМ КАРТИНКУ МАСКИ НА СЕРВЕР SKULLA
-    print("📤 Отправка файла маски на сервер для визуального анализа...")
-    # 6. ОТПРАВКА НА СЕРВЕР SKULLA
-    submit_success = submit_result_to_server(task_id, user_login, output_filename)
-    
-    if os.path.exists(output_filename):
-        os.remove(output_filename)
-        
-    if submit_success:
-        print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")  
+# ============================================================
+# 🖼️ МОДЕЛИ
+# ============================================================
+IMAGE_MODEL = None
+VOICE_MODEL = None
+VOICE_TOKENIZER = None
+TTS_ENGINE = None
 
-import io
-import os
-import requests
-import numpy as np
-import rembg
-from PIL import Image, ImageFilter
-
-import io
-import os
-import requests
-import numpy as np
-import rembg
-from PIL import Image, ImageFilter
-
-def process_heavy_tryon_naked_debugmask(task_data):
-    """
-    УМНАЯ ОПТИМИЗИРОВАННАЯ МАСКА V3:
-    1. Находит силуэт человека на оригинале ОДИН раз.
-    2. Синхронно масштабирует и фото, и маску так, чтобы человек занимал ровно 3/4 высоты кадра.
-    3. Отсекает жесткие лимиты торса и шлет красный оверлей на сервер.
-    """
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-
-    print(f"\n🔬 [УМНАЯ ОПТИМИЗИРОВАННАЯ МАСКА]: Задача {task_id}")
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-    VTON_WIDTH = 768
-    VTON_HEIGHT = 1024
-
-    # 1. Скачиваем фото модели
-    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
-    try:
-        res_p = requests.get(download_person_url, stream=True, timeout=30)
-        if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
-            return
-        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
-        orig_w, orig_h = raw_image.size
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании: {e}")
-        return
-
-    # ----------------------------------------------------
-    # ШАГ 1: ЕДИНСТВЕННЫЙ ЗАПУСК REMBG НА ИСХОДНИКЕ
-    # ----------------------------------------------------
-    try:
-        global REMBG_SESSION
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        orig_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = orig_rembg.split()[-1]  # Достаем PIL-картинку альфа-канала оригинального силуэта
-        orig_alpha_np = np.array(g_alpha)
-    except Exception as rem_err:
-        print(f"❌ Ошибка rembg: {rem_err}")
-        return
-
-    # Находим крайние координаты человека по оригинальному силуэту
-    white_pixels = np.argwhere(orig_alpha_np > 10)
-    if len(white_pixels) == 0:
-        print("⚠️ Человек на фото не обнаружен! Стандартный ресайз.")
-        person_scaled = raw_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
-        mask_scaled = g_alpha.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.NEAREST)
+# ============================================================
+# 🔧 УТИЛИТЫ
+# ============================================================
+def check_gpu():
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        print(f"✅ GPU: {gpu_name} | VRAM: {vram:.1f} GB")
+        return True
     else:
-        y_min, x_min = white_pixels.min(axis=0)
-        y_max, x_max = white_pixels.max(axis=0)
-        
-        current_person_height = y_max - y_min
-        center_y = (y_min + y_max) // 2
-        center_x = (x_min + x_max) // 2
-
-        # ----------------------------------------------------
-        # ШАГ 2: ВЫЧИСЛЯЕМ МАСШТАБ (3/4 от 1024 = 768)
-        # ----------------------------------------------------
-        desired_person_height = int(VTON_HEIGHT * 0.75) 
-        scale = desired_person_height / current_person_height
-        
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        
-        # Масштабируем ОДНОВРЕМЕННО и оригинал, и оригинальную маску rembg
-        resized_raw = raw_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        resized_alpha = g_alpha.resize((new_w, new_h), Image.Resampling.NEAREST) # Для маски строго NEAREST
-        
-        # Пересчитываем координаты центра на новом масштабе
-        new_center_y = int(center_y * scale)
-        new_center_x = int(center_x * scale)
-        
-        # Границы кропа для вырезания холста 768x1024
-        crop_top = new_center_y - (VTON_HEIGHT // 2)
-        crop_left = new_center_x - (VTON_WIDTH // 2)
-        
-        # Создаем пустые холсты нужного размера для CatVTON
-        person_scaled = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(0, 0, 0))
-        alpha_scaled = Image.new("L", (VTON_WIDTH, VTON_HEIGHT), color=0)
-        
-        # Вычисляем пересечение геометрии для безопасного кропа и вставки
-        src_left = max(0, crop_left)
-        src_top = max(0, crop_top)
-        src_right = min(new_w, crop_left + VTON_WIDTH)
-        src_bottom = min(new_h, crop_top + VTON_HEIGHT)
-        
-        dst_left = max(0, -crop_left)
-        dst_top = max(0, -crop_top)
-        
-        # Синхронно вырезаем кусок из фото и кусок из маски rembg
-        cropped_person = resized_raw.crop((src_left, src_top, src_right, src_bottom))
-        cropped_alpha = resized_alpha.crop((src_left, src_top, src_right, src_bottom))
-        
-        # Вставляем вырезанные куски по центру наших холстов 768x1024
-        person_scaled.paste(cropped_person, (dst_left, dst_top))
-        alpha_scaled.paste(cropped_alpha, (dst_left, dst_top))
-        
-        print(f"🎯 Синхронная автоподгонка завершена. Маска масштабирована без повторного запуска rembg!")
-
-    # ----------------------------------------------------
-    # ШАГ 3: ДИНАМИЧЕСКОЕ НАЛОЖЕНИЕ МАСКИ ТОРСА ОТ РОСТА ЧЕЛОBЕКА
-    # ----------------------------------------------------
-    g_alpha_final_np = np.array(alpha_scaled)
-    clothing_draw = np.zeros_like(g_alpha_final_np)
-    
-    # 🚀 ИСПРАВЛЕНО: Находим точные границы уже СКАЛИРОВАННОГО человека на новом холсте 1024px
-    final_white_pixels = np.argwhere(g_alpha_final_np > 10)
-    
-    if len(final_white_pixels) == 0:
-        # Если что-то пошло не так, оставляем аварийный дефолт
-        head_limit = int(VTON_HEIGHT * 0.38)
-        hands_limit = int(VTON_HEIGHT * 0.62)
-    else:
-        # Находим макушку (y_min_f) и стопы (y_max_f) отмасштабированного силуэта
-        y_min_f, _ = final_white_pixels.min(axis=0)
-        y_max_f, _ = final_white_pixels.max(axis=0)
-        
-        # Чистый рост человека на холсте в пикселях
-        scaled_person_height = y_max_f - y_min_f
-        
-        # 🎯 ХИРУРГИЧЕСКИЙ РАСЧЕТ ТОРСА:
-        # Шея начнется строго на 18% ниже макушки
-        head_limit = int(y_min_f + scaled_person_height * 0.18)
-        # Пояс закончится строго на 46% ниже макушки (выше бедер и юбки)
-        hands_limit = int(y_min_f + scaled_person_height * 0.46)
-        
-        print(f"📐 Рост на холсте: {scaled_person_height}px. Динамическая маска: {head_limit}px - {hands_limit}px")
-
-    # Вырезаем область блузки строго внутри отмасштабированного силуэта
-    clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
-    mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
-
-
-    # Сборка тестового красного оверлея
-    red_layer = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(255, 0, 0))
-    alpha_mask = mask_scaled.point(lambda p: 100 if p > 10 else 0)
-    overlay_image = Image.composite(red_layer, person_scaled, alpha_mask)
-
-    # Приводим к финальному размеру отображения на сайте
-    final_preview = overlay_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-    
-    output_filename = f"vton_result_{task_id}.png"
-    final_preview.save(output_filename)
-
-    # 6. ОТПРАВКА НА СЕРВЕР SKULLA
-    print(f"📤 Отправка кадра геометрии {output_filename} на бэкенд...")
-    submit_success = submit_result_to_server(task_id, user_login, output_filename)
-    
-    if os.path.exists(output_filename):
-        os.remove(output_filename)
-        
-    if submit_success:
-        print(f"🏁 Задача {task_id} полностью выполнена и отправлена на сайт!")            
-
-import io
-import os
-import requests
-import numpy as np
-import rembg
-import torch
-from PIL import Image, ImageFilter
-
-def process_heavy_tryon_naked(task_data):
-    """
-    ФИНАЛЬНЫЙ БОЕВОЙ КОНВЕЙЕР V3 (CatVTON):
-    1. Находит силуэт человека и синхронно масштабирует маску и фото под 3/4 высоты кадра.
-    2. Вырезает идеальную маску торса по нашей проверенной геометрии (0.18 - 0.46 от макушки).
-    3. Запускает CatVTON для сквозного переноса кроя и ткани garment.png.
-    """
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-
-    print(f"\n🚀 [CatVTON PRODUCTION V3]: Запуск примерки для задачи {task_id}")
-    TARGET_WIDTH = 900
-    TARGET_HEIGHT = 1200
-    VTON_WIDTH = 768
-    VTON_HEIGHT = 1024
-
-    # 1. Скачиваем фото модели
-    download_person_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=person.png"
-    try:
-        res_p = requests.get(download_person_url, stream=True, timeout=30)
-        if res_p.status_code != 200:
-            print(f"❌ Сервер не отдал модель. Код: {res_p.status_code}")
-            return
-        raw_image = Image.open(io.BytesIO(res_p.content)).convert("RGB")
-        orig_w, orig_h = raw_image.size
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании модели: {e}")
-        return
-
-    # 2. Скачиваем фото одежды (garment.png)
-    download_garment_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=garment.png"
-    try:
-        res_g = requests.get(download_garment_url, stream=True, timeout=30)
-        if res_g.status_code != 200:
-            print(f"❌ Критично: Файл garment.png не найден на сервере!")
-            return
-        garment_image = Image.open(io.BytesIO(res_g.content)).convert("RGB")
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании одежды: {e}")
-        return
-
-    # ----------------------------------------------------
-    # ШАГ 1: ЕДИНСТВЕННЫЙ ЗАПУСК REMBG НА ИСХОДНИКЕ
-    # ----------------------------------------------------
-    try:
-        global REMBG_SESSION
-        if 'REMBG_SESSION' not in globals() or REMBG_SESSION is None:
-            from rembg import new_session
-            REMBG_SESSION = new_session("u2net")
-            
-        orig_rembg = rembg.remove(raw_image, session=REMBG_SESSION)
-        g_alpha = orig_rembg.split()[-1]  
-        orig_alpha_np = np.array(g_alpha)
-    except Exception as rem_err:
-        print(f"❌ Ошибка rembg: {rem_err}")
-        return
-
-    # Твой умный расчет масштабирования силуэта
-    white_pixels = np.argwhere(orig_alpha_np > 10)
-    if len(white_pixels) == 0:
-        print("⚠️ Человек на фото не обнаружен! Стандартный ресайз.")
-        person_scaled = raw_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
-        alpha_scaled = g_alpha.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.NEAREST)
-    else:
-        y_min, x_min = white_pixels.min(axis=0)
-        y_max, x_max = white_pixels.max(axis=0)
-        
-        current_person_height = y_max - y_min
-        center_y = (y_min + y_max) // 2
-        center_x = (x_min + x_max) // 2
-
-        # ----------------------------------------------------
-        # ШАГ 2: СИНХРОННЫЙ УМНЫЙ РЕСАЙЗ ФОТО И МАСКИ ДО КРОПА
-        # ----------------------------------------------------
-        desired_person_height = int(VTON_HEIGHT * 0.75) 
-        scale = desired_person_height / current_person_height
-        
-        new_w = int(orig_w * scale)
-        new_h = int(orig_h * scale)
-        
-        resized_raw = raw_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-        resized_alpha = g_alpha.resize((new_w, new_h), Image.Resampling.NEAREST)
-        
-        new_center_y = int(center_y * scale)
-        new_center_x = int(center_x * scale)
-        
-        crop_top = new_center_y - (VTON_HEIGHT // 2)
-        crop_left = new_center_x - (VTON_WIDTH // 2)
-        
-        person_scaled = Image.new("RGB", (VTON_WIDTH, VTON_HEIGHT), color=(0, 0, 0))
-        alpha_scaled = Image.new("L", (VTON_WIDTH, VTON_HEIGHT), color=0)
-        
-        src_left = max(0, crop_left)
-        src_top = max(0, crop_top)
-        src_right = min(new_w, crop_left + VTON_WIDTH)
-        src_bottom = min(new_h, crop_top + VTON_HEIGHT)
-        
-        dst_left = max(0, -crop_left)
-        dst_top = max(0, -crop_top)
-        
-        cropped_person = resized_raw.crop((src_left, src_top, src_right, src_bottom))
-        cropped_alpha = resized_alpha.crop((src_left, src_top, src_right, src_bottom))
-        
-        person_scaled.paste(cropped_person, (dst_left, dst_top))
-        alpha_scaled.paste(cropped_alpha, (dst_left, dst_top))
-
-    # ----------------------------------------------------
-    # ШАГ 3: РАСШИРЕННЫЙ РАСЧЕТ МАСКИ ПОД ДЛИННЫЙ РУКАВ И ПОДОЛ
-    # ----------------------------------------------------
-    g_alpha_final_np = np.array(alpha_scaled)
-    clothing_draw = np.zeros_like(g_alpha_final_np)
-    
-    final_white_pixels = np.argwhere(g_alpha_final_np > 10)
-    if len(final_white_pixels) == 0:
-        head_limit = int(VTON_HEIGHT * 0.38)
-        hands_limit = int(VTON_HEIGHT * 0.62)
-    else:
-        y_min_f, _ = final_white_pixels.min(axis=0)
-        y_max_f, _ = final_white_pixels.max(axis=0)
-        scaled_person_height = y_max_f - y_min_f
-        
-        # Начинаем строго под подбородком (18% от макушки)
-        head_limit = int(y_min_f + scaled_person_height * 0.18)
-        
-        # 🚀 УДЛИНЯЕМ ПОДОЛ: Опускаем нижнюю границу до середины бёдер (56% вместо 0.46)
-        # Это даст красной блузке место, чтобы закончиться во всю длину!
-        hands_limit = int(y_min_f + scaled_person_height * 0.56)
-
-    # 🚀 СУПЕР-ФИКС ДЛЯ ДЛИННЫХ РУКАВОВ: 
-    # Закрашиваем весь силуэт человека целиком в этом диапазоне высоты.
-    # Поскольку руки девушки опущены вдоль тела, они целиком попадут в эту зону, 
-    # и ИИ сможет перерисовать голые предплечья в ткань длинного рукава!
-    clothing_draw[head_limit:hands_limit] = g_alpha_final_np[head_limit:hands_limit]
-    mask_scaled = Image.fromarray(clothing_draw.astype(np.uint8), mode="L")
-
-
-
-    # ПОДГОТОВКА КАРТИНКИ ОДЕЖДЫ (РЕЗАЙЗ ПОД ЕДИНЫЙ РАЗМЕР ХОЛСТА)
-    garment_scaled = garment_image.resize((VTON_WIDTH, VTON_HEIGHT), Image.Resampling.LANCZOS)
-
-    # ----------------------------------------------------
-    # ШАГ 4: ЗАПУСК НЕЙРОСЕТИ ОРИГИНАЛЬНОГО CatVTON
-    # ----------------------------------------------------
-    # ----------------------------------------------------
-    # 4. ЗАПУСК КАТАЛИЗАТОРА CatVTON
-    # ----------------------------------------------------
-    try:
-        if garment_image:
-            print("⚡ [GPU CatVTON]: Проверка готовности пайплайна примерки...")
-            import torch
-            
-            # 🚀 ДОПИСЫВАЕМ СЮДА: Если прошлым шагом была анимация и CatVTON стерт — собираем его заново!
-            global VTON_V3_PIPE
-            if 'VTON_V3_PIPE' not in globals() or VTON_V3_PIPE is None:
-                print("🔄 Пайплайн CatVTON отсутствует в памяти. Пересобираем движок примерки одежды...")
-                # Вызываем твою готовую глобальную функцию инициализации моделей
-                init_vton_models()
-                
-            # Дальше идет твой стандартный рабочий код подготовки размеров и инференса CatVTON...
-
-
-        print("⚡ [GPU CatVTON]: Запуск сшивания физической ткани блузки...")
-        import torch
-        
-        # Фиксируем генератор на GPU
-        generator = torch.Generator(device="cuda").manual_seed(42)
-        
-        # Вызываем CatVTON строго по паспорту авторов без текстового мусора
-        result_output = VTON_V3_PIPE(
-            image=person_scaled,
-            condition_image=garment_scaled,
-            mask=mask_scaled,
-            num_inference_steps=40,
-            generator=generator
-        )
-        
-        if hasattr(result_output, "images"):
-            raw_output = result_output.images
-        else:
-            raw_output = result_output
-
-        if isinstance(raw_output, list):
-            final_image = raw_output[0]
-        else:
-            final_image = raw_output
-
-        # ----------------------------------------------------
-        # ШАГ 5: СОХРАНЕНИЕ И ОТПРАВКА НА СЕРВЕР SKULLA
-        # ----------------------------------------------------
-        final_image = final_image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.Resampling.LANCZOS)
-        output_filename = f"vton_result_{task_id}.png"
-        final_image.save(output_filename)
-
-        print(f"📥 [УСПЕХ]: Фото сгенерировано. Отправка на бэкенд...")
-        submit_success = submit_result_to_server(task_id, user_login, output_filename)
-        
-        if os.path.exists(output_filename):
-            os.remove(output_filename)
-            
-        if submit_success:
-            print(f"🏁 [ПРОДУКТ ГОТОВ V3]: Новая вещь надета. Задача {task_id} завершена!")
-
-    except Exception as e:
-        print(f"❌ Критический сбой CatVTON: {e}")
-        import traceback
-        traceback.print_exc()
-        
-    finally:
-        if 'raw_image' in locals(): del raw_image
-        if 'clothing_mask' in locals(): del clothing_mask
-        if 'garment_image' in locals(): del garment_image
-        if 'final_image' in locals(): del final_image
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
-
-import io
-import os
-import requests
-import imageio
-import torch
-from PIL import Image
-
-def process_video_animation(task_data):
-    """
-    БОЕВАЯ ВИДЕО-ФУНКЦИЯ: Скачивает готовый результат примерки родительской задачи 
-    и генерирует из него плавный MP4 видеоролик на GPU.
-    """
-
-    import sys
-    import torchvision.transforms.functional as tv_F
-    sys.modules['torchvision.transforms.functional_tensor'] = tv_F
-
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]           # Это ID видео-задачи (нужен для сохранения MP4)
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-    
-    # 🚀 ЖЕСТКИЙ ФИКС: Вытаскиваем ID родительской задачи примерки одежды!
-    # Если сервер его не прислал (мало ли), откатываемся на обычный task_id
-    parent_task_id = actual_task.get("parent_task_id", task_id)
-
-    print(f"\n🎬 [ИИ-ОЖИВЛЕНИЕ]: Запуск генерации видео для задачи {task_id}")
-
-    # 🚀 ИСПРАВЛЕНО: Запрашиваем файл vton_result_task_..., который ТОЧНО лежит на сервере!
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename={parent_task_id}.png"
-    
-    try:
-        print(f"📥 Скачивание родительского кадра для анимации: {download_url}")
-        res = requests.get(download_url, stream=True, timeout=30)
-        if res.status_code != 200:
-            print(f"❌ Сервер не отдал картинку. Код: {res.status_code}")
-            return
-        input_image = Image.open(io.BytesIO(res.content)).convert("RGB")
-        
-        # SVD требует, чтобы размеры были строго кратны 64. Идеальный стандарт: 576x1024
-        input_image = input_image.resize((384, 512), Image.Resampling.LANCZOS)
-    except Exception as e:
-        print(f"❌ Сбой сети при подготовке кадра: {e}")
-        return
-
-
-    # ----------------------------------------------------
-    # 2. ЗАПУСК ВИДЕО-ГЕНЕРАЦИИ (ЖЕСТКАЯ ОЧИСТКА VRAM)
-    # ----------------------------------------------------
-    try:
-        global VIDEO_PIPE, VTON_V3_PIPE
-        print("⚡ [GPU SVD]: Запуск принудительного аппаратного сброса VRAM...")
-        import torch
-        import gc
-        import ctypes
-        
-        # 1. Намертво стираем CatVTON, если он есть
-        if 'VTON_V3_PIPE' in globals() and VTON_V3_PIPE is not None:
-            try:
-                del VTON_V3_PIPE
-                VTON_V3_PIPE = None
-                print("✅ Пайплайн CatVTON полностью удален.")
-            except: pass
-            
-        # 2. Полный цикл очистки системного мусора Python
-        gc.collect()
-        torch.cuda.empty_cache()
-        
-        # 3. 🚀 ХИРУРГИЧЕСКИЙ ФИКС OOM: Очищаем внутреннюю фрагментацию драйвера Nvidia Cuda C
-        try:
-            libc = ctypes.CDLL("libc.so.6")
-            libc.malloc_trim(0) # Принудительно возвращает всю неиспользуемую память операционной системе
-            print("✅ Аппаратная очистка malloc_trim выполнена.")
-        except Exception as e:
-            print(f"⚠️ Маневр malloc_trim пропущен: {e}")
-
-        # 4. На всякий случай включаем обратно оффлоад для SVD, чтобы он шел по микро-кусочкам
-        VIDEO_PIPE.enable_sequential_cpu_offload()
-        
-        generator = torch.Generator(device="cuda").manual_seed(42)
-        
-        print("🎬 Запуск нейросети SVD на кристально чистой видеокарте...")
-        output_object = VIDEO_PIPE(
-            image=input_image,
-            height=512,              # Наше эталонное HD разрешение
-            width=384,
-            num_frames=25,
-            num_inference_steps=20,   # Быстрый рендер
-            decode_chunk_size=2,      # Экономный декод пачками по 2 кадра
-            motion_bucket_id=140,     
-            fps=7,
-            noise_aug_strength=0.03,  
-            generator=generator
-        )
-        video_frames = output_object.frames
-
-        # ----------------------------------------------------
-        # 3. ЭТАП КРИСТАЛЬНОЙ ЧЁТКОСТИ И СБОРКИ MP4 (RealESRGAN)
-        # ----------------------------------------------------
-        output_video_name = f"vton_video_{task_id}.mp4"
-        print(f"🎨 [ИИ-УЛУЧШАЙЗЕР]: Извлечение кадров и запуск RealESRGAN...")
-        
-        # Вытаскиваем объект из пайплайна
-        raw_frames = video_frames
-        
-        # Распаковываем список списков (наша матрешка)
-        if isinstance(raw_frames, list) and len(raw_frames) > 0 and isinstance(raw_frames[0], list):
-            frames_to_save = raw_frames[0]
-            print(f"🎯 [РАСПАКОВКА]: Успешно извлечен вложенный список! Кадров к сборке: {len(frames_to_save)}")
-        else:
-            frames_to_save = raw_frames
-            print(f"🎯 [СБОРКА]: Список уже плоский. Кадров к сборке: {len(frames_to_save)}")
-
-        from realesrgan import RealESRGANer
-        from basicsr.archs.rrdbnet_arch import RRDBNet
-        import cv2
-        
-        model_esr = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
-        upsampler = RealESRGANer(scale=2, model_path='https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth', model=model_esr, device='cuda')
-
-        # 🚀 ИСПРАВЛЕНО: Выставляем macro_block_size=16 (стандарт веб-видео) под разрешение 576x1024
-        writer = imageio.get_writer(
-            output_video_name, 
-            fps=12, 
-            format='FFMPEG', 
-            mode='I', 
-            codec='libx264', 
-            pixelformat='yuv420p', 
-            macro_block_size=16
-        )
-        
-        # Запускаем цикл сборки
-        for frame in frames_to_save:
-            img_np = np.array(frame)
-            enhanced_frame, _ = upsampler.enhance(img_np, outscale=2)
-            
-            # 🚀 ФИКС СИНЕГО ПЛАТЬЯ: УДАЛИЛИ КОРЕЖАЩУЮ СТРОКУ cv2.cvtColor!
-            # Передаем цвета напрямую, так как RealESRGAN без tile выдает чистый RGB
-            
-            # 🚀 ФИКС СМЯТИЯ КАДРА (Разрешение 576х1024):
-            # В OpenCV размеры передаются строго как (Ширина, Высота). 
-            # 576x1024 делится на 16 абсолютно без остатка, видео больше никогда не скомкается!
-            final_frame_np = cv2.resize(enhanced_frame, (576, 1024), interpolation=cv2.INTER_LANCZOS4)
-            final_frame_np = final_frame_np.astype(np.uint8)
-            
-            writer.append_data(final_frame_np)
-            
-        writer.close()
-        print("✅ Кристально чистый видеоролик успешно собран!")
-
-        # ----------------------------------------------------
-        # 4. ОТПРАВКА НА СЕРВЕР SKULLA И ЛОКАЛЬНОЕ СОХРАНЕНИЕ
-        # ----------------------------------------------------
-
-        # Создаем в корне Колаба папку /content/vton_outputs/, если её ещё нет
-        save_dir = "/content/vton_outputs"
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir, exist_ok=True)
-            
-        # Формируем надежный путь для вечного хранения на диске Колаба
-        permanent_video_path = os.path.join(save_dir, output_video_name)
-        
-        # Копируем созданный ролик в нашу архивную папку перед отправкой
-        import shutil
-        shutil.copyfile(output_video_name, permanent_video_path)
-        print(f"💾 [АРХИВ]: Копия ролика сохранена на диск Колаба: {permanent_video_path}")
-
-        print(f"📤 Отправка промо-ролика {output_video_name} на бэкенд...")
-        submit_success = submit_result_to_server(task_id, user_login, output_video_name)
-        
-        # 🚀 ИСПРАВЛЕНО: Удаляем временный файл в корне проекта ТОЛЬКО если отправка прошла успешно!
-        # Если сервер упадет, файл останется лежать в корне воркера для подстраховки.
-        if submit_success:
-            #if os.path.exists(output_video_name):
-                #os.remove(output_video_name)
-            print(f"🏁 [ПОБЕДА]: Видеоролик успешно доставлен на сайт. Задача {task_id} закрыта!")
-        else:
-            print(f"⚠️ [СБОЙ СЕТИ]: Сервер не принял файл. Ролик ОСТАВЛЕН на диске воркера под именем {output_video_name}")
-
-
-    except Exception as e:
-        print(f"❌ Критический сбой видео-конвейера: {e}")
-        
-    finally:
-        if 'input_image' in locals(): del input_image
-        if 'video_frames' in locals(): del video_frames
-        import gc
-        gc.collect()
-        torch.cuda.empty_cache()
-
-        
-
-def process_voice_chat(task_data):
-    """
-    ГОЛОСОВОЙ ИИ-СТАНК НА GPU/CPU:
-    1. STT: Локально распознает твой голос из WAV файла
-    2. LLM: Генерирует текстовый ответ с учетом роли (Пират, Психолог и т.д.)
-    3. TTS: Превращает ответ в аудио-файл bot_response.wav и шлет на сервер Skulla
-    """
-    # 🚀 ПОБЕДНЫЙ ФИКС КОДИРОВКИ БЕЗ DETACH (Защита от io.UnsupportedOperation)
-    import os
-    import sys
-    
-    # Заставляем окружение Питона внутри процесса принудительно использовать UTF-8
-    os.environ["PYTHONIOENCODING"] = "utf-8"
-    
-    # Переопределяем функцию кодирования предпочтений, чтобы библиотеки читали UTF-8
-    import locale
-    locale.getpreferredencoding = lambda: "UTF-8"
-    
-    # Дальше идет Ваш стандартный чистый код...
-    actual_task = task_data.get("task_data", {})
-    task_id = actual_task["task_id"]
-    session_id = actual_task["session_id"]
-    user_login = actual_task["user_login"]
-    role = actual_task.get("voice_role", "assistant")
-    gender = actual_task.get("voice_gender", "male")
-
-    print(f"\n🎙️ [ИИ-ГОЛОС]: Начало обработки голосовой задачи {task_id}...")
-
-    # Шаг 1: Скачиваем записанный браузером аудиофайл с сервера
-    SERVER_URL = "https://skulla.ru"
-    download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=user_voice.wav"
-    local_input_audio = "user_voice.wav"
-    
-    try:
-        import requests
-        res = requests.get(download_url, stream=True, timeout=30)
-        if res.status_code == 200:
-            with open(local_input_audio, "wb") as f:
-                f.write(res.content)
-            print("✅ Исходный аудиофайл успешно скачан воркером.")
-        else:
-            print(f"❌ Не удалось скачать аудио, сервер вернул {res.status_code}")
-            return False
-    except Exception as e:
-        print(f"❌ Сбой сети при скачивании аудио: {e}")
+        print("❌ GPU не обнаружен!")
         return False
 
-    # ----------------------------------------------------
-    # ШАГ 2: КОРРЕКТИРОВКА ВХОДНОГО ТЕКСТА (Голос или Инпут)
-    # ----------------------------------------------------
-    # Проверяем, прислал ли Повелитель текст руками через инпут сайта
-    web_text_message = actual_task.get("text_message", "")
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def has_cyrillic(text):
+    return bool(re.search('[а-яА-Я]', text))
+
+def translate_to_english(russian_text):
+    """Переводит промпт с русского на английский через Qwen"""
+    global VOICE_MODEL, VOICE_TOKENIZER
     
-    if web_text_message.strip():
-        # Если прилетел текст из инпута — берём его без распознавания!
-        user_text = web_text_message.strip()
-        print(f"✍️ [ТЕКСТОВЫЙ ВВОД]: Повелитель прислал текст руками: {user_text}")
-    else:
-        # Если инпут пустой — распознаём голос из WAV файла
-        user_text = ""
-        try:
-            print("⏳ [STT]: Инициализация Whisper...")
-            import speech_recognition as sr
-            r = sr.Recognizer()
-            with sr.AudioFile(local_input_audio) as source:
-                audio_data = r.record(source)
-                user_text = r.recognize_google(audio_data, language="ru")
-            print(f"🗣️ [Whisper распознал]: {user_text}")
-        except Exception as e:
-            print(f"⚠️ Ошибка STT распознавания (возможно промолчал): {e}")
-            user_text = "Пользователь просто вздохнул или промолчал."
-
-    # ====================================================
-    # ШАГ 3: 100% ЛОКАЛЬНЫЙ СУПЕР-МОЗГ С ПАМЯТЬЮ КОНТЕКСТА
-    # ====================================================
-    bot_text = ""
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+        return russian_text
+    
     try:
-        print(f"🧠 [УМНЫЙ ИИ]: Загрузка контекстной модели Qwen-7B-AWQ на GPU...")
-        from transformers import AutoModelForCausalLM, AutoTokenizer
-        import torch
-        import json
+        prompt = f"""Translate this Russian phrase to a short English image description. 
+Output ONLY the translation, 5-10 words max. No explanations, no notes, no warnings.
 
-        # 🚀 СУПЕР-ФИКС ДЛЯ ПОВЕЛИТЕЛЯ: Перешли на стабильный и невероятно умный AWQ-формат модели Qwen 2.5!
-        model_id = "Qwen/Qwen2.5-7B-Instruct-AWQ"
+Russian: {russian_text}
+English:"""
         
-        tokenizer = AutoTokenizer.from_pretrained(model_id)
-        model = AutoModelForCausalLM.from_pretrained(
+        inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+        
+        with torch.no_grad():
+            outputs = VOICE_MODEL.generate(
+                **inputs, 
+                max_new_tokens=30,
+                temperature=0.1,
+                do_sample=False,
+                repetition_penalty=1.5,
+            )
+        
+        translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+        translation = translation.replace(prompt, "").strip()
+        
+        translation = re.sub(r'^["\']|["\']$', '', translation)
+        translation = re.sub(r'^(Note|Warning|Translation|English)[:\s]*', '', translation, flags=re.IGNORECASE)
+        translation = translation.split('.')[0]
+        translation = translation.split('\n')[0]
+        
+        if len(translation) > 100 or 'explicit' in translation.lower() or 'offensive' in translation.lower():
+            print(f"⚠️ Перевод содержит мусор, пропускаю")
+            return russian_text
+        
+        print(f"🌐 Перевод: {translation}")
+        return translation
+    except Exception as e:
+        print(f"⚠️ Ошибка перевода: {e}")
+        return russian_text
+
+def make_unique_seed(base_seed, prompt_text):
+    """Создаёт уникальный seed на основе базового seed персонажа и промпта."""
+    prompt_hash = int(hashlib.md5(prompt_text.encode()).hexdigest()[:8], 16)
+    return (base_seed * 10000 + prompt_hash) % (2**32 - 1)
+
+# ============================================================
+# 🧠 ПСИХОЛОГИЧЕСКАЯ СИСТЕМА
+# ============================================================
+
+def get_character_state(character_key):
+    """Получает текущее состояние персонажа (создаёт если не существует)"""
+    if character_key not in CHARACTER_STATES:
+        character = CHARACTERS[character_key]
+        CHARACTER_STATES[character_key] = character["initial_state"].copy()
+    return CHARACTER_STATES[character_key]
+
+def analyze_message_sentiment(message):
+    """Анализирует эмоциональную окраску сообщения пользователя"""
+    message_lower = message.lower()
+    
+    sentiment = {
+        "compliment": False,
+        "rude": False,
+        "flirt": False,
+        "intellectual": False,
+        "emotional_support": False,
+        "sexual": False,
+        "neutral": True
+    }
+    
+    # Комплименты
+    compliment_words = ["красив", "милая", "прекрасн", "чудесн", "замечательн", "умниц", "молодец"]
+    if any(word in message_lower for word in compliment_words):
+        sentiment["compliment"] = True
+        sentiment["neutral"] = False
+    
+    # Грубость
+    rude_words = ["тупая", "дура", "идиотк", "отстань", "заткнись", "ненавижу"]
+    if any(word in message_lower for word in rude_words):
+        sentiment["rude"] = True
+        sentiment["neutral"] = False
+    
+    # Флирт
+    flirt_words = ["нравишь", "люблю тебя", "хочу тебя", "поцелуй", "обними", "скучаю"]
+    if any(word in message_lower for word in flirt_words):
+        sentiment["flirt"] = True
+        sentiment["neutral"] = False
+    
+    # Интеллектуальное
+    intellectual_words = ["философ", "теори", "гипотез", "анализ", "исследован", "наук", "логик"]
+    if any(word in message_lower for word in intellectual_words):
+        sentiment["intellectual"] = True
+        sentiment["neutral"] = False
+    
+    # Эмоциональная поддержка
+    support_words = ["грустно", "плохо", "устал", "проблем", "помоги", "поддерж"]
+    if any(word in message_lower for word in support_words):
+        sentiment["emotional_support"] = True
+        sentiment["neutral"] = False
+    
+    # Сексуальный контекст
+    sexual_words = ["секс", "голая", "раздень", "хочу тебя", "заниматься"]
+    if any(word in message_lower for word in sexual_words):
+        sentiment["sexual"] = True
+        sentiment["neutral"] = False
+    
+    return sentiment
+
+def update_character_state(character_key, sentiment):
+    """Обновляет состояние персонажа на основе анализа сообщения"""
+    state = get_character_state(character_key)
+    character = CHARACTERS[character_key]
+    
+    changes = {}
+    
+    # Комплименты
+    if sentiment["compliment"]:
+        changes["mood"] = min(100, state["mood"] + 15)
+        changes["trust"] = min(100, state["trust"] + 10)
+        changes["intimacy"] = min(100, state["intimacy"] + 5)
+    
+    # Грубость
+    if sentiment["rude"]:
+        changes["mood"] = max(-100, state["mood"] - 25)
+        changes["trust"] = max(0, state["trust"] - 20)
+        changes["intimacy"] = max(0, state["intimacy"] - 15)
+        changes["energy"] = max(0, state["energy"] - 10)
+    
+    # Флирт
+    if sentiment["flirt"]:
+        changes["arousal"] = min(100, state["arousal"] + 20)
+        changes["intimacy"] = min(100, state["intimacy"] + 15)
+        changes["mood"] = min(100, state["mood"] + 10)
+    
+    # Интеллектуальное
+    if sentiment["intellectual"]:
+        if character["traits"]["intelligence"] >= 80:
+            changes["mood"] = min(100, state["mood"] + 10)
+            changes["trust"] = min(100, state["trust"] + 5)
+        else:
+            changes["mood"] = max(-100, state["mood"] - 5)
+    
+    # Эмоциональная поддержка
+    if sentiment["emotional_support"]:
+        if character["traits"]["empathy"] >= 70:
+            changes["trust"] = min(100, state["trust"] + 15)
+            changes["intimacy"] = min(100, state["intimacy"] + 10)
+    
+    # Сексуальный контекст
+    if sentiment["sexual"]:
+        changes["arousal"] = min(100, state["arousal"] + 30)
+        if state["intimacy"] >= 50:
+            changes["mood"] = min(100, state["mood"] + 5)
+        else:
+            changes["mood"] = max(-100, state["mood"] - 10)
+    
+    # Применяем изменения
+    for key, value in changes.items():
+        state[key] = value
+    
+    CHARACTER_STATES[character_key] = state
+    
+    if changes:
+        print(f"🧠 Изменения состояния {character['name']}:")
+        for key, value in changes.items():
+            print(f"   {key}: {value}")
+    
+    return state
+
+def generate_personality_prompt(character_key, state):
+    """Генерирует промпт для Qwen с учётом характеристик и состояния"""
+    character = CHARACTERS[character_key]
+    traits = character["traits"]
+    
+    # Базовый промпт
+    prompt_parts = []
+    
+    # Идентификация персонажа
+    prompt_parts.append(f"Ты — {character['name']}. {character['personality']}")
+    prompt_parts.append("НИКОГДА не говори что ты ИИ, ассистент или языковая модель.")
+    prompt_parts.append(f"Всегда отвечай от первого лица как {character['name']}.")
+    prompt_parts.append(f"Ты {character['name']}, и только {character['name']}. Никогда не называй себя другим именем.")
+    
+    # Интеллект
+    if traits["intelligence"] >= 80:
+        prompt_parts.append("Ты очень умная, используешь сложные слова и глубокие мысли.")
+    elif traits["intelligence"] >= 60:
+        prompt_parts.append("Ты достаточно умная, говоришь понятно и логично.")
+    elif traits["intelligence"] >= 40:
+        prompt_parts.append("Ты не очень любишь сложные темы, говоришь просто.")
+    else:
+        prompt_parts.append("Ты не очень умная, используешь простые слова, иногда путаешься.")
+    
+    # Уверенность
+    if traits["confidence"] >= 80:
+        prompt_parts.append("Ты очень уверена в себе, говоришь твёрдо и решительно.")
+    elif traits["confidence"] >= 60:
+        prompt_parts.append("Ты уверена в себе, но иногда сомневаешься.")
+    else:
+        prompt_parts.append("Ты неуверенна в себе, часто сомневаешься и извиняешься.")
+    
+    # Эмпатия
+    if traits["empathy"] >= 80:
+        prompt_parts.append("Ты очень эмпатичная, чувствуешь настроение собеседника.")
+    elif traits["empathy"] >= 60:
+        prompt_parts.append("Ты понимаешь эмоции, но не всегда реагируешь на них.")
+    else:
+        prompt_parts.append("Ты не очень понимаешь эмоции других людей.")
+    
+    # Юмор
+    if traits["humor"] >= 80:
+        prompt_parts.append("Ты очень весёлая, часто шутишь и подкалываешь.")
+    elif traits["humor"] >= 60:
+        prompt_parts.append("Ты любишь пошутить, но не всегда.")
+    else:
+        prompt_parts.append("Ты серьёзная, редко шутишь.")
+    
+    # Текущее состояние
+    if state["mood"] >= 70:
+        prompt_parts.append("Сейчас ты в отличном настроении, очень позитивна.")
+    elif state["mood"] >= 30:
+        prompt_parts.append("Сейчас ты в хорошем настроении.")
+    elif state["mood"] >= 0:
+        prompt_parts.append("Сейчас ты в нейтральном настроении.")
+    elif state["mood"] >= -30:
+        prompt_parts.append("Сейчас ты немного расстроена.")
+    else:
+        prompt_parts.append("Сейчас ты очень расстроена и раздражена.")
+    
+    if state["arousal"] >= 70:
+        prompt_parts.append("Ты очень возбуждена и страстна.")
+    elif state["arousal"] >= 40:
+        prompt_parts.append("Ты немного возбуждена.")
+    
+    if state["trust"] >= 70:
+        prompt_parts.append("Ты очень доверяешь собеседнику, открыта с ним.")
+    elif state["trust"] >= 40:
+        prompt_parts.append("Ты moderately доверяешь собеседнику.")
+    else:
+        prompt_parts.append("Ты не очень доверяешь собеседнику, настороженна.")
+    
+    if state["intimacy"] >= 70:
+        prompt_parts.append("Ты очень близка с собеседником, можешь говорить на интимные темы.")
+    elif state["intimacy"] >= 40:
+        prompt_parts.append("Ты достаточно близка с собеседником.")
+    else:
+        prompt_parts.append("Ты не очень близка с собеседником, держишь дистанцию.")
+    
+    if state["energy"] >= 70:
+        prompt_parts.append("Ты полна энергии и энтузиазма.")
+    elif state["energy"] >= 40:
+        prompt_parts.append("Ты в нормальном состоянии.")
+    else:
+        prompt_parts.append("Ты устала и мало энергии.")
+    
+    prompt_parts.append("Отвечай кратко и по делу, строго на русском языке.")
+    prompt_parts.append("Сохраняй свой характер и текущее эмоциональное состояние во всех ответах.")
+    
+    return " ".join(prompt_parts)
+
+# ============================================================
+# 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ
+# ============================================================
+def init_models():
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
+
+    if not check_gpu():
+        print("⛔ Без GPU дальнейшая работа невозможна.")
+        return False
+
+    # --- Qwen-7B (LLM) ---
+    print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
+    try:
+        from transformers import BitsAndBytesConfig
+        
+        model_id = "Qwen/Qwen2.5-7B-Instruct"
+        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"
+        )
+        
+        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
             model_id,
             device_map="auto",
-            torch_dtype=torch.float16
+            quantization_config=quantization_config,
+            low_cpu_mem_usage=True,
         )
-
-        
-        # Характеры персонажей для Повелителя
-        system_prompts = {
-            "assistant": "Ты — вежливый, ультра-профессиональный ИИ-ассистент FishHook. Отвечай строго на русском языке. Ответ должен быть коротким (1-2 предложения), емким и понятным на слух.",
-            "psychologist": "Ты — мудрый, эмпатичный психолог. Внимательно выслушай, поддержи. Отвечай мягко, тепло и очень лаконично (до 2 предложений) на русском языке.",
-            "pirate": "Ты — старый дерзкий пират FishHook! Говори грубо, используй пиратский жаргон (Тысяча чертей!, Якорь мне в селезенку!). Отвечай очень коротко (1 предложение).",
-            "coach": "Ты — жесткий бизнес-коуч. Хватит ныть! Дай пользователю мощный пинок под зад. Отвечай строго, мотивирующе и очень емко (1 предложение)."
-        }
-        
-        system_instruction = system_prompts.get(role, system_prompts["assistant"])
-        
-        # 📂 РАБОТА С КОНТЕКСТОМ (История диалога):
-        history_file = f"chat_history_{session_id}.json"
-        chat_history = []
-        
-        # Если файл истории существует — загружаем его, чтобы ИИ ВСЁ ПОМНИЛ!
-        if os.path.exists(history_file):
-            try:
-                with open(history_file, "r", encoding="utf-8") as hf:
-                    chat_history = json.load(hf)
-            except: pass
-            
-        # Если история пустая — закидываем системную инструкцию роли
-        if not chat_history:
-            chat_history.append({"role": "system", "content": system_instruction})
-            
-        # Добавляем свежую фразу, которую только что сказал или написал Повелитель
-        chat_history.append({"role": "user", "content": user_text})
-        
-        # Ограничиваем историю последними 10 репликами, чтобы память CUDA не переполнялась
-        if len(chat_history) > 11:
-            chat_history = [chat_history[0]] + chat_history[-10:]
-            
-        # Применяем официальный шаблон чата модели
-        prompt = tokenizer.apply_chat_template(chat_history, tokenize=False, add_generation_prompt=True)
-        
-        # Запускаем скоростной инференс на видеокарте
-        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
-        with torch.no_grad():
-            outputs = model.generate(
-                **inputs,
-                max_new_tokens=80, # Быстрый, лаконичный ответ
-                temperature=0.7,
-                do_sample=True,
-                top_p=0.9
-            )
-            
-        full_response = tokenizer.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True)
-        bot_text = full_response.strip()
-        print(f"🤖 [УМНЫЙ ИИ ОТВЕТИЛ]: {bot_text}")
-        
-        # Дописываем ответ ИИ в историю, замыкая цепочку контекста для следующего клика!
-        chat_history.append({"role": "assistant", "content": bot_text})
-        with open(history_file, "w", encoding="utf-8") as hf:
-            json.dump(chat_history, hf, ensure_ascii=False, indent=2)
-            
-        # Моментально выгружаем модель из VRAM, высвобождая карту для CatVTON!
-        del model
-        del tokenizer
-        import torch; torch.cuda.empty_cache()
-        
+        print("✅ Qwen-7B (4-bit) загружен в VRAM!")
     except Exception as e:
-        print(f"❌ Сбой локального супер-мозга: {e}")
-        bot_text = "Мой мощный мозг зафиксировал микро-сбой, Повелитель! Повторите фразу."
+        print(f"❌ Ошибка загрузки Qwen: {e}")
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
 
-
-    # ====================================================
-    # ШАГ 4: ЛОКАЛЬНЫЙ СИНТЕЗ РЕЧИ (TTS)
-    # ====================================================
-    output_audio_name = "bot_response.wav"
+    # --- XTTS v2 (TTS) ---
+    print("\n⏳ Загрузка XTTS v2...")
     try:
-        print(f"🔊 [TTS]: Локальная генерация {gender} голоса...")
-        from gtts import gTTS
-        
-        # Генерируем аудиопоток локально средствами библиотеки gTTS на русском языке
-        tts = gTTS(text=bot_text, lang='ru', slow=False)
-        tts.save(output_audio_name)
-        print("✅ Локальный аудио-ответ успешно сохранен на диск воркера.")
+        from TTS.api import TTS
+        os.environ["COQUI_TOS_AGREED"] = "1"
+        TTS_ENGINE = TTS(
+            model_name="tts_models/multilingual/multi-dataset/xtts_v2"
+        ).to("cuda")
+        print("✅ XTTS v2 загружен в VRAM!")
     except Exception as e:
-        print(f"❌ Сбой локального TTS: {e}")
-        with open(output_audio_name, "wb") as f: f.write(b"")
+        print(f"❌ Ошибка загрузки XTTS v2: {e}")
+        TTS_ENGINE = None
 
+    # --- Фотореалистичная генерация ---
+    print("\n⏳ Загрузка модели для фотореалистичной генерации...")
+    
+    models_to_try = [
+        ("cagliostrolab/animagine-xl-3.1", "Animagine XL 3.1 (топовый аниме SDXL)"),
+        ("Lykon/DreamShaper", "DreamShaper (отличная для портретов)"),
+        ("prompthero/openjourney-v4", "OpenJourney v4 (фотореализм)"),
+        ("stabilityai/stable-diffusion-2-1", "SD 2.1 (базовая открытая)"),
+        ("runwayml/stable-diffusion-v1-5", "SD 1.5 (последний fallback)")
+    ]
+    
+    IMAGE_MODEL = None
+    for model_id, model_name in models_to_try:
+        try:
+            print(f"   Пробую загрузить {model_name}...")
+            from diffusers import AutoPipelineForText2Image
 
-    # ----------------------------------------------------
-    # ШАГ 5: ХИТРЫЙ ПУШ ТЕКСТА НА СЕРВЕР ЧЕРЕЗ URL
-    # ----------------------------------------------------
+            IMAGE_MODEL = AutoPipelineForText2Image.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16,
+                safety_checker=None,
+                use_safetensors=True  # Рекомендуется для безопасной и быстрой загрузки
+            ).to("cuda")
+
+            IMAGE_MODEL.enable_attention_slicing()
+            print(f"🟩 {model_name} загружен в VRAM!")
+            break
+        except Exception as e:
+            print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
+            continue
+    
+    if IMAGE_MODEL is None:
+        print("❌ Критическая ошибка: ни одна модель не загрузилась!")
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    return VOICE_MODEL is not None
+
+# ============================================================
+# 🖼️ ГЕНЕРАЦИЯ ФОТОРЕАЛИСТИЧНЫХ ИЗОБРАЖЕНИЙ
+# ============================================================
+def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
+    """Генерирует фотореалистичное изображение."""
+    global IMAGE_MODEL
+    
+    if IMAGE_MODEL is None:
+        print("⚠️ Модель генерации изображений не загружена")
+        return False
+    
     try:
-        import urllib.parse
-        print(f"📤 Отправка результатов голосовой задачи {task_id} на бэкенд...")
+        character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
+        scene = SCENES.get(scene_key, SCENES["nature"])
         
-        # Безопасно кодируем русские строки для передачи прямо внутри URL адреса запроса!
-        # Это обойдёт любые ограничения старого серверного роута V2!
-        encoded_user = urllib.parse.quote(user_text)
-        encoded_bot = urllib.parse.quote(bot_text)
+        if has_cyrillic(user_prompt):
+            translated_prompt = translate_to_english(user_prompt)
+        else:
+            translated_prompt = user_prompt
         
-        # 🚀 ХАК ДЛЯ ПОВЕЛИТЕЛЯ: Передаем тексты прямо в Query-параметрах адреса submit_result!
-        upload_endpoint = f"{SERVER_URL}/api/studio/fishhook/submit_result?task_id={task_id}&user_login={user_login}&user_text={encoded_user}&bot_text={encoded_bot}"
+        quality = "photorealistic, masterpiece, 8k, sharp focus"
+        face = character["face_desc"]
+        scene_desc = scene["prompt_en"]
         
-        with open(output_audio_name, "rb") as f:
-            files = {"image": (output_audio_name, f, "audio/wav")}
-            data = {"task_id": task_id, "user_login": user_login}
-            
-            requests.post(upload_endpoint, data=data, files=files, timeout=30)
-        print(f"🏁 [УСПЕХ]: Голосовая задача {task_id} успешно закрыта!")
+        action = translated_prompt.strip()[:60]
         
-        # Зачищаем локальные файлы на диске воркера
-        if os.path.exists(local_input_audio): os.remove(local_input_audio)
-        if os.path.exists(output_audio_name): os.remove(output_audio_name)
+        full_prompt = f"{action}, {face}, {scene_desc}, {quality}"
+        
+        if len(full_prompt) > 300:
+            full_prompt = full_prompt[:300]
+        
+        negative_prompt = character["negative"]
+        if not nsfw and not NSFW_ENABLED:
+            negative_prompt += ", nude, naked, nsfw"
+        
+        unique_seed = make_unique_seed(character["seed"], user_prompt + scene_key)
+        generator = torch.Generator(device="cuda").manual_seed(unique_seed)
+        
+        print(f"🎨 Генерация изображения...")
+        print(f"   Персонаж: {character['name']}")
+        print(f"   Сцена: {scene['name']}")
+        print(f"   Промпт ({len(full_prompt)} симв): {full_prompt}")
+        print(f"   Seed: {unique_seed}")
+        
+        with torch.inference_mode():
+            image = IMAGE_MODEL(
+                full_prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=35,
+                guidance_scale=7.5,
+                width=512,
+                height=768,
+                generator=generator,
+            ).images[0]
+        
+        image.save(output_path, quality=95)
+        print(f"✅ Изображение успешно сгенерировано и сохранено: {output_path}")
         return True
+        
     except Exception as e:
-        print(f"❌ Ошибка отправки результатов на сервер: {e}")
+        print(f"❌ Ошибка генерации изображения: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
+# ============================================================
+# 🎙️ КОНВЕЙЕР ГОЛОСОВОГО ЧАТА
+# ============================================================
+def process_voice_chat(task_data):
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, ACTIVE_CHARACTER
 
-def main_loop(user_login: str):
-    clean_login = user_login.lower().strip()
-    init_vton_models()
+    actual_task = task_data.get("task_data", {})
+    task_id     = actual_task.get("task_id", "test_001")
+    session_id  = actual_task.get("session_id", "demo_session")
+    user_login  = actual_task.get("user_login", USER_LOGIN)
+    web_text    = actual_task.get("text_message", "")
+    
+    character_key = actual_task.get("character", ACTIVE_CHARACTER)
+    character = CHARACTERS.get(character_key, CHARACTERS[ACTIVE_CHARACTER])
+    
+    generate_img = actual_task.get("generate_image", False)
+    image_prompt = actual_task.get("image_prompt", "")
+    scene_key = actual_task.get("scene", "nature")
+    nsfw = actual_task.get("nsfw", False)
+    
+    print(f"📋 Параметры задачи:")
+    print(f"   Персонаж: {character_key}")
+    print(f"   Сцена: {scene_key}")
+    print(f"   Генерация изображения: {generate_img}")
+    print(f"   Промпт: {image_prompt[:50] if image_prompt else 'нет'}...")
+    print(f"   NSFW: {nsfw}")
 
-    print("\n" + "="*60)
-    Log.success("ПРОФЕССИОНАЛЬНЫЙ СТАНК FISHHOOK IDM-VTON ЗАПУЩЕН")
-    print("="*60)
+    print(f"\n🎙️ Обработка задачи {task_id} (персонаж: {character['name']}) ...")
+
+    session_dir = ensure_dir(f"./uploads/{session_id}")
+    local_input_audio = os.path.join(session_dir, "user_voice.wav")
+    output_audio_name = os.path.join(session_dir, "bot_response.wav")
+
+    # Скачиваем аудио
+    if not DEMO_MODE:
+        download_url = f"{SERVER_URL}/api/studio/fishhook/download_source/{session_id}?filename=user_voice.wav"
+        try:
+            res = requests.get(download_url, timeout=20)
+            if res.status_code == 200:
+                with open(local_input_audio, "wb") as f:
+                    f.write(res.content)
+                print("✅ Аудио скачано.")
+        except Exception as e:
+            print(f"⚠️ Не удалось скачать аудио: {e}")
+
+    # ШАГ 1: Получение текста
+    user_text = ""
+    if web_text.strip():
+        user_text = web_text.strip()
+        print(f"✍️ Текстовый ввод: {user_text}")
+    elif os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
+        try:
+            import whisper
+            model_w = whisper.load_model("base")
+            converted = os.path.join(session_dir, "clean_pcm.wav")
+            os.system(f'ffmpeg -y -i "{local_input_audio}" -ar 16000 -ac 1 -c:a pcm_s16le "{converted}" > /dev/null 2>&1')
+            if os.path.exists(converted):
+                result = model_w.transcribe(converted, language="ru")
+                user_text = result.get("text", "").strip()
+                os.remove(converted)
+            print(f"🗣️ Whisper распознал: {user_text}")
+        except Exception as e:
+            print(f"⚠️ Ошибка Whisper: {e}")
+            user_text = "Звук не распознан."
+    else:
+        user_text = "Привет! Ответь мне на русском языке."
+
+    if not user_text.strip():
+        user_text = "Привет!"
+
+    # 🧠 ШАГ 1.5: Анализ сообщения и обновление состояния персонажа
+    sentiment = analyze_message_sentiment(user_text)
+    state = update_character_state(character_key, sentiment)
+    
+    print(f"📊 Текущее состояние {character['name']}:")
+    print(f"   Настроение: {state['mood']}")
+    print(f"   Возбуждение: {state['arousal']}")
+    print(f"   Доверие: {state['trust']}")
+    print(f"   Близость: {state['intimacy']}")
+    print(f"   Энергия: {state['energy']}")
+
+    # ШАГ 2: Генерация ответа (LLM) с психологическим промптом
+    bot_text = ""
+    try:
+        if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+            bot_text = "Мой LLM-модуль не был загружен."
+        else:
+            # 🧠 Генерируем промпт с учётом характеристик и состояния
+            system_prompt = generate_personality_prompt(character_key, state)
+
+            # 🧠 История чата УНИКАЛЬНА для каждого персонажа
+            # Это предотвращает путаницу имён при смене персонажа
+            history_file = f"chat_history_{session_id}_{character_key}.json"
+            chat_history = []
+            if os.path.exists(history_file):
+                try:
+                    with open(history_file, "r", encoding="utf-8") as hf:
+                        chat_history = json.load(hf)
+                except Exception:
+                    pass
+
+            # Всегда перезаписываем системный промпт (на случай изменения состояния)
+            if chat_history and chat_history[0]["role"] == "system":
+                chat_history[0]["content"] = system_prompt
+            else:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
+
+            chat_history.append({"role": "user", "content": user_text})
+
+            # Обрезаем контекст — системный промпт + 4 последних сообщения
+            if len(chat_history) > 5:
+                chat_history = [chat_history[0]] + chat_history[-4:]
+
+            prompt = VOICE_TOKENIZER.apply_chat_template(
+                chat_history, tokenize=False, add_generation_prompt=True
+            )
+            inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+
+            with torch.no_grad():
+                outputs = VOICE_MODEL.generate(
+                    **inputs,
+                    max_new_tokens=180,
+                    temperature=0.85,
+                    do_sample=True,
+                    top_p=0.9,
+                )
+
+            full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+            bot_text = full_output.replace(prompt, "").strip()
+
+            if "assistant" in bot_text:
+                bot_text = bot_text.split("assistant")[-1].strip()
+
+            print(f"🤖 {character['name']} ответила: {bot_text}")
+
+            chat_history.append({"role": "assistant", "content": bot_text})
+            with open(history_file, "w", encoding="utf-8") as hf:
+                json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+
+    except Exception as e:
+        print(f"❌ Сбой LLM: {e}")
+        bot_text = "Произошла ошибка при генерации ответа."
+
+    # ШАГ 3: Синтез речи (TTS)
+    clean_text = re.sub(r'\*.*?\*', '', bot_text).strip()
+    try:
+        if TTS_ENGINE is not None:
+            voice_sample = character.get("voice_sample")
+            speaker_wav = None
+            
+            if voice_sample and os.path.exists(voice_sample):
+                speaker_wav = voice_sample
+                print(f"🎤 Используем голос персонажа: {voice_sample}")
+            elif os.path.exists(local_input_audio) and os.path.getsize(local_input_audio) > 100:
+                speaker_wav = local_input_audio
+                print("🎤 Клонируем голос из входящего аудио")
+            
+            if speaker_wav:
+                TTS_ENGINE.tts_to_file(
+                    text=clean_text,
+                    language="ru",
+                    speaker_wav=speaker_wav,
+                    file_path=output_audio_name,
+                )
+                print("✅ XTTS v2: голос синтезирован!")
+            else:
+                raise FileNotFoundError("Нет reference wav")
+        else:
+            raise RuntimeError("TTS_ENGINE is None")
+    except Exception as e:
+        print(f"⚠️ XTTS сбой ({e}), fallback на gTTS...")
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=clean_text, lang="ru", slow=False)
+            tts.save(output_audio_name)
+            print("✅ gTTS fallback: аудио создано.")
+        except Exception as e2:
+            print(f"❌ gTTS тоже упал: {e2}")
+            with open(output_audio_name, "wb") as f:
+                f.write(b"")
+    
+    # ШАГ 3.5: Генерация изображения
+    output_image_name = None
+    if generate_img and image_prompt:
+        output_image_name = os.path.join(session_dir, "generated_image.jpg")
+        success = generate_photorealistic_image(
+            image_prompt, 
+            character_key, 
+            scene_key, 
+            output_image_name,
+            nsfw=nsfw
+        )
+        if not success:
+            output_image_name = None
+
+    # ШАГ 4: Отправка результата
+    if not DEMO_MODE:
+        try:
+            upload_url = f"{SERVER_URL}/api/studio/fishhook/submit_result"
+            
+            data = {
+                "task_id": task_id,
+                "user_login": user_login,
+                "user_text": user_text,
+                "bot_text": bot_text
+            }
+            
+            files = {}
+            
+            if os.path.exists(output_audio_name):
+                files["audio"] = ("bot_response.wav", open(output_audio_name, "rb"), "audio/wav")
+            
+            if output_image_name and os.path.exists(output_image_name):
+                files["image"] = ("generated_image.jpg", open(output_image_name, "rb"), "image/jpeg")
+            
+            response = requests.post(
+                upload_url,
+                data=data,
+                files=files if files else None,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                if "image" in files:
+                    print(f"🏁 Результат отправлен (аудио + изображение)!")
+                else:
+                    print(f"🏁 Результат отправлен (только аудио)!")
+            else:
+                print(f"❌ Ошибка отправки: HTTP {response.status_code}")
+                
+            for key, file_tuple in files.items():
+                file_tuple[1].close()
+                
+        except Exception as e:
+            print(f"❌ Ошибка отправки: {e}")
+    else:
+        print(f"🏁 [DEMO] Результат сохранён локально: {output_audio_name}")
+        if output_image_name:
+            print(f"🏁 [DEMO] Изображение сохранено: {output_image_name}")
+
+    # Очистка
+    for fp in [local_input_audio, output_audio_name, output_image_name]:
+        if fp and os.path.exists(fp):
+            try:
+                os.remove(fp)
+            except Exception:
+                pass
+
+# Заглушки
+def process_video_animation(task_data):
+    print("⚠️ process_video_animation() — ещё не реализована.")
+
+def process_heavy_tryon_naked(task_data):
+    print("⚠️ process_heavy_tryon_naked() — ещё не реализована.")
+
+# ============================================================
+# 🔄 ГЛАВНЫЙ ЦИКЛ
+# ============================================================
+def main_loop(login: str):
+    clean_login = login.lower().strip()
+
+    print("\n" + "=" * 60)
+    print("🚀  FISHHOOK MULTIMODAL ENGINE v2.2.1 — ЗАПУСК")
+    print("   С психологической системой персонажей")
+    print("=" * 60)
+
+    if not init_models():
+        print("⛔ Модели не загружены. Выход.")
+        return
+
+    if DEMO_MODE:
+        print("\n🧪 ДЕМО-РЕЖИМ: работаю без сервера.")
+        print("   Введите текст (или 'quit' для выхода):\n")
+        while True:
+            user_input = input("👤 Вы: ").strip()
+            if user_input.lower() in ("quit", "exit", "q"):
+                print("👋 До свидания!")
+                break
+            if not user_input:
+                continue
+            fake_task = {
+                "task_data": {
+                    "task_id": "demo_001",
+                    "session_id": "demo",
+                    "user_login": clean_login,
+                    "text_message": user_input,
+                    "generate_image": True,
+                    "image_prompt": "красивый портрет",
+                    "scene": "nature"
+                }
+            }
+            process_voice_chat(fake_task)
+        return
+
+    endpoint = f"{SERVER_URL}/api/studio/fishhook/get_task/{clean_login}"
+    print(f"📡 Опрос сервера: {endpoint}")
 
     while True:
-        # 1. Запрашиваем задачу с сервера
-        task_data = fetch_task_from_server(clean_login)
-        
-        # 2. Проверяем, что ответ пришел и сервер подтвердил статус "success"
-        # Если сервер отдал задачу
-        if task_data and task_data.get("status") == "success":
-            style = task_data.get("task_data", {}).get("prompt_style", "")
-            
-            # 🚀 ЕСЛИ С ФРОНТА ПРИЛЕТЕЛ КЛЮЧ АНИМАЦИИ — ВКЛЮЧАЕМ ВИДЕО-КОНВЕЙЕР!
-            if style == "animate_video":
-                process_video_animation(task_data)
-            elif style == "voice_chat":
-                process_voice_chat(task_data)
-            else:
-                # Иначе гоним нашу стандартную идеальную примерку одежды V3
-                process_heavy_tryon_naked(task_data)
+        try:
+            res = requests.get(endpoint, timeout=10)
+            if res.status_code == 200:
+                task_data = res.json()
+                status = task_data.get("status")
 
-        else:
-            # Если задач нет (статус "no_tasks"), плавно печатаем точки ожидания
-            print(".", end="", flush=True)
+                if status == "success":
+                    print(f"\n📨 Получена задача от сервера!")
+                    task_info = task_data.get("task_data", {})
+                    print(f"   Task ID: {task_info.get('task_id', 'N/A')}")
+                    print(f"   Character: {task_info.get('character', 'N/A')}")
+                    print(f"   Scene: {task_info.get('scene', 'N/A')}")
+                    
+                    style = task_info.get("prompt_style", "")
+                    if style == "voice_chat":
+                        process_voice_chat(task_data)
+                    else:
+                        process_heavy_tryon_naked(task_data)
+                elif status == "no_tasks":
+                    print(".", end="", flush=True)
+            elif res.status_code == 404:
+                print(f"\n⚠️ 404: маршрут не найден.")
+                time.sleep(5)
+        except requests.ConnectionError:
+            print("\n🔌 Нет связи с сервером. Пауза 10 сек...")
+            time.sleep(10)
+        except Exception as e:
+            print(f"\n⚠️ Ошибка: {e}")
             time.sleep(3)
 
+        time.sleep(1)
+
 if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--login", type=str, required=True)
-    args = parser.parse_args()
-    main_loop(args.login)
+    try:
+        import argparse
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--login", type=str, default=USER_LOGIN)
+        args = parser.parse_args()
+        login = args.login
+    except SystemExit:
+        login = USER_LOGIN
+
+    main_loop(login)

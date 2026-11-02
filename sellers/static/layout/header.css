@@ -1,0 +1,82 @@
+/* Стили личного кабинета и валют */
+
+.user-header-zone {
+    /* Полностью убрали position: absolute / fixed! */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: flex-end; /* Прижимает кабинет строго к правому краю */
+    margin-left: auto; /* Автоматически выталкивает блок вправо внутри флекса */
+}
+
+
+.balance-container {
+    display: none; /* Переключите на flex через JS */
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    background: rgba(2, 6, 23, 0.8);
+    backdrop-filter: blur(24px);
+    border: 1px solid #1e293b;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.balance-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.count {
+    font-family: monospace;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.count.white { color: #ffffff; }
+.count.cyan { color: #22d3ee; }
+
+.divider {
+    width: 1px;
+    height: 16px;
+    background-color: #1e293b;
+}
+
+.nav-profile-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.nav-profile-btn:active {
+    transform: scale(0.95);
+}
+
+.label {
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #22d3ee;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #06b6d4;
+    border-radius: 50%;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+}

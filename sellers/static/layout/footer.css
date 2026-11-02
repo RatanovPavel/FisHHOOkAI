@@ -1,0 +1,100 @@
+#footer-legal {
+    min-height: 40px; /* Резервируем место */
+    display: block;
+}
+
+#footer-legal br {
+    content: "";
+    display: block;
+    margin-bottom: 2px; /* Расстояние между ИНН и ФИО */
+}
+
+/* Фикс для мобилок: чтобы ссылки не нализали на логотип */
+@media (max-width: 768px) {
+    footer .grid { gap: 40px; }
+    #footer-legal { text-align: left; }
+    .flex-wrap { justify-content: flex-start; }
+}
+
+.legal-modal {
+    max-width: 800px !important;
+    max-height: 80vh !important;
+    overflow-y: auto;
+}
+.legal-text {
+    font-size: 11px;
+    line-height: 1.6;
+    color: #94a3b8;
+    text-align: justify;
+}
+.legal-text h2 {
+    color: #22d3ee;
+    font-weight: 900;
+    text-transform: uppercase;
+    margin: 20px 0 10px 0;
+    font-size: 13px;
+}
+
+/* Стили для юридических текстов в модалке */
+.legal-content {
+    background: transparent !important;
+    padding-top: 5px; /* Запас сверху */
+}
+
+/* Чтобы кнопка не перекрывала текст на мобилках */
+@media (max-width: 640px) {
+    .legal-content {
+        padding-right: 20px;
+    }
+}
+.legal-content h2 {
+    border-left: 2px solid #22d3ee;
+    padding-left: 10px;
+    margin-top: 30px;
+}
+.legal-content p {
+    margin-bottom: 15px;
+    opacity: 0.8;
+}
+
+.legal-footer-info {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 10px;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Тонкий футуристичный скроллбар для документов */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(34, 211, 238, 0.2); /* Твой голубой неон, но приглушенный */
+    border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(34, 211, 238, 0.5);
+}
+
+/* Делаем скроллбар очень тонким, чтобы он не "съедал" место */
+#legal-scroll-area::-webkit-scrollbar {
+    width: 2px;
+}
+
+#legal-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+    /* Опускаем начало полоски ниже кнопки закрытия */
+    margin-top: 40px; 
+}
+
+#legal-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(34, 211, 238, 0.4);
+    border-radius: 10px;
+}
