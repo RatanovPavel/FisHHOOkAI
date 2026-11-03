@@ -1,468 +1,465 @@
-<!DOCTYPE HTML>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <!-- 🎯 1. МЕТА-ТЕГИ И ГЛАВНЫЙ ЭКРАН (SEO + ОФФЕР ПО ТЗ) -->
-    <title>Skulla — Конструктор инфографики и карточек товаров для маркетплейсов</title>
-    <meta name="description" content="Создавайте продающую инфографику для Wildberries и Ozon с помощью ИИ за 5 секунд. Бесплатный онлайн-конструктор карточек товара без дизайнеров и фотошопа.">
+import { useEffect, useRef, useState } from 'react';
 
-    <!-- Автономный Tailwind CSS для мгновенной отрисовки стиля -->
-    <script src="/static/tailwind.min.js"></script>
-    
-    <style>
-        /* === АНИМАЦИИ БЕСКОНЕЧНОЙ КАРУСЕЛИ (MARQUEE) === */
-        @keyframes marquee {
-            0% { transform: translateX(0%); }
-            100% { transform: translateX(-100%); }
-        }
-        @keyframes marquee2 {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(0%); }
-        }
-        .animate-marquee { animation: marquee 25s linear infinite; }
-        .animate-marquee2 { animation: marquee2 25s linear infinite; }
-
-        /* Системный Cyberpunk-скроллбар */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #030712; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6b21a8; }
-    </style>
-</head>
-<body class="bg-[#050712] text-slate-300 font-sans antialiased selection:bg-purple-500 selection:text-white overflow-x-hidden">
-
-
-    <!-- 🌌 НЕОНОВЫЕ СВЕЧЕНИЯ ДЛЯ ДИНАМИКИ -->
-    <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-    <div class="absolute top-1/3 right-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] pointer-events-none"></div>
-
-    <!-- 🚀 ГЛАВНЫЙ ЭКРАН (HERO SECTION — SEO + ОФФЕР) -->
-    <header class="page-block relative min-h-screen flex flex-col items-center justify-center text-center px-4 max-w-5xl mx-auto border-b border-slate-900">
-        <div class="space-y-6">
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase animate-pulse">
-                ⚡ Быстрая генерация продающих карточек
-            </div>
-
-            
-            <!-- H1 по формуле ТЗ -->
-            <h1 class="text-4xl md:text-6xl font-black tracking-wide uppercase leading-tight text-slate-100">
-                Конструктор карточек и инфографики для маркетплейсов <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">(Wildberries, Ozon, Яндекс Маркет)</span>
-            </h1>
-            
-            <!-- Подзаголовок по ТЗ -->
-            <p class="text-base md:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-normal">
-                Замените дорогого дизайнера прямо сейчас. Создавайте профессиональную инфографику за секунды в один клик без фотошопа и сложных программ.
-            </p>
-            
-            <div class="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <button onclick="navigateToAuth()" class="px-8 py-4 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-purple-600 to-pink-600 border border-purple-500/30 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.01] active:scale-[0.99] transition-all duration-150 cursor-pointer">
-                    НАЧАТЬ БЕСПЛАТНО (+1000 генераций в подарок)
-                </button>
-            </div>
+// === HERO SECTION ===
+function HeroSection() {
+  return (
+    <header className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 max-w-5xl mx-auto border-b border-slate-900">
+      <div className="space-y-6">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase animate-pulse">
+          💬 Виртуальные собеседники нового поколения
         </div>
+
+        <h1 className="text-4xl md:text-6xl font-black tracking-wide uppercase leading-tight text-slate-100">
+          Общайся с ИИ-персонажами{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">
+            бесплатно и безлимитно
+          </span>
+        </h1>
+
+        <p className="text-base md:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-normal">
+          Запускай нейросети на своём компьютере или через бесплатный Google Colab и Kaggle. Никаких подписок, лимитов и цензуры. Более 100 персонажей: фотореализм и аниме, девушки и парни от 18 лет.
+        </p>
+
+        <div className="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <button className="px-8 py-4 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-purple-600 to-pink-600 border border-purple-500/30 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer">
+            НАЧАТЬ БЕСПЛАТНО (100+ ПЕРСОНАЖЕЙ)
+          </button>
+          <button className="px-8 py-4 text-sm font-bold text-slate-300 uppercase tracking-wider bg-slate-900/60 border border-slate-800 rounded-xl hover:border-purple-500/30 hover:text-white transition-all duration-150 cursor-pointer">
+            КАТАЛОГ ПЕРСОНАЖЕЙ
+          </button>
+        </div>
+
+        <div className="pt-6 flex flex-wrap justify-center gap-6 text-xs text-slate-500 uppercase tracking-wider">
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">✓</span> Без подписок
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">✓</span> Безлимитные сообщения
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">✓</span> Генерация фото бесплатно
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-green-400">✓</span> Запуск за 2 минуты
+          </div>
+        </div>
+      </div>
     </header>
+  );
+}
 
-    <!-- 📊 2. БЛОК ФУНКЦИОНАЛЬНЫХ ВОЗМОЖНОСТЕЙ (H2 — СУХАЯ ХЕРНЯ УБРАНА, ДЕРЗКИЙ ЯЗЫК ПОЛЬЗЫ) -->
-    <section class="page-block min-h-screen py-24 px-4 max-w-5xl mx-auto space-y-16">
-        <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out text-center space-y-3">
-            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-purple-400">Что умеет онлайн-конструктор инфографики?</h2>
-            <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-medium">Никакой абстрактной теории. Только реальный функционал, который экономит ваш бюджет и поднимает продажи.</p>
-        </div>
+// === FEATURES SECTION ===
+function FeaturesSection() {
+  const features = [
+    {
+      num: '01',
+      color: 'purple',
+      title: 'Полностью бесплатно и безлимитно',
+      desc: 'Забудьте про платные подписки и лимиты сообщений. Запускайте нейросеть на своём GPU или через бесплатный Google Colab / Kaggle — и общайтесь сколько хотите, генерируйте изображения без ограничений.',
+      hoverBorder: 'hover:border-purple-500/30',
+      icon: '💎',
+    },
+    {
+      num: '02',
+      color: 'pink',
+      title: '100+ уникальных персонажей',
+      desc: 'Огромный каталог готовых собеседников: фотореалистичные девушки и парни, аниме-персонажи всех возрастов от 18 лет. У каждого свой характер, история и стиль общения — выбирай любого.',
+      hoverBorder: 'hover:border-pink-500/30',
+      icon: '🎭',
+    },
+    {
+      num: '03',
+      color: 'indigo',
+      title: 'Приватность и контроль',
+      desc: 'Все данные остаются у вас. Никто не читает вашу переписку, не хранит её на серверах и не продаёт третьим лицам. Полный контроль над нейросетью — запускайте локально или в облаке.',
+      hoverBorder: 'hover:border-indigo-500/30',
+      icon: '🔒',
+    },
+  ];
 
-        <div class="grid md:grid-cols-3 gap-8">
-            <!-- Преимущество 1 по ТЗ -->
-            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-purple-500/30 transition-all duration-200">
-                <div class="text-purple-400 text-3xl font-bold mb-3">01</div>
-                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Удаление фона в один клик</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Забудьте про сложную обтравку. Система выполняет автоматическое удаление фона с фото товара в один клик и мгновенно подбирает сочный, продающий задний план.</p>
-            </div>
-            <!-- Преимущество 2 по ТЗ -->
-            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out delay-75 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-pink-500/30 transition-all duration-200">
-                <div class="text-pink-400 text-3xl font-bold mb-3">02</div>
-                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Готовые шаблоны и цепляющий текст</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Используйте готовые шаблоны инфографики для WB и Ozon. ИИ сам генерирует плашки, иконки преимуществ и цепляющие маркетинговые тексты, которые поднимают продажи вашего SKU.</p>
-            </div>
-            <!-- Преимущество 3 по ТЗ -->
-            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out delay-150 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-indigo-500/30 transition-all duration-200">
-                <div class="text-indigo-400 text-3xl font-bold mb-3">03</div>
-                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Честный бесплатный безлимит</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Полный безлимит на время открытого бета-тестирования. Делайте любые правки, коррекции, меняйте контент и тестируйте гипотезы абсолютно бесплатно и без скрытых подписок.</p>
-            </div>
-        </div>
+  const colorMap: Record<string, string> = {
+    purple: 'text-purple-400',
+    pink: 'text-pink-400',
+    indigo: 'text-indigo-400',
+  };
+
+  return (
+    <section className="py-24 px-4 max-w-5xl mx-auto space-y-16">
+      <div className="scroll-reveal text-center space-y-3">
+        <h2 className="text-3xl md:text-4xl font-black tracking-wide uppercase text-purple-400">
+          Почему выбирают наш сервис?
+        </h2>
+        <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-medium">
+          Никаких скрытых платежей и ограничений. Только реальные преимущества, которые отличают нас от платных аналогов.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-8">
+        {features.map((f, i) => (
+          <div
+            key={i}
+            className={`scroll-reveal scroll-reveal-delay-${i + 1} bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md ${f.hoverBorder} transition-all duration-200`}
+          >
+            <div className="text-4xl mb-3">{f.icon}</div>
+            <div className={`${colorMap[f.color]} text-3xl font-bold mb-3`}>{f.num}</div>
+            <h3 className="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">{f.title}</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">{f.desc}</p>
+          </div>
+        ))}
+      </div>
     </section>
+  );
+}
 
-<!-- БЛОК БЕСКОНЕЧНОЙ КАРУСЕЛИ (ПРИМЕРЫ КАРТОЧЕК В ВИДЕ ИЗОБРАЖЕНИЙ) -->
-<section class="page-block skulla-scroll-anim opacity-0 translate-y-10 transition-all duration-700 ease-out py-20 border-t border-b border-slate-900/60 bg-slate-950/40 overflow-hidden block w-full">
-    <div class="max-w-5xl mx-auto px-4 mb-10 text-center space-y-2">
-        <h2 class="text-3xl font-black tracking-wider uppercase text-slate-100">ПРИМЕРЫ СГЕНЕРИРОВАННЫХ КАРТОЧЕК</h2>
-        <p class="text-sm text-slate-500 uppercase tracking-widest">Макеты инфографики студийного качества, готовые к загрузке</p>
-    </div>
+// === CATALOG SECTION ===
+function CatalogSection() {
+  const characters = [
+    { name: 'Алина', type: 'Фотореализм', age: '22', gradient: 'from-pink-900 to-rose-800', emoji: '💃', tag: 'Популярная' },
+    { name: 'Мика', type: 'Аниме', age: '20', gradient: 'from-purple-900 to-indigo-800', emoji: '🌸', tag: 'Новинка' },
+    { name: 'Дмитрий', type: 'Фотореализм', age: '28', gradient: 'from-blue-900 to-slate-800', emoji: '👔', tag: 'Бизнес' },
+    { name: 'Юки', type: 'Аниме', age: '19', gradient: 'from-violet-900 to-pink-800', emoji: '🎀', tag: 'Милая' },
+    { name: 'Виктория', type: 'Фотореализм', age: '25', gradient: 'from-red-900 to-pink-800', emoji: '💋', tag: 'Дерзкая' },
+    { name: 'Рен', type: 'Аниме', age: '24', gradient: 'from-cyan-900 to-blue-800', emoji: '⚡', tag: 'Брутальный' },
+    { name: 'София', type: 'Фотореализм', age: '21', gradient: 'from-amber-900 to-orange-800', emoji: '✨', tag: 'Романтичная' },
+    { name: 'Кагуя', type: 'Аниме', age: '23', gradient: 'from-fuchsia-900 to-purple-800', emoji: '🌙', tag: 'Загадочная' },
+    { name: 'Артём', type: 'Фотореализм', age: '30', gradient: 'from-emerald-900 to-teal-800', emoji: '🎯', tag: 'Уверенный' },
+  ];
 
-    <!-- Главное окно просмотра (занимает всю ширину экрана) -->
-    <div id="marquee-viewport" style="width: 100vw; max-width: 100%; overflow: hidden; background-color: #020617; padding-top: 1.5rem; padding-bottom: 1.5rem; border-top: 1px solid rgba(168, 85, 247, 0.1); border-bottom: 1px solid rgba(168, 85, 247, 0.1); position: relative;">
-        
-        <!-- Контейнер-лента, которой будет управлять JavaScript -->
-        <div id="marquee-track" style="display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; width: max-content !important; gap: 2rem !important; will-change: transform;">
-            
-            <!-- Ровно 9 оригинальных картинок без ручных дублей -->
-            <img src="/static/images/cover1.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="1">
-            <img src="/static/images/cover2.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="2">
-            <img src="/static/images/cover3.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="3">
-            <img src="/static/images/cover4.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="4">
-            <img src="/static/images/cover5.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="5">
-            <img src="/static/images/cover6.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="6">
-            <img src="/static/images/cover7.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="7">
-            <img src="/static/images/cover8.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="8">
-            <img src="/static/images/cover9.png" style="width: 256px !important; min-width: 256px !important; max-width: 256px !important; height: 320px !important; flex-shrink: 0 !important; object-fit: cover !important; border-radius: 1rem !important; border: 1px solid #1e293b !important; display: block !important;" alt="9">
-
+  return (
+    <section className="py-24 px-4 max-w-6xl mx-auto space-y-12">
+      <div className="scroll-reveal text-center space-y-3">
+        <div className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+          Каталог персонажей
         </div>
-    </div>
-</section>
-    <!-- ⚡ БЛОК ТЕСТ-ДРАЙВА ШАБЛОНОВ БЕЗ АВТОРИЗАЦИИ (ИНТЕРАКТИВ ВОРОНКИ) -->
-    <section class="page-block py-24 px-4 max-w-5xl mx-auto space-y-12">
-        <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out text-center space-y-3">
-            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase">
-                Быстрый старт без барьеров
-            </div>
+        <h2 className="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+          БОЛЕЕ <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">100 ПЕРСОНАЖЕЙ</span> НА ВЫБОР
+        </h2>
+        <p className="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+          Фотореалистичные модели и аниме-стили. Девушки и парни всех типов внешности и характеров — от 18 лет и старше.
+        </p>
+      </div>
 
-            <h2 class="text-2xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
-                ПОПРОБОВАТЬ <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">КОНСТРУКТОР ШАБЛОНОВ</span> ПРЯМО СЕЙЧАС
-            </h2>
-            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-xs md:text-sm">
-                Кликните на любой рабочий стиль ниже, чтобы мгновенно протестировать редактор инфографики без ввода логина и пароля.
-            </p>
-        </div>
-        <!-- 🦾 ЖЕСТКИЙ СКАЛЛА-ФИКС СЕТКИ: Собираем карточки в 3 широкие колонки с gap-8 -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 pt-6 w-full text-left">
-            
-            <!-- Шаблон 1: Главная обложка -->
-            <div onclick="launchDemoEditor('skulla_seller_main_cover')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] hover:scale-[1.01] transition-all duration-300">
-                <div class="w-full h-auto bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
-                    <img src="/static/images/template_main_cover.png" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Главная обложка">
-                </div>
-                <div class="space-y-1 mt-auto">
-                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Главная обложка</h4>
-                    <p class="text-xs text-slate-500 leading-normal">Лицевая сторона для выдачи маркетплейса, заставляющая покупателя кликнуть.</p>
-                </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 pt-6">
+        {characters.map((c, i) => (
+          <div
+            key={i}
+            className={`scroll-reveal scroll-reveal-delay-${(i % 3) + 1} group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300`}
+          >
+            <div className={`w-full h-56 md:h-64 bg-gradient-to-br ${c.gradient} flex items-center justify-center relative`}>
+              <span className="text-7xl md:text-8xl group-hover:scale-110 transition-transform duration-300">{c.emoji}</span>
+              <div className="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">
+                {c.tag}
+              </div>
             </div>
-
-            <!-- Шаблон 2: Свойства товара -->
-            <div onclick="launchDemoEditor('skulla_seller_features_infographic')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 cursor-pointer hover:border-pink-500/50 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)] hover:scale-[1.01] transition-all duration-300">
-                <div class="w-full h-auto bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
-                    <img src="/static/images/template_features.png" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Свойства товара">
-                </div>
-                <div class="space-y-1 mt-auto">
-                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-pink-400 transition-colors">Свойства и факты</h4>
-                    <p class="text-xs text-slate-500 leading-normal">Шаблон под авто-тексты цен. Полное отражение технических параметров и преимуществ SKU.</p>
-                </div>
+            <div className="p-4 space-y-1">
+              <div className="flex items-center justify-between">
+                <h4 className="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">
+                  {c.name}
+                </h4>
+                <span className="text-xs text-slate-500">{c.age} лет</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">
+                  {c.type}
+                </span>
+              </div>
             </div>
+          </div>
+        ))}
+      </div>
 
-            <!-- Шаблон 3: Витрина продукта -->
-            <div onclick="launchDemoEditor('skulla_seller_product_showcase')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] hover:scale-[1.01] transition-all duration-300">
-                <div class="w-full h-auto bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
-                    <img src="/static/images/template_showcase.png" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Витрина продукта">
-                </div>
-                <div class="space-y-1 mt-auto">
-                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-indigo-400 transition-colors">Витрина продукта</h4>
-                    <p class="text-xs text-slate-500 leading-normal">Контекстный макет премиум-качества с акцентом на конструктивные особенности предмета.</p>
-                </div>
-            </div>
-
-        </div>
+      <div className="text-center pt-6">
+        <button className="px-6 py-3 text-xs font-bold text-purple-400 uppercase tracking-wider bg-purple-500/5 border border-purple-500/20 rounded-xl hover:bg-purple-500/10 transition-all duration-150 cursor-pointer">
+          ПОКАЗАТЬ ВСЕХ 100+ ПЕРСОНАЖЕЙ →
+        </button>
+      </div>
     </section>
+  );
+}
 
-    <!-- 🎁 ЖЕЛЕЗОБЕТОННЫЙ ОФФЕР: 1000 БЕСПЛАТНЫХ ГЕНЕРАЦИЙ КАРТОЧЕК ДЛЯ СЕЛЛЕРОВ -->
-    <section class="page-block py-24 px-4 max-w-4xl mx-auto text-center">
-        <div class="skulla-scroll-anim p-8 md:p-12 bg-slate-950 border border-purple-500/20 rounded-2xl shadow-xl space-y-6 relative overflow-hidden">
-            <div class="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl pointer-events-none"></div>
-            
-            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
-                Грант на контент каждому новому селлеру
-            </div>
-            
-            <h2 class="text-3xl md:text-5xl font-black uppercase tracking-wide leading-none text-slate-100">
-                ЗАБЕРИ <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400 drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">1000 ГЕНЕРАЦИЙ</span> НА ТЕСТЫ
-            </h2>
-            
-            <p class="text-slate-300 font-medium text-sm md:text-base max-w-3xl mx-auto leading-relaxed">
-                Регистрируйтесь в закрытом бета-тесте прямо сейчас и мгновенно забирайте стартовый грант в размере 10 000 бонов. Этого баланса вам гарантированно хватит на <span class="text-pink-400 font-black">1000 БЕСПЛАТНЫХ СКАЧИВАНИЙ ГОТОВЫХ КАРТОЧЕК В ВЫСОКОМ РАЗРЕШЕНИИ</span>. Делайте любые безлимитные правки слоев, тестируйте стили, подбирайте маркетинговые тексты Qwen и полностью закройте потребность в дизайне к новому сезону продаж!
-            </p>
-            
-            <div class="pt-2">
-                <button onclick="navigateToAuth()" class="px-8 py-4 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-150 cursor-pointer">
-                    ВСТУПИТЬ И ПОЛУЧИТЬ 1000 БЕСПЛАТНЫХ ВЫГРУЗОК
-                </button>
-            </div>
+// === HOW IT WORKS ===
+function HowItWorksSection() {
+  const steps = [
+    {
+      num: '01',
+      title: 'Выбери персонажа',
+      desc: 'Открой каталог и выбери любого собеседника из 100+ вариантов — фотореализм или аниме, девушка или парень.',
+      icon: '🎯',
+    },
+    {
+      num: '02',
+      title: 'Запусти нейросеть',
+      desc: 'Нажми одну кнопку — и нейросеть запустится на твоём компьютере, либо бесплатно в Google Colab или Kaggle за 2 минуты.',
+      icon: '🚀',
+    },
+    {
+      num: '03',
+      title: 'Общайся безлимитно',
+      desc: 'Переписывайся, генерируй фото, меняй сценарии — всё бесплатно и без каких-либо ограничений по времени или количеству сообщений.',
+      icon: '💬',
+    },
+  ];
 
-            <!-- ТРИГГЕРЫ ОГРАНИЧЕНИЙ И ДЕДЛАЙНА В 1 МЕСЯЦ -->
-            <div class="grid sm:grid-cols-2 gap-4 pt-6 max-w-2xl mx-auto border-t border-slate-900 text-left">
-                <div class="p-4 bg-slate-900/40 border border-purple-500/10 rounded-xl space-y-1">
-                    <div class="text-[11px] font-bold tracking-wider text-purple-400 uppercase">🔥 Квота мест жестко лимитирована</div>
-                    <p class="text-[11px] text-slate-500 leading-normal">Пул участников бета-теста с доступом к 1000 бесплатных скачиваний карточек ограничен серверными ресурсами. Как только лимит сессий исчерпается, раздача бонов прекратится без предупреждения.</p>
-                </div>
-                <!-- 🎯 СКАЛЛА-ФИКС ДЕДЛАЙНА: Жесткое b2b-ограничение в 30 дней для стимуляции активности -->
-                <div class="p-4 bg-slate-900/40 border border-pink-500/10 rounded-xl space-y-1">
-                    <div class="text-[11px] font-bold tracking-wider text-pink-400 uppercase">⏳ Начисленные боны действуют 1 месяц</div>
-                    <p class="text-[11px] text-slate-500 leading-normal">Весь предоставленный объем в 1000 генераций (10 000 бонов) активен ровно 30 дней с момента создания профиля. Используйте лимиты для тестирования гипотез вовремя — через месяц неиспользованный остаток сгорит.</p>
-                </div>
-            </div>
+  return (
+    <section className="py-24 px-4 max-w-5xl mx-auto space-y-16 border-t border-slate-900">
+      <div className="scroll-reveal text-center space-y-3">
+        <div className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full uppercase">
+          Как это работает
         </div>
-    </section>
+        <h2 className="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+          ТРИ ШАГА ДО <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">БЕСПЛАТНОГО ИИ</span>
+        </h2>
+        <p className="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+          Никаких сложных настроек, платных подписок и ожидания в очередях. Всё максимально просто.
+        </p>
+      </div>
 
-    <!-- 👣 ПОДВАЛ (FOOTER) -->
-    <footer class="py-10 text-center text-xs text-slate-600 border-t border-slate-950 bg-black/10">
-        &copy; 2026 Skulla Enterprise. Все права защищены. Доступ к рабочему пространству предоставляется на условиях пользовательского соглашения.
+      <div className="grid md:grid-cols-3 gap-8 relative">
+        {steps.map((s, i) => (
+          <div
+            key={i}
+            className={`scroll-reveal scroll-reveal-delay-${i + 1} relative bg-slate-950 p-6 border border-slate-900 rounded-xl hover:border-indigo-500/30 transition-all duration-200`}
+          >
+            <div className="text-5xl mb-4">{s.icon}</div>
+            <div className="text-indigo-400 text-3xl font-bold mb-3">{s.num}</div>
+            <h3 className="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">{s.title}</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">{s.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="scroll-reveal mt-12 p-6 md:p-8 bg-gradient-to-r from-purple-950/40 to-pink-950/40 border border-purple-500/20 rounded-2xl text-center">
+        <div className="text-sm text-slate-300 font-medium mb-2">Поддерживаемые платформы запуска:</div>
+        <div className="flex flex-wrap justify-center gap-3">
+          <div className="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">
+            💻 Локальный ПК (GPU)
+          </div>
+          <div className="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">
+            🟢 Google Colab (Free)
+          </div>
+          <div className="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">
+            🔵 Kaggle Notebooks (Free)
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// === FAQ SECTION ===
+function FAQSection() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: 'Что такое виртуальный собеседник?',
+      a: 'Виртуальный собеседник — это ИИ-персонаж, с которым можно общаться в текстовом чате. У каждого персонажа свой характер, внешность, история и стиль общения. Нейросеть генерирует реалистичные ответы и даже создаёт изображения по вашему запросу. Это не просто чат-бот — это полноценный интерактивный опыт с уникальной личностью.',
+    },
+    {
+      q: 'Почему это полностью бесплатно?',
+      a: 'В отличие от коммерческих сервисов, мы не берём деньги за использование. Нейросеть запускается на вашем собственном оборудовании (видеокарта) или через бесплатные облачные платформы — Google Colab и Kaggle. Эти сервисы предоставляют бесплатные GPU-мощности для экспериментов с ИИ. Вы не платите ни за сообщения, ни за генерацию изображений — всё безлимитно.',
+    },
+    {
+      q: 'Что такое Google Colab и Kaggle?',
+      a: 'Google Colab — это бесплатный сервис от Google, который даёт доступ к мощным видеокартам (GPU) прямо в браузере. Kaggle — аналогичная платформа от компании Kaggle (принадлежит Google). Обе позволяют запускать нейросети без покупки дорогого железа. Достаточно аккаунта Google — и вы получаете бесплатный доступ к вычислительным мощностям.',
+    },
+    {
+      q: 'Нужен ли мне мощный компьютер?',
+      a: 'Нет, если вы используете Google Colab или Kaggle — там вся работа идёт на удалённых серверах с мощными GPU. Если хотите запускать локально, желательна видеокарта NVIDIA с 8+ ГБ видеопамяти (RTX 3060 и выше). Но даже без мощного ПК вы можете пользоваться сервисом бесплатно через облако.',
+    },
+    {
+      q: 'Сколько персонажей доступно в каталоге?',
+      a: 'На данный момент в каталоге более 100 уникальных персонажей. Это девушки и парни от 18 лет в двух стилях: фотореализм (максимально реалистичные изображения) и аниме (в японском стиле). Каждый персонаж имеет проработанную личность, историю и характер. Каталог регулярно пополняется новыми героями.',
+    },
+    {
+      q: 'Есть ли ограничения на сообщения или генерацию изображений?',
+      a: 'Нет, никаких ограничений. Вы можете писать столько сообщений, сколько хотите, и генерировать неограниченное количество изображений. Единственное ограничение — время работы сессии в Google Colab (обычно до 12 часов), после чего можно просто перезапустить нейросеть в один клик.',
+    },
+    {
+      q: 'Безопасно ли это? Кто видит мои переписки?',
+      a: 'Абсолютно безопасно. Все данные обрабатываются локально на вашем устройстве или в вашей личной сессии Colab/Kaggle. Мы не храним ваши переписки на серверах, не передаём их третьим лицам и не анализируем. Ваша приватность полностью защищена — всё остаётся только у вас.',
+    },
+    {
+      q: 'Как быстро можно начать общение?',
+      a: 'Запуск нейросети занимает от 2 до 5 минут в зависимости от выбранной платформы. В Google Colab достаточно нажать одну кнопку "Run" — и через пару минут вы уже общаетесь с выбранным персонажем. Локальный запуск на своём GPU ещё быстрее — обычно около 1-2 минут.',
+    },
+    {
+      q: 'Можно ли создать своего собственного персонажа?',
+      a: 'Да, у нас есть инструменты для создания кастомных персонажей. Вы можете настроить внешность, характер, историю и стиль общения. Также можно загружать собственные референсы для генерации изображений в нужном вам стиле.',
+    },
+    {
+      q: 'Что делать, если что-то не работает?',
+      a: 'У нас есть подробные инструкции и видео-гайды по запуску для каждой платформы. Если возникли проблемы — напишите в наш Telegram-чат поддержки, где опытные пользователи и разработчики помогут решить любой вопрос. Обычно проблемы решаются за 5-10 минут.',
+    },
+  ];
+
+  return (
+    <section className="py-24 px-4 max-w-4xl mx-auto space-y-12">
+      <div className="scroll-reveal text-center space-y-3">
+        <div className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase">
+          Частые вопросы
+        </div>
+        <h2 className="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+          ОТВЕТЫ НА <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">ПОПУЛЯРНЫЕ ВОПРОСЫ</span>
+        </h2>
+        <p className="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+          Собрали всё, что чаще всего спрашивают новые пользователи. Если не нашли ответ — пишите в поддержку.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {faqs.map((faq, i) => (
+          <div
+            key={i}
+            className={`scroll-reveal scroll-reveal-delay-${(i % 3) + 1} bg-slate-950 border border-slate-900 rounded-xl overflow-hidden transition-all duration-200 ${
+              openIndex === i ? 'border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.1)]' : 'hover:border-slate-800'
+            }`}
+          >
+            <button
+              onClick={() => setOpenIndex(openIndex === i ? null : i)}
+              className="w-full px-6 py-5 flex items-center justify-between text-left cursor-pointer group"
+            >
+              <span className={`text-sm md:text-base font-bold uppercase tracking-wide transition-colors ${
+                openIndex === i ? 'text-purple-400' : 'text-slate-200 group-hover:text-purple-400'
+              }`}>
+                {faq.q}
+              </span>
+              <span className={`ml-4 text-2xl font-bold transition-all duration-300 flex-shrink-0 ${
+                openIndex === i ? 'text-purple-400 rotate-45' : 'text-slate-600'
+              }`}>
+                +
+              </span>
+            </button>
+            <div
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                openIndex === i ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="px-6 pb-5 text-sm text-slate-400 leading-relaxed border-t border-slate-900 pt-4">
+                {faq.a}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// === OFFER SECTION ===
+function OfferSection() {
+  return (
+    <section className="py-24 px-4 max-w-4xl mx-auto text-center">
+      <div className="scroll-reveal p-8 md:p-12 bg-slate-950 border border-purple-500/20 rounded-2xl shadow-xl space-y-6 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+          Начни прямо сейчас
+        </div>
+
+        <h2 className="text-3xl md:text-5xl font-black uppercase tracking-wide leading-none text-slate-100">
+          ЗАПУСТИ СВОЕГО{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400 drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
+            ПЕРВОГО ПЕРСОНАЖА
+          </span>{' '}
+          ЗА 2 МИНУТЫ
+        </h2>
+
+        <p className="text-slate-300 font-medium text-sm md:text-base max-w-3xl mx-auto leading-relaxed">
+          Присоединяйся к тысячам пользователей, которые уже общаются с ИИ-персонажами бесплатно. Выбери любого из 100+ героев, запусти нейросеть в один клик и наслаждайся безлимитным общением и генерацией изображений —{' '}
+          <span className="text-pink-400 font-black">
+            БЕЗ ПОДПИСОК, БЕЗ ЛИМИТОВ, БЕЗ ЦЕНЗУРЫ
+          </span>
+          .
+        </p>
+
+        <div className="pt-2">
+          <button className="px-8 py-4 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer">
+            НАЧАТЬ БЕСПЛАТНОЕ ОБЩЕНИЕ
+          </button>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-4 pt-6 max-w-3xl mx-auto border-t border-slate-900 text-left">
+          <div className="p-4 bg-slate-900/40 border border-purple-500/10 rounded-xl space-y-1">
+            <div className="text-[11px] font-bold tracking-wider text-purple-400 uppercase">💎 100% бесплатно</div>
+            <p className="text-[11px] text-slate-500 leading-normal">Никаких скрытых платежей, подписок или платных функций. Всё доступно сразу и навсегда.</p>
+          </div>
+          <div className="p-4 bg-slate-900/40 border border-pink-500/10 rounded-xl space-y-1">
+            <div className="text-[11px] font-bold tracking-wider text-pink-400 uppercase">🚀 Запуск за 2 минуты</div>
+            <p className="text-[11px] text-slate-500 leading-normal">Простая инструкция и одна кнопка — и ты уже общаешься с выбранным персонажем.</p>
+          </div>
+          <div className="p-4 bg-slate-900/40 border border-indigo-500/10 rounded-xl space-y-1">
+            <div className="text-[11px] font-bold tracking-wider text-indigo-400 uppercase">🔒 Полная приватность</div>
+            <p className="text-[11px] text-slate-500 leading-normal">Все данные только у тебя. Никаких серверов, хранения переписок и передачи третьим лицам.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// === FOOTER ===
+function Footer() {
+  return (
+    <footer className="py-10 text-center text-xs text-slate-600 border-t border-slate-950 bg-black/10">
+      <div className="max-w-5xl mx-auto px-4 space-y-3">
+        <div className="flex flex-wrap justify-center gap-6 text-slate-500">
+          <a href="#" className="hover:text-purple-400 transition-colors">Каталог персонажей</a>
+          <a href="#" className="hover:text-purple-400 transition-colors">Инструкции</a>
+          <a href="#" className="hover:text-purple-400 transition-colors">Telegram-чат</a>
+          <a href="#" className="hover:text-purple-400 transition-colors">Поддержка</a>
+        </div>
+        <div className="text-slate-700">
+          &copy; 2026 AI Companions. Все персонажи старше 18 лет. Сервис предоставляется на условиях пользовательского соглашения.
+        </div>
+      </div>
     </footer>
+  );
+}
 
+// === NEON GLOWS ===
+function NeonGlows() {
+  return (
+    <>
+      <div className="fixed top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="fixed top-1/3 right-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+    </>
+  );
+}
 
-    <!-- === УПРАВЛЯЮЩИЙ JAVASCRIPT ЛЕНДИНГА === -->
-    <script>
-        // // Прямой переход на форму авторизации главного сайта (мост с auth.js)
-        window.navigateToAuth = function() {
-            console.log("📡 [SKULLA LANDING]: Редирект селлера на index.html с флагом авторизации...");
-            window.location.href = `${window.location.origin}/?login=true#login`;
-        };
+// === MAIN APP ===
+export default function App() {
+  useEffect(() => {
+    // Scroll reveal observer
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
 
-        // // Демо-доступ без регистрации напрямую в конструктор под стиль
-        window.launchDemoEditor = function(styleKey) {
-            // 🎯 СКАЛЛА-ФИКС СИНТАКСИСА: Все логи упакованы в каноничные косые кавычки ``
-            console.log(`📡 [SKULLA LANDING]: Тест-драйв стиля -> ${styleKey}. Вход в редактор...`);
-            
-            // 🎯 СКАЛЛА-ФИКС СТРОКИ: Склеили разорванный URL-адрес в одну бессмертную строчку!
-            window.location.href = `${window.location.origin}/editor?style=${encodeURIComponent(styleKey)}`;
-        };
-
-        // // Нативная b2b скролл-анимация плавного всплытия (Intersection Observer)
-        function initLandingScrollAnimations() {
-            const animElements = document.querySelectorAll('.skulla-scroll-anim');
-            if (animElements.length === 0) return;
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.remove('opacity-0', 'translate-y-6');
-                        entry.target.classList.add('opacity-100', 'translate-y-0');
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, { threshold: 0.1 });
-
-            animElements.forEach(el => observer.observe(el));
-        }
-
-        document.addEventListener('DOMContentLoaded', initLandingScrollAnimations);
-
-// --- УПРАВЛЕНИЕ БЕСКОНЕЧНОЙ КАРУСЕЛЬЮ И ПРОСМОТРОМ ЧЕРЕЗ JS ---
-function initMarqueeEngine() {
-    const track = document.getElementById('marquee-track');
-    if (!track) return;
-
-    // Дублируем контент для бесшовности
-    const originalCards = Array.from(track.children);
-    originalCards.forEach(card => {
-        const clone = card.cloneNode(true);
-        track.appendChild(clone);
+    document.querySelectorAll('.scroll-reveal').forEach((el) => {
+      observer.observe(el);
     });
 
-    // Навешиваем клик на ВСЕ картинки в ленте (и оригиналы, и клоны)
-    Array.from(track.children).forEach(card => {
-        card.style.cursor = 'zoom-in';
-        card.addEventListener('click', (e) => {
-            e.stopPropagation(); // Защита от автозакрытия
-            openLightbox(card.src);
-        });
-    });
+    return () => observer.disconnect();
+  }, []);
 
-    // Расчет ширины и покадровый скролл (ваш текущий рабочий код)
-    setTimeout(() => {
-        const gap = 32; 
-        const singleCardWidth = 256; 
-        const halfWidth = (singleCardWidth * 9) + (gap * 9); 
-        let currentX = 0;
-        const speed = 1.2; 
-        let isPaused = false;
+  return (
+    <div className="bg-[#050712] text-slate-300 font-sans antialiased selection:bg-purple-500 selection:text-white overflow-x-hidden relative min-h-screen">
+      <NeonGlows />
 
-        function step() {
-            if (!isPaused) {
-                currentX -= speed;
-                if (Math.abs(currentX) >= halfWidth) currentX = 0;
-                track.style.transform = `translate3d(${currentX}px, 0, 0)`;
-            }
-            requestAnimationFrame(step);
-        }
-
-        //track.addEventListener('mouseenter', () => isPaused = true);
-        //track.addEventListener('mouseleave', () => isPaused = false);
-        requestAnimationFrame(step);
-    }, 300); 
+      <HeroSection />
+      <FeaturesSection />
+      <CatalogSection />
+      <HowItWorksSection />
+      <FAQSection />
+      <OfferSection />
+      <Footer />
+    </div>
+  );
 }
-
-// ФУНКЦИИ УВЕЛИЧЕНИЯ КАРТИНКИ
-function openLightbox(src) {
-    const lightbox = document.getElementById('image-lightbox');
-    const img = document.getElementById('lightbox-img');
-    if (!lightbox || !img) return;
-
-    img.src = src;
-    lightbox.style.display = 'flex';
-    
-    // Плавное появление (микротаймаут нужен для срабатывания transition)
-    setTimeout(() => {
-        lightbox.style.opacity = '1';
-        img.style.transform = 'scale(1)';
-    }, 10);
-}
-
-function closeLightbox() {
-    const lightbox = document.getElementById('image-lightbox');
-    const img = document.getElementById('lightbox-img');
-    if (!lightbox || !img) return;
-
-    lightbox.style.opacity = '0';
-    img.style.transform = 'scale(0.9)';
-    
-    // Скрываем из DOM после завершения анимации (300мс)
-    setTimeout(() => {
-        lightbox.style.display = 'none';
-    }, 300);
-}
-
-// Запуск при загрузке
-document.addEventListener('DOMContentLoaded', () => {
-    initMarqueeEngine();
-});
-
-// --- УМНЫЙ JS-ДВИЖОК ПОСЕКЦИОННОГО СКРОЛЛА (SCROLL SNAP BYPASSER) ---
-// --- ИСПРАВЛЕННЫЙ JS-ДВИЖОК ПОСЕКЦИОННОГО СКРОЛЛА ---
-function initSmartScrollSnap() {
-    // Находим все секции и футер
-    const sections = Array.from(document.querySelectorAll('.page-block'));
-
-    let isScrolling = false;
-
-    // Функция плавной докрутки БЕЗ использования капризного offsetTop
-    function scrollToSection(index) {
-        if (index < 0 || index >= sections.length) return;
-        isScrolling = true;
-        
-        // Метод scrollIntoView с флагом 'start' аппаратно и идеально ровно
-        // притягивает верхний край выбранной секции к верхнему краю экрана
-        sections[index].scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-        });
-
-        // Защитный таймаут от дребезга колесика мыши
-        setTimeout(() => {
-            isScrolling = false;
-        }, 800); 
-    }
-
-    // Определяем текущую активную секцию по ее реальным координатам в окне
-    function getCurrentSectionIndex() {
-        let currentIdx = 0;
-        let minDistance = Infinity;
-
-        sections.forEach((sec, index) => {
-            // Получаем точное физическое положение секции относительно экрана
-            const rect = sec.getBoundingClientRect();
-            // Нас интересует, насколько верхний край секции близок к верху экрана (0)
-            const distance = Math.abs(rect.top);
-            
-            if (distance < minDistance) {
-                minDistance = distance;
-                currentIdx = index;
-            }
-        });
-        return currentIdx;
-    }
-
-    // Перехват колесика мыши и тачпада
-    window.addEventListener('wheel', (e) => {
-        if (isScrolling) return;
-        
-        const currentIndex = getCurrentSectionIndex();
-
-        if (e.deltaY > 20) {
-            // Скролл вниз
-            if (currentIndex < sections.length - 1) {
-                e.preventDefault();
-                scrollToSection(currentIndex + 1);
-            }
-        } else if (e.deltaY < -20) {
-            // Скролл вверх
-            if (currentIndex > 0) {
-                e.preventDefault();
-                scrollToSection(currentIndex - 1);
-            }
-        }
-    }, { passive: false });
-
-    // Перехват тач-событий (смартфоны)
-    let touchStartY = 0;
-    window.addEventListener('touchstart', (e) => {
-        touchStartY = e.touches.clientY;
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-        if (isScrolling) return;
-        
-        const currentIndex = getCurrentSectionIndex();
-        const touchEndY = e.touches.clientY;
-        const diffY = touchStartY - touchEndY;
-
-        if (diffY > 50) {
-            // Свайп вверх -> скролл вниз
-            if (currentIndex < sections.length - 1) {
-                e.preventDefault();
-                scrollToSection(currentIndex + 1);
-            }
-        } else if (diffY < -50) {
-            // Свайп вниз -> text скролл вверх
-            if (currentIndex > 0) {
-                e.preventDefault();
-                scrollToSection(currentIndex - 1);
-            }
-        }
-    }, { passive: false });
-}
-
-
-// Запускаем движок скролла
-document.addEventListener('DOMContentLoaded', () => {
-    initSmartScrollSnap();
-});
-
-// 🔥 УНИВЕРСАЛЬНЫЙ ТРЕКЕР: Ловит блогера на ЛЮБОЙ странице (даже на главной /)
-(function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const refBlogger = urlParams.get('ref');
-    
-    if (refBlogger) {
-        // Жестко сохраняем логин блогера в localStorage браузера селлера
-        localStorage.setItem('skulla_ref_blogger', refBlogger.toLowerCase().trim());
-        console.log(`%c[Рефералка]: Успешно запомнили блогера: ${refBlogger}`, "color: #2ecc71; font-weight: bold;");
-        
-        // Красивый хак: чистим хвост ?ref=... из адресной строки, 
-        // чтобы ссылка снова стала чистой skulla.ru и не мозолила глаза пользователю!
-        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
-        window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
-    }
-})();
-
-    </script>
-    
-
-<!-- МОДАЛЬНОЕ ОКНО ДЛЯ ПРИБЛИЖЕННОГО ПРОСМОТРА КАРТОЧЕК -->
-<div id="image-lightbox" onclick="closeLightbox()" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(5, 7, 18, 0.85); backdrop-filter: blur(12px); z-index: 9999; justify-content: center; align-items: center; cursor: zoom-out; opacity: 0; transition: opacity 0.3s ease;">
-    <!-- Свечение на фоне под картинкой в стиле Cyberpunk -->
-    <div style="position: absolute; width: 400px; height: 400px; background-color: rgba(168, 85, 247, 0.15); filter: blur(100px); border-radius: 50%; pointer-events: none;"></div>
-    
-    <!-- Увеличенная картинка -->
-    <img id="lightbox-img" src="" style="max-width: 90%; max-height: 85vh; border-radius: 1.5rem; border: 1px solid rgba(168, 85, 247, 0.3); box-shadow: 0 0 50px rgba(168, 85, 247, 0.2); transform: scale(0.9); transition: transform 0.3s ease; object-fit: contain;" alt="Просмотр">
-</div>
-
-</body>
-</html>
