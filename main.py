@@ -1,632 +1,870 @@
-# ==============================================================================
-# 🔥 FISHHOOK AI v4.0 — WebSocket архитектура
-# ==============================================================================
-# Множество пользователей, каждый со своим воркером
-# Сервер выступает как маршрутизатор между фронтендом и воркером
-# ==============================================================================
+# -*- coding: utf-8 -*-
+"""
+🎭 FishHook AI WebSocket Worker v4.0
+Воркер подключается к серверу через WebSocket и получает задачи
+
+Архитектура:
+- Каждый пользователь запускает свой воркер
+- Воркер подключается к серверу через WebSocket
+- Сервер маршрутизирует задачи от браузера к воркеру
+- Воркер отправляет результаты обратно через WebSocket
+"""
 
 import os
-import time
+import sys
 import json
-import asyncio
+import time
+import re
+import gc
+import shutil
+import subprocess
+import requests
+import torch
 import hashlib
-from typing import Dict, Optional, Set
-from datetime import datetime
+import asyncio
+import websockets
+from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Form, File, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+# ============================================================================
+# ⚙️ КОНФИГУРАЦИЯ
+# ============================================================================
 
-# ==============================================================================
-# 🚀 ИНИЦИАЛИЗАЦИЯ
-# ==============================================================================
+# ВАЖНО: Укажите ваш user_id и URL сервера
+USER_ID = "RATANOV_PAVEL"  # ← Замените на ваш user_id
+SERVER_URL = "wss://skulla.ru"  # ← Замените на URL вашего сервера
+# Для локального тестирования: SERVER_URL = "ws://localhost:8000"
 
-app = FastAPI(title="FishHook AI WebSocket Server", version="4.0")
+# Пути
+CHARACTERS_DIR = "./characters"
+UPLOADS_DIR = "./uploads"
 
-# CORS для браузеров
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Флаги
+NSFW_ENABLED = True
 
-# ==============================================================================
-# 📦 ХРАНИЛИЩА СОЕДИНЕНИЙ
-# ==============================================================================
+# ============================================================================
+# 📦 УСТАНОВКА ЗАВИСИМОСТЕЙ
+# ============================================================================
 
-# Маппинг: user_id → WebSocket соединение с воркером
-worker_connections: Dict[str, WebSocket] = {}
+def install_dependencies():
+    packages = {
+        "transformers":       "transformers",
+        "accelerate":         "accelerate",
+        "bitsandbytes":       "bitsandbytes",
+        "optimum":            "optimum",
+        "coqui-tts":          "TTS",
+        "diffusers":          "diffusers",
+        "openai-whisper":     "whisper",
+        "SpeechRecognition":  "speech_recognition",
+        "gtts":               "gtts",
+        "pydub":              "pydub",
+        "websockets":         "websockets"
+    }
+    
+    for pip_name, import_name in packages.items():
+        try:
+            __import__(import_name)
+            print(f"✅ {pip_name} уже установлен")
+        except ImportError:
+            print(f"📦 Устанавливаю {pip_name}...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", pip_name])
 
-# Маппинг: user_id → WebSocket соединение с браузером
-browser_connections: Dict[str, WebSocket] = {}
+    if not shutil.which("ffmpeg"):
+        print("📦 Устанавливаю ffmpeg...")
+        os.system("apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null 2>&1")
 
-# Маппинг: user_id → информация о воркере
-worker_info: Dict[str, dict] = {}
+install_dependencies()
 
-# Маппинг: user_id → текущая задача
-active_tasks: Dict[str, dict] = {}
+import speech_recognition as sr
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# Статистика
-stats = {
-    "total_connections": 0,
-    "active_workers": 0,
-    "active_browsers": 0,
-    "tasks_processed": 0,
-    "start_time": datetime.now().isoformat()
+# ============================================================================
+# 👥 СИСТЕМА ПЕРСОНАЖЕЙ
+# ============================================================================
+
+def load_characters():
+    """Загружает персонажей из папки characters/"""
+    characters = {}
+    
+    if not os.path.exists(CHARACTERS_DIR):
+        print(f"⚠️ Папка {CHARACTERS_DIR} не найдена")
+        return characters
+    
+    for item in os.listdir(CHARACTERS_DIR):
+        char_path = os.path.join(CHARACTERS_DIR, item)
+        config_file = os.path.join(char_path, "config.json")
+        
+        if os.path.isdir(char_path) and os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                
+                config["key"] = item
+                config["voice_sample"] = os.path.join(char_path, "voice.wav")
+                config["gallery_dir"] = os.path.join(char_path, "gallery")
+                characters[item] = config
+            except Exception as e:
+                print(f"⚠️ Ошибка загрузки {item}: {e}")
+    
+    print(f"✅ Загружено персонажей: {len(characters)}")
+    return characters
+
+CHARACTERS = load_characters()
+CHARACTER_STATES = {}
+ACTIVE_CHARACTER = list(CHARACTERS.keys())[0] if CHARACTERS else None
+
+# ============================================================================
+# 🎬 СИСТЕМА СЦЕН
+# ============================================================================
+
+SCENES = {
+    "nature": {"name": "🌿 Природа", "prompt_en": "lush green forest, dappled sunlight, wildflowers, golden hour"},
+    "sea": {"name": "🌊 Море", "prompt_en": "beautiful beach, turquoise ocean waves, white sand, sunset"},
+    "shower": {"name": "🚿 Душ", "prompt_en": "glass shower, water droplets on skin, steam, soft lighting"},
+    "pastel": {"name": "🌸 Пастель", "prompt_en": "soft pastel bedroom, pink and lavender tones, dreamy lighting"},
+    "nsfw": {"name": "🔥 18+", "prompt_en": "intimate boudoir, soft dramatic lighting"},
+    "cafe": {"name": "☕ Кафе", "prompt_en": "cozy cafe interior, warm ambient lighting, coffee cup"},
+    "gym": {"name": "💪 Спортзал", "prompt_en": "modern gym interior, athletic pose, dynamic lighting"}
 }
 
-# ==============================================================================
-# 🔐 АВТОРИЗАЦИЯ (упрощённая - через токен в URL)
-# ==============================================================================
+# ============================================================================
+# 🖼️ МОДЕЛИ
+# ============================================================================
 
-def generate_token(user_id: str) -> str:
-    """Генерирует токен для подключения"""
-    secret = "skulla_secret_key_2024"
-    return hashlib.sha256(f"{user_id}:{secret}".encode()).hexdigest()[:16]
+IMAGE_MODEL = None
+VOICE_MODEL = None
+VOICE_TOKENIZER = None
+TTS_ENGINE = None
 
-def verify_token(user_id: str, token: str) -> bool:
-    """Проверяет токен"""
-    expected = generate_token(user_id)
-    return token == expected
+# ============================================================================
+# 🔧 УТИЛИТЫ
+# ============================================================================
 
-# ==============================================================================
-# 📡 WEBSOCKET: ПОДКЛЮЧЕНИЕ ВОРКЕРА
-# ==============================================================================
+def check_gpu():
+    if torch.cuda.is_available():
+        gpu_name = torch.cuda.get_device_name(0)
+        vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+        print(f"✅ GPU: {gpu_name} | VRAM: {vram:.1f} GB")
+        return True
+    else:
+        print("❌ GPU не обнаружен!")
+        return False
 
-@app.websocket("/ws/worker/{user_id}/{token}")
-async def worker_websocket(websocket: WebSocket, user_id: str, token: str):
-    """
-    Воркер подключается к серверу через WebSocket.
-    URL: wss://skulla.ru/ws/worker/{user_id}/{token}
-    """
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def has_cyrillic(text):
+    return bool(re.search('[а-яА-Я]', text))
+
+def translate_to_english(russian_text):
+    """Переводит промпт с русского на английский"""
+    global VOICE_MODEL, VOICE_TOKENIZER
     
-    # Проверка токена
-    if not verify_token(user_id, token):
-        await websocket.close(code=4001, reason="Invalid token")
-        return
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+        return russian_text
     
-    # Проверяем, не подключён ли уже воркер для этого пользователя
-    if user_id in worker_connections:
-        old_ws = worker_connections[user_id]
+    try:
+        prompt = f"Translate this Russian phrase to a short English image description. Output ONLY the translation, 5-10 words max.\n\nRussian: {russian_text}\nEnglish:"
+        
+        inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+        
+        with torch.no_grad():
+            outputs = VOICE_MODEL.generate(**inputs, max_new_tokens=30, temperature=0.1, do_sample=False)
+        
+        translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+        translation = translation.replace(prompt, "").strip()
+        translation = re.sub(r'^["\']|["\']$', '', translation)
+        translation = translation.split('.')[0].split('\n')[0]
+        
+        if len(translation) > 100 or 'explicit' in translation.lower():
+            return russian_text
+        
+        print(f"🌐 Перевод: {translation}")
+        return translation
+    except Exception as e:
+        print(f"⚠️ Ошибка перевода: {e}")
+        return russian_text
+
+def make_unique_seed(base_seed, prompt_text):
+    prompt_hash = int(hashlib.md5(prompt_text.encode()).hexdigest()[:8], 16)
+    return (base_seed * 10000 + prompt_hash) % (2**32 - 1)
+
+# ============================================================================
+# 🧠 ПСИХОЛОГИЧЕСКАЯ СИСТЕМА
+# ============================================================================
+
+def get_character_state(character_key):
+    if character_key not in CHARACTER_STATES:
+        character = CHARACTERS[character_key]
+        CHARACTER_STATES[character_key] = character.get("initial_state", {}).copy()
+    return CHARACTER_STATES[character_key]
+
+def analyze_message_sentiment(message):
+    message_lower = message.lower()
+    
+    sentiment = {
+        "compliment": False, "rude": False, "flirt": False,
+        "intellectual": False, "emotional_support": False,
+        "sexual": False, "neutral": True
+    }
+    
+    if any(word in message_lower for word in ["красив", "милая", "прекрасн", "чудесн"]):
+        sentiment["compliment"] = True
+        sentiment["neutral"] = False
+    
+    if any(word in message_lower for word in ["тупая", "дура", "идиотк", "отстань"]):
+        sentiment["rude"] = True
+        sentiment["neutral"] = False
+    
+    if any(word in message_lower for word in ["нравишь", "люблю тебя", "хочу тебя", "поцелуй"]):
+        sentiment["flirt"] = True
+        sentiment["neutral"] = False
+    
+    if any(word in message_lower for word in ["философ", "теори", "гипотез", "анализ"]):
+        sentiment["intellectual"] = True
+        sentiment["neutral"] = False
+    
+    if any(word in message_lower for word in ["грустно", "плохо", "устал", "проблем"]):
+        sentiment["emotional_support"] = True
+        sentiment["neutral"] = False
+    
+    if any(word in message_lower for word in ["секс", "голая", "раздень", "хочу тебя"]):
+        sentiment["sexual"] = True
+        sentiment["neutral"] = False
+    
+    return sentiment
+
+def update_character_state(character_key, sentiment):
+    state = get_character_state(character_key)
+    character = CHARACTERS[character_key]
+    changes = {}
+    
+    if sentiment["compliment"]:
+        changes["mood"] = min(100, state.get("mood", 0) + 15)
+        changes["trust"] = min(100, state.get("trust", 0) + 10)
+        changes["intimacy"] = min(100, state.get("intimacy", 0) + 5)
+    
+    if sentiment["rude"]:
+        changes["mood"] = max(-100, state.get("mood", 0) - 25)
+        changes["trust"] = max(0, state.get("trust", 0) - 20)
+        changes["intimacy"] = max(0, state.get("intimacy", 0) - 15)
+    
+    if sentiment["flirt"]:
+        changes["arousal"] = min(100, state.get("arousal", 0) + 20)
+        changes["intimacy"] = min(100, state.get("intimacy", 0) + 15)
+        changes["mood"] = min(100, state.get("mood", 0) + 10)
+    
+    if sentiment["sexual"]:
+        changes["arousal"] = min(100, state.get("arousal", 0) + 30)
+    
+    for key, value in changes.items():
+        state[key] = value
+    
+    CHARACTER_STATES[character_key] = state
+    return state
+
+def generate_personality_prompt(character_key, state):
+    character = CHARACTERS[character_key]
+    traits = character.get("traits", {})
+    
+    prompt_parts = []
+    prompt_parts.append(f"Ты — {character['name']}. {character['personality']}")
+    prompt_parts.append("НИКОГДА не говори что ты ИИ, ассистент или языковая модель.")
+    prompt_parts.append(f"Всегда отвечай от первого лица как {character['name']}.")
+    prompt_parts.append(f"Ты {character['name']}, и только {character['name']}. Никогда не называй себя другим именем.")
+    
+    if traits.get("intelligence", 50) >= 80:
+        prompt_parts.append("Ты очень умная, используешь сложные слова.")
+    elif traits.get("intelligence", 50) >= 60:
+        prompt_parts.append("Ты достаточно умная, говоришь понятно.")
+    else:
+        prompt_parts.append("Ты не очень умная, используешь простые слова.")
+    
+    if traits.get("confidence", 50) >= 80:
+        prompt_parts.append("Ты очень уверена в себе.")
+    elif traits.get("confidence", 50) >= 60:
+        prompt_parts.append("Ты уверена в себе, но иногда сомневаешься.")
+    else:
+        prompt_parts.append("Ты неуверенна в себе, часто сомневаешься.")
+    
+    if traits.get("empathy", 50) >= 80:
+        prompt_parts.append("Ты очень эмпатичная, чувствуешь настроение собеседника.")
+    elif traits.get("empathy", 50) >= 60:
+        prompt_parts.append("Ты понимаешь эмоции.")
+    else:
+        prompt_parts.append("Ты не очень понимаешь эмоции других.")
+    
+    if traits.get("humor", 50) >= 80:
+        prompt_parts.append("Ты очень весёлая, часто шутишь.")
+    elif traits.get("humor", 50) >= 60:
+        prompt_parts.append("Ты любишь пошутить.")
+    else:
+        prompt_parts.append("Ты серьёзная, редко шутишь.")
+    
+    mood = state.get("mood", 50)
+    if mood >= 70:
+        prompt_parts.append("Сейчас ты в отличном настроении.")
+    elif mood >= 30:
+        prompt_parts.append("Сейчас ты в хорошем настроении.")
+    elif mood >= 0:
+        prompt_parts.append("Сейчас ты в нейтральном настроении.")
+    else:
+        prompt_parts.append("Сейчас ты расстроена.")
+    
+    if state.get("arousal", 0) >= 70:
+        prompt_parts.append("Ты очень возбуждена.")
+    elif state.get("arousal", 0) >= 40:
+        prompt_parts.append("Ты немного возбуждена.")
+    
+    if state.get("trust", 0) >= 70:
+        prompt_parts.append("Ты очень доверяешь собеседнику.")
+    elif state.get("trust", 0) >= 40:
+        prompt_parts.append("Ты moderately доверяешь собеседнику.")
+    else:
+        prompt_parts.append("Ты не очень доверяешь собеседнику.")
+    
+    if state.get("intimacy", 0) >= 70:
+        prompt_parts.append("Ты очень близка с собеседником.")
+    elif state.get("intimacy", 0) >= 40:
+        prompt_parts.append("Ты достаточно близка с собеседником.")
+    else:
+        prompt_parts.append("Ты не очень близка с собеседником.")
+    
+    if state.get("energy", 0) >= 70:
+        prompt_parts.append("Ты полна энергии.")
+    elif state.get("energy", 0) >= 40:
+        prompt_parts.append("Ты в нормальном состоянии.")
+    else:
+        prompt_parts.append("Ты устала.")
+    
+    prompt_parts.append("Отвечай кратко и по делу, строго на русском языке.")
+    
+    return " ".join(prompt_parts)
+
+# ============================================================================
+# 🚀 ЗАГРУЗЧИК МОДЕЛЕЙ
+# ============================================================================
+
+def init_models():
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
+
+    if not check_gpu():
+        print("⛔ Без GPU дальнейшая работа невозможна.")
+        return False
+
+    # Qwen-7B
+    print("\n⏳ Загрузка Qwen2.5-7B-Instruct (4-bit)...")
+    try:
+        from transformers import BitsAndBytesConfig
+        
+        model_id = "Qwen/Qwen2.5-7B-Instruct"
+        VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
+        
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4"
+        )
+        
+        VOICE_MODEL = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            device_map="auto",
+            quantization_config=quantization_config,
+            low_cpu_mem_usage=True,
+        )
+        print("✅ Qwen-7B (4-bit) загружен в VRAM!")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки Qwen: {e}")
+        VOICE_MODEL = None
+        VOICE_TOKENIZER = None
+
+    # XTTS v2
+    print("\n⏳ Загрузка XTTS v2...")
+    try:
+        from TTS.api import TTS
+        os.environ["COQUI_TOS_AGREED"] = "1"
+        TTS_ENGINE = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2").to("cuda")
+        print("✅ XTTS v2 загружен в VRAM!")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки XTTS v2: {e}")
+        TTS_ENGINE = None
+
+    # Модель генерации изображений
+    print("\n⏳ Загрузка модели для генерации изображений...")
+    
+    models_to_try = [
+        ("Lykon/DreamShaper", "DreamShaper"),
+        ("prompthero/openjourney-v4", "OpenJourney v4"),
+        ("runwayml/stable-diffusion-v1-5", "SD 1.5")
+    ]
+    
+    IMAGE_MODEL = None
+    for model_id, model_name in models_to_try:
         try:
-            await old_ws.close(code=4002, reason="Replaced by new connection")
-        except:
-            pass
+            print(f"   Пробую загрузить {model_name}...")
+            from diffusers import StableDiffusionPipeline
+            
+            IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
+                model_id,
+                torch_dtype=torch.float16,
+                safety_checker=None,
+            ).to("cuda")
+            
+            IMAGE_MODEL.enable_attention_slicing()
+            print(f"✅ {model_name} загружен в VRAM!")
+            break
+        except Exception as e:
+            print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
+            continue
     
-    await websocket.accept()
-    worker_connections[user_id] = websocket
-    worker_info[user_id] = {
-        "connected_at": datetime.now().isoformat(),
-        "last_ping": time.time(),
-        "status": "online",
-        "gpu": "unknown"
-    }
+    if IMAGE_MODEL is None:
+        print("❌ Критическая ошибка: ни одна модель не загрузилась!")
+
+    gc.collect()
+    torch.cuda.empty_cache()
+    return VOICE_MODEL is not None
+
+# ============================================================================
+# 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
+# ============================================================================
+
+def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
+    global IMAGE_MODEL
     
-    stats["total_connections"] += 1
-    stats["active_workers"] = len(worker_connections)
-    
-    print(f"\n🔌 [WORKER] Подключён: {user_id}")
-    print(f"   Всего воркеров: {stats['active_workers']}")
-    print(f"   Всего браузеров: {stats['active_browsers']}")
-    
-    # Отправляем приветствие воркеру
-    await websocket.send_json({
-        "type": "welcome",
-        "user_id": user_id,
-        "message": "Connected to FishHook AI server"
-    })
+    if IMAGE_MODEL is None:
+        print("⚠️ Модель генерации изображений не загружена")
+        return False
     
     try:
-        while True:
-            # Получаем сообщения от воркера
-            data = await websocket.receive_json()
-            msg_type = data.get("type")
-            
-            # Обновляем last_ping
-            worker_info[user_id]["last_ping"] = time.time()
-            
-            # --- Обработка разных типов сообщений ---
-            
-            if msg_type == "ping":
-                # Ответ на ping
-                await websocket.send_json({"type": "pong", "timestamp": time.time()})
-            
-            elif msg_type == "status":
-                # Воркер сообщает свой статус
-                worker_info[user_id]["status"] = data.get("status", "online")
-                worker_info[user_id]["gpu"] = data.get("gpu", "unknown")
-                print(f"📊 [WORKER {user_id}] Статус: {data.get('status')}")
-            
-            elif msg_type == "task_result":
-                # Воркер отправляет результат задачи
-                print(f"📨 [WORKER {user_id}] Получен результат задачи")
-                
-                # Пересылаем результат в браузер пользователя
-                if user_id in browser_connections:
-                    browser_ws = browser_connections[user_id]
-                    try:
-                        await browser_ws.send_json({
-                            "type": "task_result",
-                            "task_id": data.get("task_id"),
-                            "bot_text": data.get("bot_text", ""),
-                            "user_text": data.get("user_text", ""),
-                            "audio_url": data.get("audio_url"),
-                            "image_url": data.get("image_url"),
-                            "status": "completed"
-                        })
-                        stats["tasks_processed"] += 1
-                        print(f"✅ [WORKER {user_id}] Результат переслан в браузер")
-                    except Exception as e:
-                        print(f"❌ [WORKER {user_id}] Ошибка пересылки: {e}")
-                else:
-                    print(f"⚠️ [WORKER {user_id}] Браузер не подключён")
-            
-            elif msg_type == "task_status":
-                # Воркер отправляет промежуточный статус задачи
-                if user_id in browser_connections:
-                    try:
-                        await browser_connections[user_id].send_json({
-                            "type": "task_status",
-                            "task_id": data.get("task_id"),
-                            "status": data.get("status"),
-                            "message": data.get("message", "")
-                        })
-                    except:
-                        pass
-            
-            elif msg_type == "error":
-                # Воркер сообщает об ошибке
-                print(f"❌ [WORKER {user_id}] Ошибка: {data.get('message')}")
-                if user_id in browser_connections:
-                    try:
-                        await browser_connections[user_id].send_json({
-                            "type": "error",
-                            "message": data.get("message", "Unknown error")
-                        })
-                    except:
-                        pass
-            
-            else:
-                print(f"⚠️ [WORKER {user_id}] Неизвестный тип сообщения: {msg_type}")
-    
-    except WebSocketDisconnect:
-        print(f"\n🔌 [WORKER] Отключён: {user_id}")
+        character = CHARACTERS.get(character_key)
+        if not character:
+            print(f"❌ Персонаж {character_key} не найден")
+            return False
+        
+        scene = SCENES.get(scene_key, SCENES["nature"])
+        
+        if has_cyrillic(user_prompt):
+            translated_prompt = translate_to_english(user_prompt)
+        else:
+            translated_prompt = user_prompt
+        
+        quality = "photorealistic, masterpiece, 8k, sharp focus"
+        face = character.get("face_desc", "person")
+        scene_desc = scene["prompt_en"]
+        action = translated_prompt.strip()[:60]
+        
+        full_prompt = f"{action}, {face}, {scene_desc}, {quality}"
+        
+        if len(full_prompt) > 300:
+            full_prompt = full_prompt[:300]
+        
+        negative_prompt = character.get("negative", "ugly, deformed, worst quality")
+        if not nsfw and not NSFW_ENABLED:
+            negative_prompt += ", nude, naked, nsfw"
+        
+        unique_seed = make_unique_seed(character.get("seed", 42), user_prompt + scene_key)
+        generator = torch.Generator(device="cuda").manual_seed(unique_seed)
+        
+        print(f"🎨 Генерация изображения...")
+        print(f"   Промпт: {full_prompt[:80]}...")
+        
+        with torch.inference_mode():
+            image = IMAGE_MODEL(
+                full_prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=35,
+                guidance_scale=7.5,
+                width=512,
+                height=768,
+                generator=generator,
+            ).images[0]
+        
+        image.save(output_path, quality=95)
+        print(f"✅ Изображение сохранено: {output_path}")
+        return True
+        
     except Exception as e:
-        print(f"\n❌ [WORKER {user_id}] Ошибка: {e}")
-    finally:
-        # Удаляем соединение
-        if user_id in worker_connections:
-            del worker_connections[user_id]
-        if user_id in worker_info:
-            del worker_info[user_id]
-        stats["active_workers"] = len(worker_connections)
-        print(f"   Осталось воркеров: {stats['active_workers']}")
+        print(f"❌ Ошибка генерации изображения: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
+# ============================================================================
+# 🎙️ ОБРАБОТКА ЗАДАЧИ
+# ============================================================================
 
-# ==============================================================================
-# 📡 WEBSOCKET: ПОДКЛЮЧЕНИЕ БРАУЗЕРА
-# ==============================================================================
-
-@app.websocket("/ws/browser/{user_id}/{token}")
-async def browser_websocket(websocket: WebSocket, user_id: str, token: str):
-    """
-    Браузер подключается к серверу через WebSocket.
-    URL: wss://skulla.ru/ws/browser/{user_id}/{token}
-    """
+async def process_task(task_data, ws, send_status):
+    """Обрабатывает задачу от браузера"""
     
-    # Проверка токена
-    if not verify_token(user_id, token):
-        await websocket.close(code=4001, reason="Invalid token")
+    task_id = task_data.get("task_id", "unknown")
+    data = task_data.get("task_data", {})
+    
+    character_key = data.get("character", ACTIVE_CHARACTER)
+    character = CHARACTERS.get(character_key)
+    
+    if not character:
+        await send_status(task_id, "error", f"Персонаж {character_key} не найден")
         return
     
-    await websocket.accept()
-    browser_connections[user_id] = websocket
+    await send_status(task_id, "processing", f"Обработка задачи для {character['name']}")
     
-    stats["total_connections"] += 1
-    stats["active_browsers"] = len(browser_connections)
+    # Создаём папку для сессии
+    session_id = f"ws_{task_id}"
+    session_dir = ensure_dir(f"{UPLOADS_DIR}/{session_id}")
     
-    print(f"\n🌐 [BROWSER] Подключён: {user_id}")
-    print(f"   Всего воркеров: {stats['active_workers']}")
-    print(f"   Всего браузеров: {stats['active_browsers']}")
+    user_text = data.get("text_message", "")
+    generate_img = data.get("generate_image", False)
+    image_prompt = data.get("image_prompt", "")
+    scene_key = data.get("scene", "nature")
+    nsfw = data.get("nsfw", False)
     
-    # Отправляем приветствие браузеру
-    has_worker = user_id in worker_connections
-    await websocket.send_json({
-        "type": "welcome",
-        "user_id": user_id,
-        "worker_connected": has_worker,
-        "message": "Connected to FishHook AI server"
-    })
+    print(f"\n📨 [TASK {task_id}] Персонаж: {character['name']}, Сцена: {scene_key}")
     
+    # ШАГ 1: Получение текста
+    if not user_text.strip():
+        user_text = "Привет! Ответь мне на русском языке."
+    
+    await send_status(task_id, "thinking", "Генерация ответа...")
+    
+    # ШАГ 2: Генерация ответа (LLM)
+    bot_text = ""
     try:
-        while True:
-            # Получаем сообщения от браузера
-            data = await websocket.receive_json()
-            msg_type = data.get("type")
+        if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+            bot_text = "Мой LLM-модуль не был загружен."
+        else:
+            sentiment = analyze_message_sentiment(user_text)
+            state = update_character_state(character_key, sentiment)
             
-            # --- Обработка разных типов сообщений ---
+            system_prompt = generate_personality_prompt(character_key, state)
             
-            if msg_type == "task":
-                # Браузер отправляет задачу
-                print(f"📨 [BROWSER {user_id}] Получена задача")
-                
-                # Проверяем, подключён ли воркер
-                if user_id not in worker_connections:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Воркер не подключён. Запустите main.py в Colab."
-                    })
-                    continue
-                
-                # Пересылаем задачу воркеру
+            history_file = f"chat_history_{session_id}_{character_key}.json"
+            chat_history = []
+            if os.path.exists(history_file):
                 try:
-                    task_id = f"task_{int(time.time())}_{user_id[:8]}"
-                    
-                    # Сохраняем задачу
-                    active_tasks[user_id] = {
-                        "task_id": task_id,
-                        "data": data,
-                        "created_at": datetime.now().isoformat(),
-                        "status": "processing"
-                    }
-                    
-                    # Пересылаем воркеру
-                    await worker_connections[user_id].send_json({
-                        "type": "task",
-                        "task_id": task_id,
-                        "task_data": data.get("task_data", {})
-                    })
-                    
-                    # Подтверждаем браузеру
-                    await websocket.send_json({
-                        "type": "task_accepted",
-                        "task_id": task_id,
-                        "message": "Задача отправлена воркеру"
-                    })
-                    
-                    print(f"✅ [BROWSER {user_id}] Задача {task_id} переслана воркеру")
-                    
-                except Exception as e:
-                    print(f"❌ [BROWSER {user_id}] Ошибка пересылки: {e}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"Ошибка отправки задачи: {str(e)}"
-                    })
-            
-            elif msg_type == "ping":
-                await websocket.send_json({"type": "pong", "timestamp": time.time()})
-            
-            elif msg_type == "check_worker":
-                # Браузер проверяет, подключён ли воркер
-                has_worker = user_id in worker_connections
-                worker_status = worker_info.get(user_id, {}).get("status", "offline")
-                await websocket.send_json({
-                    "type": "worker_status",
-                    "connected": has_worker,
-                    "status": worker_status,
-                    "gpu": worker_info.get(user_id, {}).get("gpu", "unknown")
-                })
-            
-            else:
-                print(f"⚠️ [BROWSER {user_id}] Неизвестный тип: {msg_type}")
-    
-    except WebSocketDisconnect:
-        print(f"\n🌐 [BROWSER] Отключён: {user_id}")
-    except Exception as e:
-        print(f"\n❌ [BROWSER {user_id}] Ошибка: {e}")
-    finally:
-        if user_id in browser_connections:
-            del browser_connections[user_id]
-        stats["active_browsers"] = len(browser_connections)
-        print(f"   Осталось браузеров: {stats['active_browsers']}")
-
-
-# ==============================================================================
-# 📡 WEBSOCKET: ПРЯМОЕ ПОДКЛЮЧЕНИЕ (без токена - для тестирования)
-# ==============================================================================
-
-@app.websocket("/ws/worker/{user_id}")
-async def worker_websocket_simple(websocket: WebSocket, user_id: str):
-    """Упрощённое подключение воркера (без токена)"""
-    await websocket.accept()
-    worker_connections[user_id] = websocket
-    worker_info[user_id] = {
-        "connected_at": datetime.now().isoformat(),
-        "last_ping": time.time(),
-        "status": "online",
-        "gpu": "unknown"
-    }
-    stats["active_workers"] = len(worker_connections)
-    print(f"\n🔌 [WORKER] Подключён (simple): {user_id}")
-    
-    await websocket.send_json({
-        "type": "welcome",
-        "user_id": user_id,
-        "message": "Connected (simple mode)"
-    })
-    
-    try:
-        while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type")
-            
-            worker_info[user_id]["last_ping"] = time.time()
-            
-            if msg_type == "ping":
-                await websocket.send_json({"type": "pong"})
-            elif msg_type == "task_result":
-                if user_id in browser_connections:
-                    await browser_connections[user_id].send_json({
-                        "type": "task_result",
-                        **data
-                    })
-            elif msg_type == "task_status":
-                if user_id in browser_connections:
-                    await browser_connections[user_id].send_json({
-                        "type": "task_status",
-                        **data
-                    })
-            elif msg_type == "status":
-                worker_info[user_id].update(data)
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if user_id in worker_connections:
-            del worker_connections[user_id]
-        stats["active_workers"] = len(worker_connections)
-
-
-@app.websocket("/ws/browser/{user_id}")
-async def browser_websocket_simple(websocket: WebSocket, user_id: str):
-    """Упрощённое подключение браузера (без токена)"""
-    await websocket.accept()
-    browser_connections[user_id] = websocket
-    stats["active_browsers"] = len(browser_connections)
-    print(f"\n🌐 [BROWSER] Подключён (simple): {user_id}")
-    
-    await websocket.send_json({
-        "type": "welcome",
-        "user_id": user_id,
-        "worker_connected": user_id in worker_connections
-    })
-    
-    try:
-        while True:
-            data = await websocket.receive_json()
-            msg_type = data.get("type")
-            
-            if msg_type == "task":
-                if user_id not in worker_connections:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Воркер не подключён"
-                    })
-                    continue
-                
-                task_id = f"task_{int(time.time())}_{user_id[:8]}"
-                await worker_connections[user_id].send_json({
-                    "type": "task",
-                    "task_id": task_id,
-                    "task_data": data.get("task_data", {})
-                })
-                await websocket.send_json({
-                    "type": "task_accepted",
-                    "task_id": task_id
-                })
-            
-            elif msg_type == "check_worker":
-                await websocket.send_json({
-                    "type": "worker_status",
-                    "connected": user_id in worker_connections
-                })
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if user_id in browser_connections:
-            del browser_connections[user_id]
-        stats["active_browsers"] = len(browser_connections)
-
-
-# ==============================================================================
-# 📊 REST API: СТАТИСТИКА И УПРАВЛЕНИЕ
-# ==============================================================================
-
-@app.get("/ws/status")
-async def get_status():
-    """Получить статус сервера"""
-    return {
-        "status": "online",
-        "stats": stats,
-        "workers": list(worker_info.keys()),
-        "browsers": list(browser_connections.keys()),
-        "active_tasks": len(active_tasks)
-    }
-
-@app.get("/ws/worker/{user_id}/status")
-async def get_worker_status(user_id: str):
-    """Получить статус конкретного воркера"""
-    if user_id not in worker_info:
-        return {"status": "offline", "user_id": user_id}
-    
-    info = worker_info[user_id].copy()
-    info["status"] = "online"
-    info["user_id"] = user_id
-    return info
-
-@app.get("/ws/token/{user_id}")
-async def get_token(user_id: str):
-    """Получить токен для подключения"""
-    token = generate_token(user_id)
-    return {
-        "user_id": user_id,
-        "token": token,
-        "worker_url": f"wss://skulla.ru/ws/worker/{user_id}/{token}",
-        "browser_url": f"wss://skulla.ru/ws/browser/{user_id}/{token}"
-    }
-
-# ==============================================================================
-# 📁 СТАТИЧЕСКИЕ ФАЙЛЫ (для совместимости)
-# ==============================================================================
-
-@app.get("/characters/{character_key}/{filename}")
-async def get_character_file(character_key: str, filename: str):
-    """Отдаёт файлы персонажей"""
-    if ".." in character_key or ".." in filename:
-        raise HTTPException(400, "Invalid path")
-    
-    if filename.startswith("gallery/"):
-        file_path = f"./characters/{character_key}/{filename}"
-    elif filename in ["main.jpg", "voice.wav", "voice_intro.wav", "config.json"]:
-        file_path = f"./characters/{character_key}/{filename}"
-    else:
-        raise HTTPException(400, "Invalid filename")
-    
-    if not os.path.exists(file_path):
-        raise HTTPException(404, "File not found")
-    
-    if filename.endswith('.wav'):
-        media_type = "audio/wav"
-    elif filename.endswith('.jpg') or filename.endswith('.jpeg'):
-        media_type = "image/jpeg"
-    elif filename.endswith('.png'):
-        media_type = "image/png"
-    else:
-        media_type = "application/octet-stream"
-    
-    return FileResponse(file_path, media_type=media_type)
-
-@app.get("/api/studio/fishhook/characters")
-async def get_characters():
-    """Список персонажей (для совместимости)"""
-    characters = {}
-    characters_dir = "./characters"
-    
-    if os.path.exists(characters_dir):
-        for item in os.listdir(characters_dir):
-            char_path = os.path.join(characters_dir, item)
-            config_file = os.path.join(char_path, "config.json")
-            
-            if os.path.isdir(char_path) and os.path.exists(config_file):
-                try:
-                    with open(config_file, 'r', encoding='utf-8') as f:
-                        config = json.load(f)
-                    
-                    has_voice = os.path.exists(os.path.join(char_path, "voice.wav"))
-                    has_main_photo = os.path.exists(os.path.join(char_path, "main.jpg"))
-                    
-                    characters[item] = {
-                        "key": item,
-                        "name": config.get("name", item),
-                        "age": config.get("age", 0),
-                        "gender": config.get("gender", "female"),
-                        "style": config.get("style", "realistic"),
-                        "personality": config.get("personality", ""),
-                        "description": config.get("description", ""),
-                        "emoji": config.get("emoji", "🎭"),
-                        "has_voice": has_voice,
-                        "has_main_photo": has_main_photo,
-                        "main_photo_url": f"/characters/{item}/main.jpg" if has_main_photo else None,
-                        "subscription_required": config.get("subscription_required", False),
-                        "nsfw_allowed": config.get("nsfw_allowed", False),
-                        "traits": config.get("traits", {})
-                    }
-                except Exception as e:
-                    print(f"⚠️ Ошибка загрузки {item}: {e}")
-    
-    return {
-        "status": "success",
-        "characters": characters,
-        "default": list(characters.keys())[0] if characters else None,
-        "total": len(characters)
-    }
-
-@app.get("/api/studio/fishhook/character/{character_key}/preview")
-async def get_character_preview(character_key: str):
-    """Превью персонажа (для совместимости)"""
-    char_dir = f"./characters/{character_key}"
-    config_file = os.path.join(char_dir, "config.json")
-    
-    if not os.path.exists(config_file):
-        raise HTTPException(404, "Персонаж не найден")
-    
-    with open(config_file, 'r', encoding='utf-8') as f:
-        config = json.load(f)
-    
-    gallery_dir = os.path.join(char_dir, "gallery")
-    gallery = []
-    if os.path.exists(gallery_dir):
-        gallery = [f"/characters/{character_key}/gallery/{f}" 
-                  for f in sorted(os.listdir(gallery_dir)) 
-                  if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    
-    has_voice = os.path.exists(os.path.join(char_dir, "voice.wav"))
-    
-    return {
-        "status": "success",
-        "preview": {
-            "key": character_key,
-            "name": config.get("name"),
-            "age": config.get("age"),
-            "gender": config.get("gender"),
-            "style": config.get("style", "realistic"),
-            "emoji": config.get("emoji"),
-            "description": config.get("description", ""),
-            "personality": config.get("personality", ""),
-            "main_photo": f"/characters/{character_key}/main.jpg",
-            "voice": f"/characters/{character_key}/voice.wav" if has_voice else None,
-            "gallery": gallery,
-            "traits": config.get("traits", {})
-        }
-    }
-
-# ==============================================================================
-# 🧹 ОЧИСТКА
-# ==============================================================================
-
-async def cleanup_inactive_connections():
-    """Периодическая очистка неактивных соединений"""
-    while True:
-        await asyncio.sleep(60)
-        
-        current_time = time.time()
-        inactive_workers = []
-        
-        for user_id, info in worker_info.items():
-            if current_time - info.get("last_ping", 0) > 300:  # 5 минут
-                inactive_workers.append(user_id)
-        
-        for user_id in inactive_workers:
-            print(f"🧹 Удаляю неактивного воркера: {user_id}")
-            if user_id in worker_connections:
-                try:
-                    await worker_connections[user_id].close()
+                    with open(history_file, "r", encoding="utf-8") as hf:
+                        chat_history = json.load(hf)
                 except:
                     pass
-                del worker_connections[user_id]
-            if user_id in worker_info:
-                del worker_info[user_id]
-        
-        stats["active_workers"] = len(worker_connections)
+            
+            if chat_history and chat_history[0]["role"] == "system":
+                chat_history[0]["content"] = system_prompt
+            else:
+                chat_history.insert(0, {"role": "system", "content": system_prompt})
+            
+            chat_history.append({"role": "user", "content": user_text})
+            
+            if len(chat_history) > 5:
+                chat_history = [chat_history[0]] + chat_history[-4:]
+            
+            prompt = VOICE_TOKENIZER.apply_chat_template(
+                chat_history, tokenize=False, add_generation_prompt=True
+            )
+            inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
+            
+            with torch.no_grad():
+                outputs = VOICE_MODEL.generate(
+                    **inputs, max_new_tokens=180, temperature=0.85,
+                    do_sample=True, top_p=0.9
+                )
+            
+            full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+            bot_text = full_output.replace(prompt, "").strip()
+            
+            if "assistant" in bot_text:
+                bot_text = bot_text.split("assistant")[-1].strip()
+            
+            # Очистка от артефактов
+            bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯]+', '', bot_text)
+            bot_text = re.sub(r'\s+', ' ', bot_text).strip()
+            
+            if len(bot_text) < 20:
+                with torch.no_grad():
+                    outputs = VOICE_MODEL.generate(
+                        **inputs, max_new_tokens=180, temperature=0.7,
+                        do_sample=True, top_p=0.85, repetition_penalty=1.2
+                    )
+                full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
+                bot_text = full_output.replace(prompt, "").strip()
+                if "assistant" in bot_text:
+                    bot_text = bot_text.split("assistant")[-1].strip()
+                bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯]+', '', bot_text)
+                bot_text = re.sub(r'\s+', ' ', bot_text).strip()
+            
+            print(f"🤖 {character['name']}: {bot_text}")
+            
+            chat_history.append({"role": "assistant", "content": bot_text})
+            with open(history_file, "w", encoding="utf-8") as hf:
+                json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+    
+    except Exception as e:
+        print(f"❌ Сбой LLM: {e}")
+        bot_text = "Произошла ошибка при генерации ответа."
+    
+    await send_status(task_id, "speaking", "Синтез речи...")
+    
+    # ШАГ 3: Синтез речи (TTS)
+    clean_text = bot_text
+    clean_text = re.sub(r'\*.*?\*', '', clean_text)
+    clean_text = re.sub(r'[一-鿿㐀-䶿]+', '', clean_text)
+    clean_text = re.sub(r'[\U0001F600-\U0001F64F]', '', clean_text)
+    clean_text = re.sub(r'([.!?]){2,}', r'\1', clean_text)
+    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+    
+    if not clean_text:
+        clean_text = "Извини, я не могу ответить сейчас."
+    
+    output_audio_name = os.path.join(session_dir, "bot_response.wav")
+    
+    try:
+        if TTS_ENGINE is not None:
+            voice_params = character.get("voice_params")
+            
+            if voice_params:
+                speakers = TTS_ENGINE.speakers
+                speaker_idx = voice_params.get("speaker_idx", 0) % len(speakers)
+                speaker_name = speakers[speaker_idx]
+                
+                TTS_ENGINE.tts_to_file(
+                    text=clean_text,
+                    speaker=speaker_name,
+                    language="ru",
+                    file_path=output_audio_name
+                )
+                
+                pitch_shift = voice_params.get("pitch_shift", 0)
+                if pitch_shift != 0:
+                    # Применяем pitch shift через ffmpeg
+                    pass
+                
+                print("✅ XTTS v2: голос синтезирован")
+            else:
+                voice_sample = character.get("voice_sample")
+                speaker_wav = None
+                
+                if voice_sample and os.path.exists(voice_sample):
+                    speaker_wav = voice_sample
+                else:
+                    # Ищем любой доступный голос
+                    for char_key, char_data in CHARACTERS.items():
+                        vs = char_data.get("voice_sample")
+                        if vs and os.path.exists(vs):
+                            speaker_wav = vs
+                            break
+                
+                if speaker_wav:
+                    TTS_ENGINE.tts_to_file(
+                        text=clean_text,
+                        language="ru",
+                        speaker_wav=speaker_wav,
+                        file_path=output_audio_name
+                    )
+                    print("✅ XTTS v2: голос синтезирован")
+                else:
+                    raise FileNotFoundError("Нет reference wav")
+        else:
+            raise RuntimeError("TTS_ENGINE is None")
+    except Exception as e:
+        print(f"⚠️ XTTS сбой ({e}), fallback на gTTS...")
+        try:
+            from gtts import gTTS
+            tts = gTTS(text=clean_text, lang="ru", slow=False)
+            tts.save(output_audio_name)
+            print("✅ gTTS fallback: аудио создано")
+        except Exception as e2:
+            print(f"❌ gTTS тоже упал: {e2}")
+    
+    await send_status(task_id, "generating", "Генерация изображения...")
+    
+    # ШАГ 4: Генерация изображения
+    output_image_name = None
+    if generate_img and image_prompt:
+        output_image_name = os.path.join(session_dir, "generated_image.jpg")
+        success = generate_photorealistic_image(
+            image_prompt, character_key, scene_key, output_image_name, nsfw=nsfw
+        )
+        if not success:
+            output_image_name = None
+    
+    await send_status(task_id, "uploading", "Отправка результатов...")
+    
+    # ШАГ 5: Отправка результатов через WebSocket
+    # Вместо загрузки на сервер, отправляем файлы через WebSocket
+    
+    result = {
+        "type": "task_result",
+        "task_id": task_id,
+        "user_text": user_text,
+        "bot_text": bot_text,
+        "audio_url": None,
+        "image_url": None
+    }
+    
+    # Отправляем аудио
+    if os.path.exists(output_audio_name):
+        try:
+            with open(output_audio_name, "rb") as f:
+                audio_data = f.read()
+            
+            # Кодируем в base64 для передачи через WebSocket
+            import base64
+            audio_b64 = base64.b64encode(audio_data).decode('utf-8')
+            
+            result["audio_url"] = f"data:audio/wav;base64,{audio_b64}"
+            print(f"✅ Аудио подготовлено для отправки ({len(audio_data)} байт)")
+        except Exception as e:
+            print(f"❌ Ошибка чтения аудио: {e}")
+    
+    # Отправляем изображение
+    if output_image_name and os.path.exists(output_image_name):
+        try:
+            with open(output_image_name, "rb") as f:
+                image_data = f.read()
+            
+            import base64
+            image_b64 = base64.b64encode(image_data).decode('utf-8')
+            
+            result["image_url"] = f"data:image/jpeg;base64,{image_b64}"
+            print(f"✅ Изображение подготовлено для отправки ({len(image_data)} байт)")
+        except Exception as e:
+            print(f"❌ Ошибка чтения изображения: {e}")
+    
+    # Отправляем результат через WebSocket
+    try:
+        await ws.send(json.dumps(result))
+        print(f"🏁 Результат отправлен через WebSocket")
+    except Exception as e:
+        print(f"❌ Ошибка отправки результата: {e}")
+    
+    # Очистка временных файлов
+    for fp in [output_audio_name, output_image_name]:
+        if fp and os.path.exists(fp):
+            try:
+                os.remove(fp)
+            except:
+                pass
 
-@app.on_event("startup")
-async def startup_event():
-    """Запуск фоновых задач"""
-    asyncio.create_task(cleanup_inactive_connections())
+# ============================================================================
+# 🔄 WEBSOCKET КЛИЕНТ
+# ============================================================================
+
+async def worker_loop():
+    """Главный цикл воркера - подключение к серверу через WebSocket"""
+    
     print("\n" + "=" * 60)
-    print("🚀 FISHHOOK AI WebSocket Server v4.0 ЗАПУЩЕН")
+    print("🚀 FISHHOOK AI WebSocket Worker v4.0")
+    print(f"   User ID: {USER_ID}")
+    print(f"   Server: {SERVER_URL}")
     print("=" * 60)
-    print(f"   Workers endpoint:  /ws/worker/{{user_id}}")
-    print(f"   Browsers endpoint: /ws/browser/{{user_id}}")
-    print(f"   Status endpoint:   /ws/status")
-    print("=" * 60 + "\n")
+    
+    # Загружаем модели
+    if not init_models():
+        print("⛔ Модели не загружены. Выход.")
+        return
+    
+    ws_url = f"{SERVER_URL}/ws/worker/{USER_ID}"
+    
+    # Цикл переподключения
+    while True:
+        try:
+            print(f"\n🔌 Подключение к {ws_url}...")
+            
+            async with websockets.connect(
+                ws_url,
+                ping_interval=20,
+                ping_timeout=60,
+                close_timeout=10
+            ) as ws:
+                print("✅ Подключено к серверу!")
+                
+                # Отправляем статус
+                await ws.send(json.dumps({
+                    "type": "status",
+                    "status": "online",
+                    "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none",
+                    "characters_loaded": len(CHARACTERS),
+                    "models_loaded": {
+                        "llm": VOICE_MODEL is not None,
+                        "tts": TTS_ENGINE is not None,
+                        "image": IMAGE_MODEL is not None
+                    }
+                }))
+                
+                # Отправляем периодические ping
+                async def ping_loop():
+                    while True:
+                        await asyncio.sleep(30)
+                        try:
+                            await ws.send(json.dumps({"type": "ping"}))
+                        except:
+                            break
+                
+                ping_task = asyncio.create_task(ping_loop())
+                
+                # Слушаем сообщения от сервера
+                async for message in ws:
+                    try:
+                        data = json.loads(message)
+                        msg_type = data.get("type")
+                        
+                        if msg_type == "welcome":
+                            print(f"📨 Приветствие от сервера: {data.get('message')}")
+                        
+                        elif msg_type == "pong":
+                            pass  # Ответ на наш ping
+                        
+                        elif msg_type == "task":
+                            task_id = data.get("task_id")
+                            task_data = data.get("task_data", {})
+                            
+                            print(f"\n📨 Получена задача: {task_id}")
+                            print(f"   Персонаж: {task_data.get('character')}")
+                            print(f"   Текст: {task_data.get('text_message', '')[:50]}")
+                            
+                            # Функция для отправки статусов
+                            async def send_status(tid, status, message=""):
+                                await ws.send(json.dumps({
+                                    "type": "task_status",
+                                    "task_id": tid,
+                                    "status": status,
+                                    "message": message
+                                }))
+                            
+                            # Обрабатываем задачу
+                            await process_task(data, ws, send_status)
+                        
+                        else:
+                            print(f"⚠️ Неизвестный тип сообщения: {msg_type}")
+                    
+                    except json.JSONDecodeError:
+                        print(f"⚠️ Ошибка парсинга JSON: {message[:100]}")
+                    except Exception as e:
+                        print(f"❌ Ошибка обработки сообщения: {e}")
+                        import traceback
+                        traceback.print_exc()
+                
+                ping_task.cancel()
+        
+        except websockets.exceptions.ConnectionClosed as e:
+            print(f"\n⚠️ Соединение закрыто: {e}")
+            print("   Переподключение через 5 секунд...")
+            await asyncio.sleep(5)
+        
+        except Exception as e:
+            print(f"\n❌ Ошибка подключения: {e}")
+            print("   Переподключение через 10 секунд...")
+            await asyncio.sleep(10)
 
-# ==============================================================================
+# ============================================================================
 # 🏁 ЗАПУСК
-# ==============================================================================
+# ============================================================================
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000, ws_ping_interval=30, ws_ping_timeout=60)
+    try:
+        asyncio.run(worker_loop())
+    except KeyboardInterrupt:
+        print("\n\n⚠️ Воркер остановлен пользователем")
+    except Exception as e:
+        print(f"\n\n❌ Критическая ошибка: {e}")
+        import traceback
+        traceback.print_exc()
