@@ -25,6 +25,9 @@ import asyncio
 import websockets
 from pathlib import Path
 
+import functools
+print = functools.partial(print, flush=True)
+
 # ============================================================================
 # ⚙️ КОНФИГУРАЦИЯ
 # ============================================================================
