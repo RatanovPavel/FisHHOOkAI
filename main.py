@@ -610,7 +610,7 @@ async def process_task(task_data, ws, send_status):
         try:
             await send_status(task_id, "transcribing", "Распознаю голос...")
             if "," in audio_b64:
-                audio_b64 = audio_b64.split(",", 1)
+                audio_b64 = audio_b64.split(",", 1)[1]
             input_audio = os.path.join(session_dir, f"in_{task_id}.webm")
             with open(input_audio, "wb") as f:
                 f.write(base64.b64decode(audio_b64))
@@ -662,11 +662,12 @@ async def process_task(task_data, ws, send_status):
             )
             inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
             
-            with torch.no_grad():
-                outputs = VOICE_MODEL.generate(
+            outputs = await asyncio.to_thread(
+                lambda: VOICE_MODEL.generate(
                     **inputs, max_new_tokens=180, temperature=0.85,
                     do_sample=True, top_p=0.9
                 )
+            )
             
             full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
             bot_text = full_output.replace(prompt, "").strip()
