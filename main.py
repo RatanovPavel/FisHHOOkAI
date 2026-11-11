@@ -602,6 +602,22 @@ async def process_task(task_data, ws, send_status):
     nsfw = data.get("nsfw", False)
     print(f"🔍 Пришедшие данные от сайта: { {k: (v[:30] + '...' if isinstance(v, str) and len(v) > 30 else v) for k, v in data.items()} }")
     print(f"\n📨 [TASK {task_id}] Персонаж: {character['name']}, Сцена: {scene_key}")
+
+
+    audio_b64 = data.get("audio_base64", "")
+    if not user_text.strip() and audio_b64 and WHISPER_MODEL is not None:
+        try:
+            await send_status(task_id, "transcribing", "Распознаю голос...")
+            if "," in audio_b64:
+                audio_b64 = audio_b64.split(",", 1)
+            input_audio = os.path.join(session_dir, f"in_{task_id}.webm")
+            with open(input_audio, "wb") as f:
+                f.write(base64.b64decode(audio_b64))
+            user_text = WHISPER_MODEL.transcribe(input_audio, language="ru").get("text", "").strip()
+            print(f"🎤 Распознан голос: '{user_text}'")
+            os.remove(input_audio)
+        except Exception as e:
+            print(f"⚠ Ошибка Whisper: {e}")
     
     # ШАГ 1: Получение текста
     if not user_text.strip():
