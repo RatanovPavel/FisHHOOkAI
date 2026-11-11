@@ -82,7 +82,6 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 # ============================================================================
 
 def get_http_base_url():
-    """Преобразует ws:// или wss:// адрес сервера в http:// или https://"""
     if SERVER_URL.startswith("wss://"):
         return SERVER_URL.replace("wss://", "https://", 1).rstrip("/")
     elif SERVER_URL.startswith("ws://"):
@@ -90,89 +89,89 @@ def get_http_base_url():
     return SERVER_URL.rstrip("/")
 
 
-def sync_characters_from_server(target_character=None):
-    """Скачивает конфиги и voice.wav персонажей с сервера в локальную папку"""
-    base_url = get_http_base_url()
-    os.makedirs(CHARACTERS_DIR, exist_ok=True)
+def download_one_character(character_key: str) -> bool:
+    """Скачивает ОДНОГО персонажа с сервера, если его ещё нет на диске"""
+    if not character_key:
+        return False
 
+    char_dir = os.path.join(CHARACTERS_DIR, character_key)
+    config_path = os.path.join(char_dir, "config.json")
 
-    try:
-        print(f"🌐 Запрашиваю список персонажей с {base_url}...")
-        resp = requests.get(f"{base_url}/api/studio/fishhook/characters", timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        server_chars = data.get("characters", {})
-
-        if not server_chars:
-            print("⚠ На сервере не найдено ни одного персонажа")
-            return False
-
-        # Если указан конкретный персонаж, скачиваем только его, иначе — всех
-        keys_to_sync = [target_character] if target_character else list(server_chars.keys())
-
-        for char_key in keys_to_sync:
-            if char_key not in server_chars:
-                print(f"⚠ Персонаж '{char_key}' отсутствует на сервере")
-                continue
-
-            char_dir = os.path.join(CHARACTERS_DIR, char_key)
-            os.makedirs(char_dir, exist_ok=True)
-            
-            # Скачиваем обязательный config.json и сэмпл голоса voice.wav
-            files_to_download = ["config.json"]
-            if server_chars[char_key].get("has_voice"):
-                files_to_download.append("voice.wav")
-
-            for filename in files_to_download:
-                local_path = os.path.join(char_dir, filename)
-                file_url = f"{base_url}/characters/{char_key}/{filename}"
-                
-                file_resp = requests.get(file_url, timeout=30)
-                if file_resp.status_code == 200:
-                    with open(local_path, "wb") as f:
-                        f.write(file_resp.content)
-                    print(f"  📥 Скачан: {char_key}/{filename}")
-                else:
-                    print(f"  ⚠ Не удалось скачать {char_key}/{filename} (код {file_resp.status_code})")
-
+    if os.path.exists(config_path):
         return True
 
+    base_url = get_http_base_url()
+    os.makedirs(char_dir, exist_ok=True)
+
+    try:
+        print(f"🌐 Скачиваю персонажа '{character_key}' с сервера...")
+        resp = requests.get(
+            f"{base_url}/api/studio/fishhook/character/{character_key}/preview",
+            timeout=15
+        )
+        if resp.status_code != 200:
+            print(f"⚠ Персонаж '{character_key}' не найден на сервере")
+            return False
+
+        preview = resp.json().get("preview", {})
+        files = ["config.json"]
+        if preview.get("voice"):
+            files.append("voice.wav")
+
+        for filename in files:
+            file_resp = requests.get(f"{base_url}/characters/{character_key}/{filename}", timeout=30)
+            if file_resp.status_code == 200:
+                with open(os.path.join(char_dir, filename), "wb") as f:
+                    f.write(file_resp.content)
+                print(f"  📥 Скачан: {character_key}/{filename}")
+
+        return os.path.exists(config_path)
     except Exception as e:
-        print(f"❌ Ошибка синхронизации персонажей с сервером: {e}")
+        print(f"❌ Ошибка скачивания '{character_key}': {e}")
         return False
 
 
+def load_one_character(character_key: str):
+    """Загружает одного персонажа с диска в память"""
+    char_path = os.path.join(CHARACTERS_DIR, character_key)
+    config_file = os.path.join(char_path, "config.json")
+
+    if os.path.exists(config_file):
+        with open(config_file, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        config["key"] = character_key
+        config["voice_sample"] = os.path.join(char_path, "voice.wav")
+        config["gallery_dir"] = os.path.join(char_path, "gallery")
+        CHARACTERS[character_key] = config
+        return config
+    return None
+
+
 def load_characters():
-    """Загружает персонажей с диска (предварительно скачав их с сервера)"""
-    sync_characters_from_server()
-    
+    """При старте берёт только то, что уже есть на диске (ничего не качает)"""
     characters = {}
     if not os.path.exists(CHARACTERS_DIR):
-        print(f"⚠ Папка {CHARACTERS_DIR} не найдена")
         return characters
 
     for item in os.listdir(CHARACTERS_DIR):
         char_path = os.path.join(CHARACTERS_DIR, item)
         config_file = os.path.join(char_path, "config.json")
-
         if os.path.isdir(char_path) and os.path.exists(config_file):
-            try:
-                with open(config_file, 'r', encoding='utf-8') as f:
-                    config = json.load(f)
-                config["key"] = item
-                config["voice_sample"] = os.path.join(char_path, "voice.wav")
-                config["gallery_dir"] = os.path.join(char_path, "gallery")
-                characters[item] = config
-            except Exception as e:
-                print(f"⚠ Ошибка загрузки {item}: {e}")
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config = json.load(f)
+            config["key"] = item
+            config["voice_sample"] = os.path.join(char_path, "voice.wav")
+            config["gallery_dir"] = os.path.join(char_path, "gallery")
+            characters[item] = config
 
-    print(f"✅ Загружено персонажей: {len(characters)}")
+    print(f"✅ Локально доступно персонажей: {len(characters)}")
     return characters
 
 
 CHARACTERS = load_characters()
 CHARACTER_STATES = {}
 ACTIVE_CHARACTER = list(CHARACTERS.keys())[0] if CHARACTERS else None
+
 
 # ============================================================================
 # 🎬 СИСТЕМА СЦЕН
