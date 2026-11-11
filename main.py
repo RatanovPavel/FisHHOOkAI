@@ -556,16 +556,25 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 
 async def process_task(task_data, ws, send_status):
     """Обрабатывает задачу от браузера"""
-    
+    global CHARACTERS
     task_id = task_data.get("task_id", "unknown")
     data = task_data.get("task_data", {})
-    
+
     character_key = data.get("character", ACTIVE_CHARACTER)
     character = CHARACTERS.get(character_key)
-    
+
+    # Если персонажа нет в памяти воркера — пробуем скачать с сервера
     if not character:
-        await send_status(task_id, "error", f"Персонаж {character_key} не найден")
+        await send_status(task_id, "downloading", f"Загрузка персонажа {character_key} с сервера...")
+        if sync_characters_from_server(target_character=character_key):
+            CHARACTERS = load_characters()
+            character = CHARACTERS.get(character_key)
+
+    # Если после попытки скачивания его всё равно нет — отдаём ошибку
+    if not character:
+        await send_status(task_id, "error", f"Персонаж {character_key} не найден ни локально, ни на сервере")
         return
+
     
     await send_status(task_id, "processing", f"Обработка задачи для {character['name']}")
     
