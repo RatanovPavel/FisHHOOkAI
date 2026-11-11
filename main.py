@@ -23,6 +23,7 @@ import torch
 import hashlib
 import asyncio
 import websockets
+import base64
 from pathlib import Path
 
 import functools
@@ -807,7 +808,6 @@ async def process_task(task_data, ws, send_status):
                 audio_data = f.read()
             
             # Кодируем в base64 для передачи через WebSocket
-            import base64
             audio_b64 = base64.b64encode(audio_data).decode('utf-8')
             
             result["audio_url"] = f"data:audio/wav;base64,{audio_b64}"
@@ -821,7 +821,6 @@ async def process_task(task_data, ws, send_status):
             with open(output_image_name, "rb") as f:
                 image_data = f.read()
             
-            import base64
             image_b64 = base64.b64encode(image_data).decode('utf-8')
             
             result["image_url"] = f"data:image/jpeg;base64,{image_b64}"
