@@ -93,7 +93,8 @@ def get_http_base_url():
 def sync_characters_from_server(target_character=None):
     """Скачивает конфиги и voice.wav персонажей с сервера в локальную папку"""
     base_url = get_http_base_url()
-    ensure_dir(CHARACTERS_DIR)
+    os.makedirs(CHARACTERS_DIR, exist_ok=True)
+
 
     try:
         print(f"🌐 Запрашиваю список персонажей с {base_url}...")
