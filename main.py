@@ -870,9 +870,10 @@ async def worker_loop():
             
             async with websockets.connect(
                 ws_url,
-                ping_interval=20,
-                ping_timeout=60,
-                close_timeout=10
+                ping_interval=30,
+                ping_timeout=180,
+                close_timeout=10,
+                max_size=None
             ) as ws:
                 print("✅ Подключено к серверу!")
                 
