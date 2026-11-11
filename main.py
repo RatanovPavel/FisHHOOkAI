@@ -198,6 +198,7 @@ IMAGE_MODEL = None
 VOICE_MODEL = None
 VOICE_TOKENIZER = None
 TTS_ENGINE = None
+WHISPER_MODEL = None
 
 # ============================================================================
 # 🔧 УТИЛИТЫ
@@ -410,7 +411,7 @@ def generate_personality_prompt(character_key, state):
 # ============================================================================
 
 def init_models():
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL, WHISPER_MODEL
 
     if not check_gpu():
         print("⛔ Без GPU дальнейшая работа невозможна.")
@@ -453,6 +454,16 @@ def init_models():
     except Exception as e:
         print(f"❌ Ошибка загрузки XTTS v2: {e}")
         TTS_ENGINE = None
+
+    # Whisper (распознавание голоса)
+    print("\n⏳ Загрузка Whisper...")
+    try:
+        import whisper
+        WHISPER_MODEL = whisper.load_model("base", device="cuda")
+        print("✅ Whisper загружен в VRAM!")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки Whisper: {e}")
+        WHISPER_MODEL = None
 
     # Модель генерации изображений
     print("\n⏳ Загрузка модели для генерации изображений...")
