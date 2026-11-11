@@ -589,7 +589,7 @@ async def process_task(task_data, ws, send_status):
     image_prompt = data.get("image_prompt", "")
     scene_key = data.get("scene", "nature")
     nsfw = data.get("nsfw", False)
-    
+    print(f"🔍 Пришедшие данные от сайта: { {k: (v[:30] + '...' if isinstance(v, str) and len(v) > 30 else v) for k, v in data.items()} }")
     print(f"\n📨 [TASK {task_id}] Персонаж: {character['name']}, Сцена: {scene_key}")
     
     # ШАГ 1: Получение текста
