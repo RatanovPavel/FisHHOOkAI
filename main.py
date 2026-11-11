@@ -726,10 +726,11 @@ async def process_task(task_data, ws, send_status):
                 speaker_idx = voice_params.get("speaker_idx", 0) % len(speakers)
                 speaker_name = speakers[speaker_idx]
                 
-                TTS_ENGINE.tts_to_file(
+                await asyncio.to_thread(
+                    TTS_ENGINE.tts_to_file,
                     text=clean_text,
-                    speaker=speaker_name,
                     language="ru",
+                    speaker_wav=speaker_name,
                     file_path=output_audio_name
                 )
                 
@@ -754,7 +755,8 @@ async def process_task(task_data, ws, send_status):
                             break
                 
                 if speaker_wav:
-                    TTS_ENGINE.tts_to_file(
+                    await asyncio.to_thread(
+                        TTS_ENGINE.tts_to_file,
                         text=clean_text,
                         language="ru",
                         speaker_wav=speaker_wav,
