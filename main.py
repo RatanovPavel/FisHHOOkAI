@@ -115,7 +115,8 @@ def sync_characters_from_server(target_character=None):
                 print(f"⚠ Персонаж '{char_key}' отсутствует на сервере")
                 continue
 
-            char_dir = ensure_dir(os.path.join(CHARACTERS_DIR, char_key))
+            char_dir = os.path.join(CHARACTERS_DIR, char_key)
+            os.makedirs(char_dir, exist_ok=True)
             
             # Скачиваем обязательный config.json и сэмпл голоса voice.wav
             files_to_download = ["config.json"]
