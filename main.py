@@ -581,7 +581,7 @@ async def process_task(task_data, ws, send_status):
     await send_status(task_id, "processing", f"Обработка задачи для {character['name']}")
     
     # Создаём папку для сессии
-    session_id = f"ws_{task_id}"
+    session_id = f"user_{USER_ID}"
     session_dir = ensure_dir(f"{UPLOADS_DIR}/{session_id}")
     
     user_text = data.get("text_message", "")
