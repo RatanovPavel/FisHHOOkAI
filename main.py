@@ -614,7 +614,8 @@ async def process_task(task_data, ws, send_status):
             input_audio = os.path.join(session_dir, f"in_{task_id}.webm")
             with open(input_audio, "wb") as f:
                 f.write(base64.b64decode(audio_b64))
-            user_text = WHISPER_MODEL.transcribe(input_audio, language="ru").get("text", "").strip()
+            asr_res = await asyncio.to_thread(WHISPER_MODEL.transcribe, input_audio, language="ru")
+            user_text = asr_res.get("text", "").strip()
             print(f"🎤 Распознан голос: '{user_text}'")
             os.remove(input_audio)
         except Exception as e:
@@ -780,9 +781,11 @@ async def process_task(task_data, ws, send_status):
     if generate_img:
         final_img_prompt = image_prompt.strip() or bot_text or user_text
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
-        success = generate_photorealistic_image(
+        success = await asyncio.to_thread(
+            generate_photorealistic_image,
             final_img_prompt, character_key, scene_key, output_image_name, nsfw=nsfw
         )
+
 
         if not success:
             output_image_name = None
