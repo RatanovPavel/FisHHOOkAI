@@ -760,11 +760,13 @@ async def process_task(task_data, ws, send_status):
     
     # ШАГ 4: Генерация изображения
     output_image_name = None
-    if generate_img and image_prompt:
+    if generate_img:
+        final_img_prompt = image_prompt.strip() or bot_text or user_text
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
         success = generate_photorealistic_image(
-            image_prompt, character_key, scene_key, output_image_name, nsfw=nsfw
+            final_img_prompt, character_key, scene_key, output_image_name, nsfw=nsfw
         )
+
         if not success:
             output_image_name = None
     
