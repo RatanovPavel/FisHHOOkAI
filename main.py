@@ -556,7 +556,7 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
                 generator=generator,
             ).images[0]
         
-        image.save(output_path, quality=95)
+        image.save(output_path, quality=75, optimize=True)
         print(f"✅ Изображение сохранено: {output_path}")
         return True
         
@@ -807,19 +807,22 @@ async def process_task(task_data, ws, send_status):
         "image_url": None
     }
     
-    # Отправляем аудио
+    # Отправляем аудио (сжимаем WAV -> MP3 для быстрой доставки)
     if os.path.exists(output_audio_name):
         try:
-            with open(output_audio_name, "rb") as f:
+            from pydub import AudioSegment
+            mp3_path = output_audio_name.replace(".wav", ".mp3")
+            AudioSegment.from_wav(output_audio_name).export(mp3_path, format="mp3", bitrate="64k")
+            with open(mp3_path, "rb") as f:
                 audio_data = f.read()
-            
-            # Кодируем в base64 для передачи через WebSocket
             audio_b64 = base64.b64encode(audio_data).decode('utf-8')
-            
-            result["audio_url"] = f"data:audio/wav;base64,{audio_b64}"
-            print(f"✅ Аудио подготовлено для отправки ({len(audio_data)} байт)")
+            result["audio_url"] = f"data:audio/mp3;base64,{audio_b64}"
+            print(f"✅ MP3 аудио подготовлено для отправки ({len(audio_data)} байт)")
+            if os.path.exists(mp3_path):
+                os.remove(mp3_path)
         except Exception as e:
-            print(f"❌ Ошибка чтения аудио: {e}")
+            print(f"❌ Ошибка сжатия/чтения аудио: {e}")
+
     
     # Отправляем изображение
     if output_image_name and os.path.exists(output_image_name):

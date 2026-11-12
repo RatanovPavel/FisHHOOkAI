@@ -1,0 +1,242 @@
+<!DOCTYPE HTML>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skulla — Конструктор инфографики и карточек товаров для маркетплейсов</title>
+    
+    <!-- Автономный CDN Tailwind v3 для мгновенной сборки интерфейса -->
+    <script src="/static/tailwind.min.js"></script>
+    
+    <style>
+        /* === АНИМАЦИИ БЕСКОНЕЧНОЙ КАРУСЕЛИ (MARQUEE) === */
+        @keyframes marquee {
+            0% { transform: translateX(0%); }
+            100% { transform: translateX(-100%); }
+        }
+        @keyframes marquee2 {
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(0%); }
+        }
+        .animate-marquee { animation: marquee 25s linear infinite; }
+        .animate-marquee2 { animation: marquee2 25s linear infinite; }
+
+        /* Системный скроллбар */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b21a8; }
+    </style>
+</head>
+<body class="bg-[#030712] text-slate-100 font-sans selection:bg-purple-500 selection:text-white min-h-screen overflow-x-hidden relative">
+
+    <!-- 🌌 ФОНОВЫЕ ЭЛЕМЕНТЫ ИНТЕРФЕЙСА (КОРПОРАТИВНЫЙ НЕОН) -->
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-purple-600/5 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute top-1/3 right-1/4 w-96 h-96 bg-pink-600/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <!-- 🚀 ГЛАВНЫЙ ЭКРАН (HERO SECTION) -->
+    <header class="relative min-h-screen flex flex-col items-center justify-center text-center px-4 max-w-5xl mx-auto border-b border-slate-900">
+        <div class="space-y-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1 text-[11px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase">
+                Автоматизация контента селлеров за 60 секунд
+            </div>
+            <h1 class="text-4xl md:text-6xl font-black tracking-wide uppercase leading-tight text-slate-100">
+                КОНСТРУКТОР КАРТОЧЕК И <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">ИНФОГРАФИКИ</span> ДЛЯ СЕЛЛЕРОВ
+            </h1>
+            <p class="text-base md:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-normal">
+                Профессиональный ИТ-инструмент для массового создания графического контента Wildberries и Ozon. Оптимизация рабочих процессов студий дизайна и штатных отделов маркетинга.
+            </p>
+            <div class="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <!-- 🚀 СКАЛЛА-ФИКС: Кнопка сразу нативно перенаправляет на форму авторизации главного сайта! -->
+                <button onclick="navigateToAuth()" class="px-8 py-4 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-150 cursor-pointer">
+                    Зарегистрироваться на платформе
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- 📊 ФУНКЦИОНАЛЬНЫЙ БЛОК (B2B-АРГУМЕНТЫ) -->
+    <section class="py-24 px-4 max-w-5xl mx-auto space-y-16">
+        <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out text-center space-y-3">
+            <h2 class="text-2xl md:text-3xl font-black tracking-wide uppercase text-purple-400">ФУНКЦИОНАЛЬНЫЕ ВОЗМОЖНОСТИ СЕРВИСА</h2>
+            <p class="text-slate-400 max-w-2xl mx-auto text-sm font-medium">Конструктор Skulla автоматизирует рутинные операции технического дизайна, ускоряя вывод SKU на маркетплейсы.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            <!-- Модуль 1 -->
+            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-purple-500/30 transition-all duration-200">
+                <div class="text-purple-400 text-2xl font-bold mb-3">01. Определение товара</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">ИИ-Идентификация предмета</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Интегрированные алгоритмы автоматически распознают тип товара по загруженному фото, определяя его категорию и ключевые технические характеристики.</p>
+            </div>
+            <!-- Модуль 2 -->
+            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out delay-75 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-pink-500/30 transition-all duration-200">
+                <div class="text-pink-400 text-2xl font-bold mb-3">02. Маркетинговые тексты</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Генерация описательных блоков</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Языковая модель Qwen анализирует свойства SKU и генерирует структурированные текстовые офферы под первый аккордеон инфографики карточки.</p>
+            </div>
+            <!-- Модуль 3 -->
+            <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out delay-150 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-indigo-500/30 transition-all duration-200">
+                <div class="text-indigo-400 text-2xl font-bold mb-3">03. Условия тарификации</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Безлимитные коррекции</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Редактирование, изменение слоев, перемещение элементов и подбор фонов бесплатны. Списание внутренней валюты происходит строго за финальное скачивание файла.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 🎠 ЛЕНТА ПРИМЕРОВ КАРТОЧЕК -->
+    <section class="py-16 border-t border-b border-slate-900 bg-slate-950/20 overflow-hidden">
+        <div class="max-w-5xl mx-auto px-4 mb-8 text-center">
+            <h2 class="text-2xl font-black tracking-wide uppercase text-slate-200">ПРИМЕРЫ СГЕНЕРИРОВАННЫХ КАРТОЧЕК</h2>
+        </div>
+        
+        <div class="relative w-full flex overflow-x-hidden border-t border-b border-slate-900/60 py-4 bg-slate-950">
+            <div class="animate-marquee whitespace-nowrap flex gap-6 shrink-0 min-w-full justify-around">
+                <img src="/static/images/cover1.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900 shadow-md" alt="Пример 1">
+                <img src="/static/images/cover2.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900 shadow-md" alt="Пример 2">
+                <img src="/static/images/cover3.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900 shadow-md" alt="Пример 3">
+                <img src="/static/images/cover4.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900 shadow-md" alt="Пример 4">
+            </div>
+            <div class="absolute top-0 py-4 animate-marquee2 whitespace-nowrap flex gap-6 shrink-0 min-w-full justify-around pointer-events-none">
+                <img src="/static/images/cover1.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900" alt="Пример 1">
+                <img src="/static/images/cover2.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900" alt="Пример 2">
+                <img src="/static/images/cover3.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900" alt="Пример 3">
+                <img src="/static/images/cover4.png" class="w-56 h-72 object-cover rounded-xl border border-slate-900" alt="Пример 4">
+            </div>
+        </div>
+    </section>
+
+    <!-- ⚡ ИНТЕРАКТИВНЫЙ БЛОК: ТЕСТ-ДРАЙВ СТИЛЕЙ БЕЗ АВТОРИЗАЦИИ -->
+    <section class="py-24 px-4 max-w-5xl mx-auto space-y-12">
+        <div class="skulla-scroll-anim text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase">
+                Интерактивный тест-драйв
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                ПОПРОБОВАТЬ <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">КОНСТРУКТОР ШАБЛОНОВ</span>
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-xs md:text-sm">
+                Выберите один из предустановленных стилей инфографики для мгновенного перехода в рабочий интерфейс редактора без предварительной авторизации.
+            </p>
+        </div>
+
+        <!-- 🦾 ЖЕСТКИЙ СКАЛЛА-ФИКС СЕТКИ: Делим экран строго на 3 широкие колонки с gap-8 -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 pt-4 w-full">
+            
+            <!-- Шаблон 1: Главная обложка -->
+            <div onclick="launchDemoEditor('skulla_seller_main_cover')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 text-center cursor-pointer hover:border-purple-500/50 hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] hover:scale-[1.01] transition-all duration-200 group flex flex-col justify-between">
+                <div class="w-full h-80 bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
+                    <img src="/static/images/template_main_cover.jpg" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Главная обложка">
+                    <span class="absolute bottom-3 left-3 text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded">Стиль обложки</span>
+                </div>
+                <div class="space-y-1 mt-auto">
+                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Главная обложка</h4>
+                    <p class="text-xs text-slate-500 leading-normal">Макет для лицевой стороны карточки товара в поисковой выдаче маркетплейса.</p>
+                </div>
+            </div>
+
+            <!-- Шаблон 2: Свойства и факты -->
+            <div onclick="launchDemoEditor('skulla_seller_features_infographic')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 text-center cursor-pointer hover:border-pink-500/50 hover:shadow-[0_0_20px_rgba(236,72,153,0.15)] hover:scale-[1.01] transition-all duration-200 group flex flex-col justify-between">
+                <div class="w-full h-80 bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
+                    <img src="/static/images/template_features.jpg" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Инфографика преимуществ">
+                    <span class="absolute bottom-3 left-3 text-[10px] font-bold uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30 px-2.5 py-1 rounded">Свойства товара</span>
+                </div>
+                <div class="space-y-1 mt-auto">
+                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-pink-400 transition-colors">Свойства и факты</h4>
+                    <p class="text-xs text-slate-500 leading-normal">Шаблон под авто-тексты Qwen. Отражение технических параметров и преимуществ SKU.</p>
+                </div>
+            </div>
+
+            <!-- Шаблон 3: Витрина продукта -->
+            <div onclick="launchDemoEditor('skulla_seller_product_showcase')" class="skulla-scroll-anim bg-slate-950/60 border border-slate-900 rounded-2xl p-5 text-center cursor-pointer hover:border-indigo-500/50 hover:shadow-[0_0_20px_rgba(99,102,241,0.15)] hover:scale-[1.01] transition-all duration-200 group flex flex-col justify-between">
+                <div class="w-full h-80 bg-slate-900 rounded-xl mb-4 border border-slate-800 overflow-hidden relative">
+                    <img src="/static/images/template_showcase.jpg" class="w-full h-full object-cover opacity-60 group-hover:opacity-85 transition-opacity" alt="Витрина продукта">
+                    <span class="absolute bottom-3 left-3 text-[10px] font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded">Шоукейс</span>
+                </div>
+                <div class="space-y-1 mt-auto">
+                    <h4 class="text-lg font-black uppercase text-slate-200 group-hover:text-indigo-400 transition-colors">Витрина продукта</h4>
+                    <p class="text-xs text-slate-500 leading-normal">Контекстный макет с акцентом на геометрию и конструктивные особенности предмета.</p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+
+    <!-- 🎁 БЛОК ТЕСТИРОВАНИЯ И УСЛОВИЙ -->
+    <section class="py-24 px-4 max-w-4xl mx-auto text-center">
+        <div class="skulla-scroll-anim opacity-0 transform translate-y-6 transition-all duration-500 ease-out p-8 md:p-12 bg-slate-950 border border-purple-500/20 rounded-2xl shadow-sm space-y-6 relative overflow-hidden">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+                Программа тестирования платформы
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black uppercase tracking-wide leading-none">
+                НАЧИСЛЕНИЕ <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">+10 000 БОНОВ</span> УЧАСТНИКАМ ТЕСТА
+            </h2>
+            <p class="text-slate-400 font-medium text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
+                Открыт прием заявок на закрытое техническое тестирование модулей генерации описаний [💎]. Подтвердите статус действующего селлера маркетплейсов, заполните анкету при входе и получите 10 000 бонов. Данного объема лимитов достаточно для экспорта 1000 готовых файлов в высоком разрешении.
+            </p>
+                <div class="pt-4">
+                    <!-- 🚀 СКАЛЛА-ФИКС: Кнопка сразу нативно перенаправляет на форму авторизации главного сайта! -->
+                    <button onclick="navigateToAuth()" class="px-8 py-4 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-150 cursor-pointer">
+                        Принять участие в тестировании
+                    </button>
+                </div>
+
+                <!-- ⏳ ТРИГГЕРЫ ОГРАНИЧЕНИЙ (B2B ФОРМАТ) -->
+                <div class="grid sm:grid-cols-2 gap-4 pt-6 max-w-2xl mx-auto border-t border-slate-900 text-left">
+                    <div class="p-4 bg-slate-900/40 border border-purple-500/10 rounded-xl space-y-1">
+                        <div class="text-[11px] font-bold tracking-wider text-purple-400 uppercase">🔥 Квота мест лимитирована</div>
+                        <p class="text-[11px] text-slate-500 leading-normal">Регистрация в программе ограничена пропускной способностью вычислительных мощностей. Пул участников будет закрыт при достижении лимита сессий.</p>
+                    </div>
+                    <div class="p-4 bg-slate-900/40 border border-pink-500/10 rounded-xl space-y-1">
+                        <div class="text-[11px] font-bold tracking-wider text-pink-400 uppercase">⏳ Регламент действия лимитов</div>
+                        <p class="text-[11px] text-slate-500 leading-normal">Начисленный целевой грант в объеме 10 000 бонов активен для безлимитных коррекций и выгрузок до конца текущего года (до 31 декабря 2026 г.). Аннулирование неиспользованного остатка произойдет автоматически в 00:00.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 👣 ПОДВАЛ (FOOTER) -->
+        <footer class="py-10 text-center text-xs text-slate-600 border-t border-slate-950 bg-black/10">
+            &copy; 2026 Skulla Enterprise. Все права защищены. Доступ к рабочему пространству предоставляется на условиях пользовательского соглашения.
+        </footer>
+    </div>
+
+    <!-- === УПРАВЛЯЮЩИЙ JAVASCRIPT === -->
+    <script>
+        // 🎯 СКАЛЛА-ФИКС ВХОДА: Мгновенный и прямой переход на боевую форму авторизации!
+        // Никаких вшитых модалок и окон подтверждения — строго на корень с хэш-маркером!
+        window.navigateToAuth = function() {
+            console.log("📡 [SKULLA LANDING]: Прямой редирект в форму авторизации...");
+            window.location.href = `${window.location.origin}/?login=true#login`;
+        };
+
+        // Демо-доступ по переданному стилю в URL для блока тест-драйва
+        window.launchDemoEditor = function(styleKey) {
+            console.log(`📡 [SKULLA LANDING]: Выбран демо-стиль -> ${styleKey}. Перенаправление...`);
+            window.location.href = `${window.location.origin}/editor?style=${encodeURIComponent(styleKey)}`;
+        };
+
+        // Нативная скролл-анимация (Intersection Observer)
+        function initLandingScrollAnimations() {
+            const animElements = document.querySelectorAll('.skulla-scroll-anim');
+            if (animElements.length === 0) return;
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.remove('opacity-0', 'translate-y-6');
+                        entry.target.classList.add('opacity-100', 'translate-y-0');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            animElements.forEach(el => observer.observe(el));
+        }
+
+        document.addEventListener('DOMContentLoaded', initLandingScrollAnimations);
+    </script>
+</body>
+</html>

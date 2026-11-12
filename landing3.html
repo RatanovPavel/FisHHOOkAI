@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Companions — Виртуальные собеседники с ИИ: текст, голос, изображения</title>
+    <meta name="description" content="Общайся с ИИ-персонажами бесплатно: текстом и голосом. Более 100 персонажей, генерация изображений, игровые сценарии. Подписка открывает контент без цензуры и безлимитные изображения.">
+
+    <!-- Tailwind CSS через CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* === БАЗОВЫЕ СТИЛИ === */
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050712;
+            color: #cbd5e1;
+        }
+
+        /* Cyberpunk-скроллбар */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b21a8; }
+
+        /* Scroll reveal */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .scroll-reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .scroll-reveal-delay-1 { transition-delay: 0.1s; }
+        .scroll-reveal-delay-2 { transition-delay: 0.2s; }
+        .scroll-reveal-delay-3 { transition-delay: 0.3s; }
+        .scroll-reveal-delay-4 { transition-delay: 0.4s; }
+
+        /* Hover эффекты для карточек */
+        .character-card:hover .character-emoji {
+            transform: scale(1.1);
+        }
+        .character-emoji {
+            transition: transform 0.3s ease;
+        }
+
+        /* Пульсация для бейджа "Популярный тариф" */
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(236, 72, 153, 0.3); box-shadow: 0 0 20px rgba(236, 72, 153, 0.1); }
+            50% { border-color: rgba(236, 72, 153, 0.6); box-shadow: 0 0 30px rgba(236, 72, 153, 0.25); }
+        }
+        .pulse-border {
+            animation: pulse-border 2.5s ease-in-out infinite;
+        }
+
+        /* Градиентная анимация */
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .animate-gradient {
+            background-size: 200% 200%;
+            animation: gradient-shift 4s ease infinite;
+        }
+    </style>
+</head>
+<body class="bg-[#050712] text-slate-300 font-sans antialiased selection:bg-purple-500 selection:text-white overflow-x-hidden relative min-h-screen">
+
+    <!-- 🌌 НЕОНОВЫЕ СВЕЧЕНИЯ -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="fixed top-1/3 right-1/4 w-96 h-96 bg-pink-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <!-- 🚀 HERO SECTION -->
+    <header class="page-block relative min-h-screen flex flex-col items-center justify-center text-center px-4 max-w-5xl mx-auto border-b border-slate-900">
+        <div class="space-y-6">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 text-[11px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase animate-pulse">
+                💬 Виртуальные собеседники нового поколения
+            </div>
+
+            <h1 class="text-4xl md:text-6xl font-black tracking-wide uppercase leading-tight text-slate-100">
+                Общайся с ИИ-персонажами
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-indigo-400">
+                    текстом и голосом
+                </span>
+            </h1>
+
+            <p class="text-base md:text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-normal">
+                Бесплатный доступ к 100+ персонажам: переписка, генерация изображений, голосовое общение и игровые сценарии. Запускай нейросеть на своём ПК или через бесплатный Google Colab и Kaggle.
+            </p>
+
+            <div class="pt-4 flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <button onclick="navigateToAuth()" class="px-8 py-4 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-purple-600 to-pink-600 border border-purple-500/30 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer">
+                    НАЧАТЬ БЕСПЛАТНО
+                </button>
+                <button onclick="navigateToAuth()" class="px-8 py-4 text-sm font-bold text-slate-300 uppercase tracking-wider bg-slate-900/60 border border-slate-800 rounded-xl hover:border-purple-500/30 hover:text-white transition-all duration-150 cursor-pointer">
+                    СМОТРЕТЬ ТАРИФЫ
+                </button>
+            </div>
+
+            <div class="pt-6 flex flex-wrap justify-center gap-6 text-xs text-slate-500 uppercase tracking-wider">
+                <div class="flex items-center gap-2"><span class="text-green-400">✓</span> Бесплатный старт</div>
+                <div class="flex items-center gap-2"><span class="text-green-400">✓</span> Голосовое общение</div>
+                <div class="flex items-center gap-2"><span class="text-green-400">✓</span> Генерация изображений</div>
+                <div class="flex items-center gap-2"><span class="text-green-400">✓</span> Игровые сценарии</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ⚡ FEATURES SECTION -->
+    <section class="page-block py-24 px-4 max-w-5xl mx-auto space-y-16">
+        <div class="scroll-reveal text-center space-y-3">
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-purple-400">
+                Почему выбирают наш сервис?
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-medium">
+                Полноценный бесплатный доступ с цензурой. Подписка открывает контент без ограничений и безлимитные изображения.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            <!-- Feature 1 -->
+            <div class="scroll-reveal scroll-reveal-delay-1 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-purple-500/30 transition-all duration-200">
+                <div class="text-4xl mb-3">💎</div>
+                <div class="text-purple-400 text-3xl font-bold mb-3">01</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Бесплатный доступ с цензурой</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Начинай общаться бесплатно прямо сейчас. Текстовые диалоги, базовая генерация изображений, голосовое общение и игровые сценарии — всё доступно без оплаты. Контент проходит модерацию для безопасного использования.</p>
+            </div>
+            <!-- Feature 2 -->
+            <div class="scroll-reveal scroll-reveal-delay-2 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-pink-500/30 transition-all duration-200">
+                <div class="text-4xl mb-3">🎭</div>
+                <div class="text-pink-400 text-3xl font-bold mb-3">02</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Подписка без цензуры</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Оформи недорогую подписку — и получи доступ к контенту без каких-либо ограничений. Полная свобода в диалогах, безлимитная генерация изображений, игровые сценарии 18+ и расширенные возможности для взрослых пользователей.</p>
+            </div>
+            <!-- Feature 3 -->
+            <div class="scroll-reveal scroll-reveal-delay-3 bg-slate-950 p-6 border border-slate-900 rounded-xl shadow-md hover:border-indigo-500/30 transition-all duration-200">
+                <div class="text-4xl mb-3">🎙️</div>
+                <div class="text-indigo-400 text-3xl font-bold mb-3">03</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Голос и игровые сценарии</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Общайся не только текстом — персонажи отвечают реалистичным голосом, а ты можешь говорить с ними голосом. Участвуй в интерактивных игровых сценариях с ветвлением сюжета и ролевыми играми.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 🎯 CAPABILITIES SECTION -->
+    <section class="page-block py-24 px-4 max-w-6xl mx-auto space-y-12 border-t border-slate-900">
+        <div class="scroll-reveal text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full uppercase">
+                Возможности
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                ЧЕТЫРЕ ФОРМАТА <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">ОБЩЕНИЯ</span>
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+                Не просто чат-бот. Полноценная мультимодальная платформа для общения, творчества и игр с ИИ-персонажами.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 pt-6">
+            <!-- Capability 1: Text -->
+            <div class="scroll-reveal scroll-reveal-delay-1 bg-slate-950/60 border border-slate-900 rounded-2xl p-6 hover:border-purple-500/30 transition-all duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="text-5xl">💬</div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-lg font-bold uppercase tracking-wide text-slate-200">Текстовые диалоги</h3>
+                            <span class="text-[10px] px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 font-bold uppercase">Бесплатно</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-3">Общайся с персонажами в текстовом чате. У каждого свой характер, история и стиль общения. Нейросеть генерирует реалистичные, осмысленные ответы с учётом контекста разговора.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Долгая память</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Контекст</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Эмоции</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capability 2: Images -->
+            <div class="scroll-reveal scroll-reveal-delay-2 bg-slate-950/60 border border-slate-900 rounded-2xl p-6 hover:border-pink-500/30 transition-all duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="text-5xl">🖼️</div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-lg font-bold uppercase tracking-wide text-slate-200">Генерация изображений</h3>
+                            <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Лимит / Безлимит в PRO</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-3">Персонажи оживают на изображениях. Бесплатно — базовая генерация с цензурой. В подписке — безлимитные изображения любого содержания, включая контент 18+ для взрослых.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Фотореализм</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Аниме</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">HD качество</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capability 3: Voice -->
+            <div class="scroll-reveal scroll-reveal-delay-3 bg-slate-950/60 border border-slate-900 rounded-2xl p-6 hover:border-indigo-500/30 transition-all duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="text-5xl">🎙️</div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-lg font-bold uppercase tracking-wide text-slate-200">Голосовое общение</h3>
+                            <span class="text-[10px] px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-full text-green-400 font-bold uppercase">Бесплатно</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-3">Слышь голос персонажа и говори с ним своим голосом. Реалистичная синтезированная речь с уникальными тембрами для каждого героя. Распознавание твоей речи и естественные голосовые ответы.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">TTS синтез</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Распознавание речи</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Уникальные голоса</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Capability 4: Game Scenarios -->
+            <div class="scroll-reveal scroll-reveal-delay-4 bg-slate-950/60 border border-slate-900 rounded-2xl p-6 hover:border-amber-500/30 transition-all duration-200">
+                <div class="flex items-start gap-4">
+                    <div class="text-5xl">🎮</div>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <h3 class="text-lg font-bold uppercase tracking-wide text-slate-200">Игровые сценарии</h3>
+                            <span class="text-[10px] px-2 py-0.5 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 font-bold uppercase">Базовые / 18+ в PRO</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed mb-3">Погружайся в интерактивные истории с ветвлением сюжета. Ролевые игры, приключения, фантастика — бесплатно в цензурированной версии. В подписке — сценарии 18+ без ограничений для взрослых.</p>
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Ветвление сюжета</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">Ролевые игры</span>
+                            <span class="text-[10px] px-2 py-0.5 bg-slate-800 rounded-full text-slate-400">18+ в PRO</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 🎭 CATALOG SECTION -->
+    <section class="page-block py-24 px-4 max-w-6xl mx-auto space-y-12 border-t border-slate-900">
+        <div class="scroll-reveal text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+                Каталог персонажей
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                БОЛЕЕ <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">100 ПЕРСОНАЖЕЙ</span> НА ВЫБОР
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+                Фотореалистичные модели и аниме-стили. Девушки и парни всех типов внешности и характеров — от 18 лет и старше.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 pt-6">
+            <!-- Character 1 -->
+            <div class="scroll-reveal scroll-reveal-delay-1 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-pink-900 to-rose-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">💃</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Популярная</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎮</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Алина</h4>
+                        <span class="text-xs text-slate-500">22</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Фотореализм</span>
+                </div>
+            </div>
+            <!-- Character 2 -->
+            <div class="scroll-reveal scroll-reveal-delay-2 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-purple-900 to-indigo-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">🌸</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Новинка</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Мика</h4>
+                        <span class="text-xs text-slate-500">20</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Аниме</span>
+                </div>
+            </div>
+            <!-- Character 3 -->
+            <div class="scroll-reveal scroll-reveal-delay-3 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-blue-900 to-slate-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">👔</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Бизнес</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎮</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Дмитрий</h4>
+                        <span class="text-xs text-slate-500">28</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Фотореализм</span>
+                </div>
+            </div>
+            <!-- Character 4 -->
+            <div class="scroll-reveal scroll-reveal-delay-1 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-violet-900 to-pink-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">🎀</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Милая</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Юки</h4>
+                        <span class="text-xs text-slate-500">19</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Аниме</span>
+                </div>
+            </div>
+            <!-- Character 5 -->
+            <div class="scroll-reveal scroll-reveal-delay-2 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-red-900 to-pink-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">💋</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Дерзкая</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎮</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Виктория</h4>
+                        <span class="text-xs text-slate-500">25</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Фотореализм</span>
+                </div>
+            </div>
+            <!-- Character 6 -->
+            <div class="scroll-reveal scroll-reveal-delay-3 character-card group bg-slate-950/60 border border-slate-900 rounded-2xl overflow-hidden cursor-pointer hover:border-purple-500/40 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] hover:scale-[1.02] transition-all duration-300">
+                <div class="w-full h-56 md:h-64 bg-gradient-to-br from-cyan-900 to-blue-800 flex items-center justify-center relative">
+                    <span class="text-7xl md:text-8xl character-emoji">⚡</span>
+                    <div class="absolute top-3 right-3 px-2 py-1 bg-black/50 backdrop-blur-sm rounded-full text-[10px] text-white font-bold uppercase tracking-wider">Брутальный</div>
+                    <div class="absolute bottom-3 left-3 flex gap-1">
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">💬</span>
+                        <span class="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] text-white">🎙️</span>
+                    </div>
+                </div>
+                <div class="p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-base font-black uppercase text-slate-200 group-hover:text-purple-400 transition-colors">Рен</h4>
+                        <span class="text-xs text-slate-500">24</span>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/20 rounded-full text-purple-400 font-bold uppercase">Аниме</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center pt-6">
+            <button class="px-6 py-3 text-xs font-bold text-purple-400 uppercase tracking-wider bg-purple-500/5 border border-purple-500/20 rounded-xl hover:bg-purple-500/10 transition-all duration-150 cursor-pointer">
+                ПОКАЗАТЬ ВСЕХ 100+ ПЕРСОНАЖЕЙ →
+            </button>
+        </div>
+    </section>
+
+    <!-- 💰 PRICING SECTION -->
+    <section class="page-block py-24 px-4 max-w-5xl mx-auto space-y-12 border-t border-slate-900">
+        <div class="scroll-reveal text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+                Тарифы
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                ВЫБЕРИ СВОЙ <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">УРОВЕНЬ ДОСТУПА</span>
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+                Начни бесплатно с базовыми возможностями. Оформите недорогую подписку — и получи полный доступ без цензуры и ограничений.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6 pt-6 max-w-4xl mx-auto">
+            <!-- Free Plan -->
+            <div class="scroll-reveal scroll-reveal-delay-1 bg-slate-950 border border-slate-900 rounded-2xl p-8 hover:border-purple-500/30 transition-all duration-200">
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs font-bold tracking-wider text-slate-500 uppercase mb-1">Базовый</div>
+                        <h3 class="text-2xl font-black uppercase text-slate-100">Бесплатно</h3>
+                        <div class="mt-3 flex items-baseline gap-1">
+                            <span class="text-4xl font-black text-slate-100">0 ₽</span>
+                            <span class="text-sm text-slate-500">/ навсегда</span>
+                        </div>
+                    </div>
+
+                    <div class="h-px bg-slate-900"></div>
+
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Доступ ко всем 100+ персонажам</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Текстовые диалоги без ограничений</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Голосовое общение (TTS + распознавание)</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Базовые игровые сценарии</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Лимитированная генерация изображений</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-400">
+                            <span class="text-slate-600 flex-shrink-0 mt-0.5">—</span>
+                            <span>Контент проходит цензуру</span>
+                        </li>
+                    </ul>
+
+                    <button onclick="navigateToAuth()" class="w-full mt-4 px-6 py-3 text-sm font-bold text-slate-300 uppercase tracking-wider bg-slate-900/60 border border-slate-800 rounded-xl hover:border-purple-500/30 hover:text-white transition-all duration-150 cursor-pointer">
+                        НАЧАТЬ БЕСПЛАТНО
+                    </button>
+                </div>
+            </div>
+
+            <!-- PRO Plan -->
+            <div class="scroll-reveal scroll-reveal-delay-2 bg-slate-950 border-2 border-pink-500/40 rounded-2xl p-8 pulse-border relative">
+                <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+                    ⭐ Популярный выбор
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <div class="text-xs font-bold tracking-wider text-pink-400 uppercase mb-1">PRO</div>
+                        <h3 class="text-2xl font-black uppercase text-slate-100">Без цензуры</h3>
+                        <div class="mt-3 flex items-baseline gap-1">
+                            <span class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">299 ₽</span>
+                            <span class="text-sm text-slate-500">/ месяц</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-1">или 249 ₽/мес при оплате за год</div>
+                    </div>
+
+                    <div class="h-px bg-gradient-to-r from-transparent via-pink-500/30 to-transparent"></div>
+
+                    <ul class="space-y-3">
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span><strong class="text-pink-400">Всё из бесплатного тарифа</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span><strong class="text-white">Полное отключение цензуры</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span><strong class="text-white">Безлимитная генерация изображений</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span><strong class="text-white">Изображения 18+ без ограничений</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span><strong class="text-white">Игровые сценарии 18+</strong></span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Приоритетная скорость генерации</span>
+                        </li>
+                        <li class="flex items-start gap-3 text-sm text-slate-300">
+                            <span class="text-pink-400 flex-shrink-0 mt-0.5">✓</span>
+                            <span>Отмена подписки в один клик</span>
+                        </li>
+                    </ul>
+
+                    <button class="w-full mt-4 px-6 py-3 text-sm font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer">
+                        ОФОРМИТЬ ПОДПИСКУ
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="scroll-reveal text-center pt-4">
+            <p class="text-xs text-slate-500 max-w-2xl mx-auto">
+                💳 Безопасная оплата через банковские карты, СБП и криптовалюту. Подписку можно отменить в любой момент — доступ сохраняется до конца оплаченного периода.
+            </p>
+        </div>
+    </section>
+
+    <!-- 🚀 HOW IT WORKS -->
+    <section class="page-block py-24 px-4 max-w-5xl mx-auto space-y-16 border-t border-slate-900">
+        <div class="scroll-reveal text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 rounded-full uppercase">
+                Как это работает
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                ТРИ ШАГА ДО <span class="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">ПЕРВОГО ДИАЛОГА</span>
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+                Никаких сложных настроек. Начни общаться бесплатно за пару минут.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8 relative">
+            <div class="scroll-reveal scroll-reveal-delay-1 bg-slate-950 p-6 border border-slate-900 rounded-xl hover:border-indigo-500/30 transition-all duration-200">
+                <div class="text-5xl mb-4">🎯</div>
+                <div class="text-indigo-400 text-3xl font-bold mb-3">01</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Выбери персонажа</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Открой каталог и выбери любого собеседника из 100+ вариантов — фотореализм или аниме, девушка или парень.</p>
+            </div>
+            <div class="scroll-reveal scroll-reveal-delay-2 bg-slate-950 p-6 border border-slate-900 rounded-xl hover:border-indigo-500/30 transition-all duration-200">
+                <div class="text-5xl mb-4">🚀</div>
+                <div class="text-indigo-400 text-3xl font-bold mb-3">02</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Запусти нейросеть</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Нажми одну кнопку — и нейросеть запустится на твоём компьютере, либо бесплатно в Google Colab или Kaggle за 2 минуты.</p>
+            </div>
+            <div class="scroll-reveal scroll-reveal-delay-3 bg-slate-950 p-6 border border-slate-900 rounded-xl hover:border-indigo-500/30 transition-all duration-200">
+                <div class="text-5xl mb-4">💬</div>
+                <div class="text-indigo-400 text-3xl font-bold mb-3">03</div>
+                <h3 class="text-lg font-bold uppercase tracking-wide mb-2 text-slate-200">Общайся как хочешь</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Пиши текстом, говори голосом, генерируй изображения, играй в сценарии — выбирай любой формат общения.</p>
+            </div>
+        </div>
+
+        <div class="scroll-reveal mt-12 p-6 md:p-8 bg-gradient-to-r from-purple-950/40 to-pink-950/40 border border-purple-500/20 rounded-2xl text-center">
+            <div class="text-sm text-slate-300 font-medium mb-2">Поддерживаемые платформы запуска:</div>
+            <div class="flex flex-wrap justify-center gap-3">
+                <div class="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">💻 Локальный ПК (GPU)</div>
+                <div class="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">🟢 Google Colab (Free)</div>
+                <div class="px-4 py-2 bg-slate-900/80 border border-slate-800 rounded-lg text-xs font-bold text-slate-300 uppercase tracking-wider">🔵 Kaggle Notebooks (Free)</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ❓ FAQ SECTION -->
+    <section class="page-block py-24 px-4 max-w-4xl mx-auto space-y-12">
+        <div class="scroll-reveal text-center space-y-3">
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 rounded-full uppercase">
+                Частые вопросы
+            </div>
+            <h2 class="text-3xl md:text-4xl font-black tracking-wide uppercase text-slate-100">
+                ОТВЕТЫ НА <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">ПОПУЛЯРНЫЕ ВОПРОСЫ</span>
+            </h2>
+            <p class="text-slate-400 max-w-2xl mx-auto font-medium text-sm md:text-base">
+                Собрали всё, что чаще всего спрашивают новые пользователи. Если не нашли ответ — пишите в поддержку.
+            </p>
+        </div>
+
+        <div class="space-y-3" id="faq-container">
+            <!-- FAQ items будут сгенерированы через JS -->
+        </div>
+    </section>
+
+    <!-- 🎁 OFFER SECTION -->
+    <section class="page-block py-24 px-4 max-w-4xl mx-auto text-center">
+        <div class="scroll-reveal p-8 md:p-12 bg-slate-950 border border-purple-500/20 rounded-2xl shadow-xl space-y-6 relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-pink-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="inline-block px-3 py-1 text-[10px] font-bold tracking-wider text-pink-400 bg-pink-500/10 border border-pink-500/20 rounded-full uppercase">
+                Начни прямо сейчас
+            </div>
+
+            <h2 class="text-3xl md:text-5xl font-black uppercase tracking-wide leading-none text-slate-100">
+                ЗАПУСТИ СВОЕГО
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400 drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]">
+                    ПЕРВОГО ПЕРСОНАЖА
+                </span>
+                ЗА 2 МИНУТЫ
+            </h2>
+
+            <p class="text-slate-300 font-medium text-sm md:text-base max-w-3xl mx-auto leading-relaxed">
+                Присоединяйся к тысячам пользователей, которые уже общаются с ИИ-персонажами. Выбери любого из 100+ героев, запусти нейросеть в один клик и наслаждайся общением текстом и голосом.
+                <span class="text-pink-400 font-black">А с подпиской — получи контент без цензуры и безлимитные изображения.</span>
+            </p>
+
+            <div class="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
+                <button onclick="navigateToAuth()" class="px-8 py-4 font-bold text-white uppercase tracking-wider bg-gradient-to-r from-pink-600 to-purple-600 border border-pink-500/30 rounded-xl shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-150 cursor-pointer">
+                    НАЧАТЬ БЕСПЛАТНО
+                </button>
+                <button onclick="navigateToAuth()" class="px-8 py-4 font-bold text-pink-400 uppercase tracking-wider bg-slate-900/60 border border-pink-500/30 rounded-xl hover:bg-pink-500/10 transition-all duration-150 cursor-pointer">
+                    ОФОРМИТЬ PRO ЗА 299 ₽
+                </button>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-4 pt-6 max-w-3xl mx-auto border-t border-slate-900 text-left">
+                <div class="p-4 bg-slate-900/40 border border-purple-500/10 rounded-xl space-y-1">
+                    <div class="text-[11px] font-bold tracking-wider text-purple-400 uppercase">💎 Бесплатный старт</div>
+                    <p class="text-[11px] text-slate-500 leading-normal">Начни общаться без оплаты. Текст, голос, базовые изображения и сценарии — всё бесплатно.</p>
+                </div>
+                <div class="p-4 bg-slate-900/40 border border-pink-500/10 rounded-xl space-y-1">
+                    <div class="text-[11px] font-bold tracking-wider text-pink-400 uppercase">🔓 PRO без цензуры</div>
+                    <p class="text-[11px] text-slate-500 leading-normal">Всего 299 ₽/мес — и ты получаешь полный доступ к контенту без ограничений для взрослых.</p>
+                </div>
+                <div class="p-4 bg-slate-900/40 border border-indigo-500/10 rounded-xl space-y-1">
+                    <div class="text-[11px] font-bold tracking-wider text-indigo-400 uppercase">🔒 Полная приватность</div>
+                    <p class="text-[11px] text-slate-500 leading-normal">Все данные только у тебя. Никаких серверов, хранения переписок и передачи третьим лицам.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 👣 FOOTER -->
+    <footer class="py-10 text-center text-xs text-slate-600 border-t border-slate-950 bg-black/10">
+        <div class="max-w-5xl mx-auto px-4 space-y-3">
+            <div class="flex flex-wrap justify-center gap-6 text-slate-500">
+                <a href="#" class="hover:text-purple-400 transition-colors">Каталог персонажей</a>
+                <a href="#" class="hover:text-purple-400 transition-colors">Тарифы</a>
+                <a href="#" class="hover:text-purple-400 transition-colors">Инструкции</a>
+                <a href="#" class="hover:text-purple-400 transition-colors">Telegram-чат</a>
+                <a href="#" class="hover:text-purple-400 transition-colors">Поддержка</a>
+            </div>
+            <div class="text-slate-700">
+                &copy; 2026 AI Companions. Все персонажи старше 18 лет. Сервис предоставляется на условиях пользовательского соглашения.
+            </div>
+        </div>
+    </footer>
+
+    <!-- === JAVASCRIPT === -->
+    <script>
+        // === FAQ ДАННЫЕ ===
+        const faqData = [
+            {
+                q: 'Что входит в бесплатный тариф?',
+                a: 'В бесплатном тарифе доступны все 100+ персонажей, неограниченные текстовые диалоги, голосовое общение (как синтез речи персонажей, так и распознавание твоего голоса), базовые игровые сценарии и лимитированная генерация изображений. Весь бесплатный контент проходит цензуру для безопасного использования.'
+            },
+            {
+                q: 'Что даёт подписка PRO?',
+                a: 'Подписка PRO за 299 ₽/мес (или 249 ₽/мес при оплате за год) полностью отключает цензуру, даёт безлимитную генерацию изображений любого содержания, включая контент 18+, открывает игровые сценарии для взрослых и обеспечивает приоритетную скорость генерации. При этом все возможности бесплатного тарифа сохраняются.'
+            },
+            {
+                q: 'Почему в бесплатной версии есть цензура?',
+                a: 'Цензура в бесплатной версии нужна для соблюдения законодательства и обеспечения безопасного использования сервиса всеми пользователями. Это стандартная практика для публичных ИИ-сервисов. Если тебе нужен контент без ограничений — оформи недорогую подписку PRO, которая подтверждает твой возраст и открывает полный доступ.'
+            },
+            {
+                q: 'Как отключить цензуру?',
+                a: 'Чтобы отключить цензуру, нужно оформить подписку PRO. После оплаты в настройках профиля появится переключатель «Режим без цензуры». Активация мгновенная — все диалоги, изображения и игровые сценарии становятся полностью свободными от ограничений.'
+            },
+            {
+                q: 'Можно ли общаться голосом, а не только текстом?',
+                a: 'Да, голосовое общение доступно уже в бесплатном тарифе. Персонажи отвечают реалистичным синтезированным голосом с уникальным тембром для каждого героя. Ты можешь говорить с ними своим голосом — система распознаёт речь и преобразует её в текст для нейросети. Это работает как в веб-версии, так и в локальном запуске.'
+            },
+            {
+                q: 'Что такое игровые сценарии?',
+                a: 'Игровые сценарии — это интерактивные истории с ветвлением сюжета, где ты принимаешь решения и влияешь на развитие событий. Доступны ролевые игры, приключения, фантастика, детективы и другие жанры. В бесплатной версии — базовые сценарии с цензурой. В подписке PRO — расширенные сценарии 18+ без ограничений.'
+            },
+            {
+                q: 'Сколько стоит подписка и как её оформить?',
+                a: 'Подписка PRO стоит 299 ₽ в месяц или 249 ₽/мес при оплате за год (экономия 17%). Оплата принимается через банковские карты (Visa, MasterCard, МИР), СБП и криптовалюту. Оформление занимает меньше минуты — достаточно перейти в раздел «Тарифы» и нажать «Оформить подписку».'
+            },
+            {
+                q: 'Можно ли отменить подписку?',
+                a: 'Да, подписку можно отменить в любой момент в один клик в настройках профиля. После отмены доступ к PRO-функциям сохраняется до конца оплаченного периода. Деньги за неиспользованный период не возвращаются, но и никаких скрытых списаний не будет — ты сам контролируешь продление.'
+            },
+            {
+                q: 'Нужен ли мне мощный компьютер?',
+                a: 'Нет, если вы используете Google Colab или Kaggle — там вся работа идёт на удалённых серверах с мощными GPU бесплатно. Если хотите запускать локально, желательна видеокарта NVIDIA с 8+ ГБ видеопамяти (RTX 3060 и выше). Но даже без мощного ПК вы можете пользоваться сервисом бесплатно через облако.'
+            },
+            {
+                q: 'Безопасно ли это? Кто видит мои переписки?',
+                a: 'Абсолютно безопасно. Все данные обрабатываются локально на вашем устройстве или в вашей личной сессии Colab/Kaggle. Мы не храним ваши переписки на серверах, не передаём их третьим лицам и не анализируем. Оплата за подписку проходит через защищённые платёжные шлюзы. Ваша приватность полностью защищена.'
+            },
+            {
+                q: 'Как быстро можно начать общение?',
+                a: 'Запуск нейросети занимает от 2 до 5 минут в зависимости от выбранной платформы. В Google Colab достаточно нажать одну кнопку «Run» — и через пару минут вы уже общаетесь с выбранным персонажем текстом или голосом. Локальный запуск на своём GPU ещё быстрее — обычно около 1-2 минут.'
+            },
+            {
+                q: 'Можно ли создать своего собственного персонажа?',
+                a: 'Да, у нас есть инструменты для создания кастомных персонажей. Вы можете настроить внешность, характер, историю и стиль общения. Также можно загружать собственные референсы для генерации изображений. В режиме без цензуры (PRO) доступны расширенные возможности кастомизации.'
+            }
+        ];
+
+        window.navigateToAuth = function() {
+            console.log("📡 [SKULLA LANDING]: Прямой редирект в форму авторизации...");
+            window.location.href = `${window.location.origin}/?login=true#login`;
+        };
+        // === РЕНДЕР FAQ ===
+        function renderFAQ() {
+            const container = document.getElementById('faq-container');
+            if (!container) return;
+
+            faqData.forEach((faq, i) => {
+                const item = document.createElement('div');
+                item.className = 'scroll-reveal bg-slate-950 border border-slate-900 rounded-xl overflow-hidden transition-all duration-200 hover:border-slate-800 faq-item';
+                item.dataset.index = i;
+                item.innerHTML = `
+                    <button class="w-full px-6 py-5 flex items-center justify-between text-left cursor-pointer group faq-button" data-index="${i}">
+                        <span class="text-sm md:text-base font-bold uppercase tracking-wide transition-colors text-slate-200 group-hover:text-purple-400 faq-question">
+                            ${faq.q}
+                        </span>
+                        <span class="ml-4 text-2xl font-bold transition-all duration-300 flex-shrink-0 text-slate-600 faq-icon">+</span>
+                    </button>
+                    <div class="overflow-hidden transition-all duration-300 ease-in-out max-h-0 opacity-0 faq-answer">
+                        <div class="px-6 pb-5 text-sm text-slate-400 leading-relaxed border-t border-slate-900 pt-4">
+                            ${faq.a}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        // === FAQ АККОРДЕОН ===
+        function initFAQAccordion() {
+            document.addEventListener('click', (e) => {
+                const button = e.target.closest('.faq-button');
+                if (!button) return;
+
+                const item = button.closest('.faq-item');
+                const answer = item.querySelector('.faq-answer');
+                const icon = item.querySelector('.faq-icon');
+                const question = item.querySelector('.faq-question');
+                const isOpen = answer.style.maxHeight && answer.style.maxHeight !== '0px';
+
+                // Закрываем все остальные
+                document.querySelectorAll('.faq-item').forEach(otherItem => {
+                    if (otherItem !== item) {
+                        const otherAnswer = otherItem.querySelector('.faq-answer');
+                        const otherIcon = otherItem.querySelector('.faq-icon');
+                        const otherQuestion = otherItem.querySelector('.faq-question');
+                        otherAnswer.style.maxHeight = '0px';
+                        otherAnswer.style.opacity = '0';
+                        otherIcon.textContent = '+';
+                        otherIcon.classList.remove('text-purple-400', 'rotate-45');
+                        otherIcon.classList.add('text-slate-600');
+                        otherQuestion.classList.remove('text-purple-400');
+                        otherQuestion.classList.add('text-slate-200');
+                        otherItem.classList.remove('border-purple-500/30', 'shadow-[0_0_15px_rgba(168,85,247,0.1)]');
+                        otherItem.classList.add('border-slate-900');
+                    }
+                });
+
+                // Переключаем текущий
+                if (isOpen) {
+                    answer.style.maxHeight = '0px';
+                    answer.style.opacity = '0';
+                    icon.textContent = '+';
+                    icon.classList.remove('text-purple-400', 'rotate-45');
+                    icon.classList.add('text-slate-600');
+                    question.classList.remove('text-purple-400');
+                    question.classList.add('text-slate-200');
+                    item.classList.remove('border-purple-500/30', 'shadow-[0_0_15px_rgba(168,85,247,0.1)]');
+                    item.classList.add('border-slate-900');
+                } else {
+                    answer.style.maxHeight = answer.scrollHeight + 'px';
+                    answer.style.opacity = '1';
+                    icon.textContent = '+';
+                    icon.classList.add('text-purple-400', 'rotate-45');
+                    icon.classList.remove('text-slate-600');
+                    question.classList.add('text-purple-400');
+                    question.classList.remove('text-slate-200');
+                    item.classList.add('border-purple-500/30', 'shadow-[0_0_15px_rgba(168,85,247,0.1)]');
+                    item.classList.remove('border-slate-900');
+                }
+            });
+        }
+
+        // === SCROLL REVEAL АНИМАЦИЯ ===
+        function initScrollReveal() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            document.querySelectorAll('.scroll-reveal').forEach(el => {
+                observer.observe(el);
+            });
+        }
+
+        // === УМНЫЙ ПОСЕКЦИОННЫЙ СКРОЛЛ (SCROLL SNAP) ===
+        function initSmartScrollSnap() {
+            const sections = Array.from(document.querySelectorAll('.page-block'));
+            let isScrolling = false;
+
+            function scrollToSection(index) {
+                if (index < 0 || index >= sections.length) return;
+                isScrolling = true;
+
+                sections[index].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+
+                setTimeout(() => {
+                    isScrolling = false;
+                }, 800);
+            }
+
+            function getCurrentSectionIndex() {
+                let currentIdx = 0;
+                let minDistance = Infinity;
+
+                sections.forEach((sec, index) => {
+                    const rect = sec.getBoundingClientRect();
+                    const distance = Math.abs(rect.top);
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        currentIdx = index;
+                    }
+                });
+                return currentIdx;
+            }
+
+            // Перехват колесика мыши и тачпада
+            window.addEventListener('wheel', (e) => {
+                if (isScrolling) return;
+
+                const currentIndex = getCurrentSectionIndex();
+
+                if (e.deltaY > 20) {
+                    if (currentIndex < sections.length - 1) {
+                        e.preventDefault();
+                        scrollToSection(currentIndex + 1);
+                    }
+                } else if (e.deltaY < -20) {
+                    if (currentIndex > 0) {
+                        e.preventDefault();
+                        scrollToSection(currentIndex - 1);
+                    }
+                }
+            }, { passive: false });
+
+            // Перехват тач-событий (смартфоны)
+            let touchStartY = 0;
+            window.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (isScrolling) return;
+
+                const currentIndex = getCurrentSectionIndex();
+                const touchEndY = e.touches[0].clientY;
+                const diffY = touchStartY - touchEndY;
+
+                if (diffY > 50) {
+                    if (currentIndex < sections.length - 1) {
+                        e.preventDefault();
+                        scrollToSection(currentIndex + 1);
+                    }
+                } else if (diffY < -50) {
+                    if (currentIndex > 0) {
+                        e.preventDefault();
+                        scrollToSection(currentIndex - 1);
+                    }
+                }
+            }, { passive: false });
+        }
+
+        // === ЗАПУСК ПРИ ЗАГРУЗКЕ ===
+        document.addEventListener('DOMContentLoaded', () => {
+            renderFAQ();
+            initFAQAccordion();
+            initScrollReveal();
+            initSmartScrollSnap();
+        });
+    </script>
+
+</body>
+</html>
