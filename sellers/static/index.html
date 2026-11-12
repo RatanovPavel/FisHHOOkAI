@@ -137,7 +137,10 @@
                 
                 <!-- ЛОГОТИП (Строго в крайнем левом верхнем углу) -->
                 <div class="flex items-center justify-start gap-4 select-none flex-shrink-0 w-full md:w-auto">
-                    <span class="skull-icon text-3xl sm:text-4xl flex-shrink-0 leading-none">💀</span>
+                    <!--span class="skull-icon text-3xl sm:text-4xl flex-shrink-0 leading-none">💀</!--span>-->
+                    <div class="skull-icon text-3xl sm:text-4xl flex-shrink-0 leading-none">
+                        <img src="/static/logo.svg" alt="SKULLA.RU Logo" />
+                    </div>
                     <h1 data-i18n="index.logo_text" class="logo-neon text-[24px] sm:text-3xl md:text-4xl uppercase tracking-tighter font-black leading-none truncate">
                         SKULLA.RU
                     </h1>
@@ -172,24 +175,1169 @@
                 
             </div>
 
-            <!-- 📢 ЭТАЖ 2: ТЕКСТ КОНСТРУКТOРА ПЕРЕНЕСЕН НИЖЕ, ПО ЦЕНТРУ, БЕЗ НАКЛАДОК -->
+            <!-- 📢 ЭТАЖ 2: ТЕКСТ КОНСТРУКТOРА ПЕРЕНЕСЕН НИЖЕ, ПО ЦЕНТРУ, БЕЗ НАКЛАДОК 
             <div class="w-full text-center pt-2 md:pt-4">
                 <p data-i18n="index.t3" class="text-slate-300 text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.3em] leading-relaxed max-w-3xl mx-auto">
                     ПРОФЕССИОНАЛЬНЫЙ КОНСТРУКТОР КАРТОЧЕК И ИНФОГРАФИКИ
                 </p>
             </div>
+            -->
 
         </div>
     </header>
 
 
-    <!-- 🎯 ОТКРЫВАЕМ ЦЕНТРАЛЬНУЮ КОРОБКУ ДЛЯ ФИЛЬТРОВ И КАТАЛОГА СЕЛЛЕРОВ -->
+
+    
+
+<style>
+    /* Каталог собеседников - изолированные стили */
+    .fh-section { padding: 2rem 1rem; max-width: 1400px; margin: 0 auto; }
+    
+    .fh-title {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 900;
+        background: linear-gradient(90deg, #a855f7, #ec4899);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 0.5rem;
+    }
+    
+    .fh-subtitle {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 2rem;
+    }
+    
+    .fh-filters {
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(100, 116, 139, 0.2);
+        border-radius: 1.5rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        max-width: 1000px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .fh-filter-group { margin-bottom: 1rem; }
+    .fh-filter-group:last-child { margin-bottom: 0; }
+    
+    .fh-filter-label {
+        display: block;
+        font-size: 0.625rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: #64748b;
+        margin-bottom: 0.5rem;
+    }
+    
+    .fh-filter-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .fh-chip {
+        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        font-size: 0.625rem;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        border: 1px solid rgba(100, 116, 139, 0.3);
+        background: rgba(15, 23, 42, 0.5);
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all 0.3s;
+        user-select: none;
+    }
+    
+    .fh-chip:hover {
+        border-color: rgba(34, 211, 238, 0.5);
+        color: #22d3ee;
+    }
+    
+    .fh-chip.fh-active {
+        background: rgba(34, 211, 238, 0.15);
+        border-color: rgba(34, 211, 238, 0.5);
+        color: #22d3ee;
+    }
+    
+    .fh-sort-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        max-width: 1400px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .fh-sort-info {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+    
+    .fh-sort-select {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(100, 116, 139, 0.3);
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        color: #e2e8f0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        outline: none;
+    }
+    
+    .fh-sort-select:focus {
+        border-color: rgba(34, 211, 238, 0.5);
+    }
+    
+    .fh-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    .fh-card {
+        position: relative;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
+        border: 1px solid rgba(100, 116, 139, 0.2);
+        border-radius: 1.5rem;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        height: 480px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .fh-card:hover {
+        border-color: rgba(34, 211, 238, 0.5);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 60px rgba(34, 211, 238, 0.15), 0 0 40px rgba(168, 85, 247, 0.1);
+    }
+    
+    .fh-card-photo-wrap {
+        position: relative;
+        height: 280px;  /* Увеличил высоту для лучшего отображения лиц */
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    
+    .fh-card-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center top;  /* ВАЖНО: показываем верхнюю часть (лица) */
+        filter: brightness(0.95) contrast(1.05);  /* Смягчил фильтры для лучшей видимости */
+        transition: filter 0.4s;
+    }
+    
+    .fh-card:hover .fh-card-photo {
+        filter: brightness(1) contrast(1.15);
+    }
+    
+    .fh-card-photo-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(15, 23, 42, 1) 0%, transparent 60%);
+        pointer-events: none;
+    }
+    
+    .fh-badge {
+        position: absolute;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 9px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        backdrop-filter: blur(10px);
+        z-index: 2;
+    }
+    
+    .fh-badge-style { top: 12px; left: 12px; }
+    .fh-badge-type { top: 12px; right: 12px; }
+    .fh-badge-nsfw { bottom: 12px; right: 12px; }
+    
+    .fh-badge-anime { background: rgba(236, 72, 153, 0.8); color: white; }
+    .fh-badge-realistic { background: rgba(34, 211, 238, 0.8); color: white; }
+    .fh-badge-premium { background: rgba(234, 179, 8, 0.8); color: white; }
+    .fh-badge-free { background: rgba(34, 197, 94, 0.8); color: white; }
+    .fh-badge-nsfw-style { background: rgba(239, 68, 68, 0.8); color: white; }
+    
+    .fh-online-status {
+        position: absolute;
+        bottom: 12px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        z-index: 2;
+    }
+    
+    .fh-online-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 10px #22c55e;
+        animation: fh-pulse 2s infinite;
+    }
+    
+    .fh-offline-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #64748b;
+    }
+    
+    @keyframes fh-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.3); }
+    }
+    
+    .fh-online-text {
+        font-size: 9px;
+        color: #94a3b8;
+        text-transform: uppercase;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+    }
+    
+    .fh-card-info {
+        padding: 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .fh-card-name-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .fh-card-name {
+        font-size: 1.125rem;
+        font-weight: 900;
+        color: white;
+        letter-spacing: -0.01em;
+        margin: 0;
+    }
+    
+    .fh-card-age {
+        font-size: 0.625rem;
+        color: #64748b;
+        font-weight: 700;
+    }
+    
+    .fh-card-desc {
+        font-size: 0.625rem;
+        color: #94a3b8;
+        line-height: 1.5;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin: 0;
+    }
+    
+    .fh-traits {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        margin-top: auto;
+    }
+    
+    .fh-trait-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .fh-trait-label {
+        font-size: 0.5rem;
+        color: #64748b;
+        width: 4rem;
+        flex-shrink: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .fh-trait-bar {
+        flex: 1;
+        height: 3px;
+        border-radius: 2px;
+        background: rgba(100, 116, 139, 0.2);
+        overflow: hidden;
+    }
+    
+    .fh-trait-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 1s ease-out;
+    }
+    
+    .fh-chat-btn {
+        width: 100%;
+        background: linear-gradient(90deg, #a855f7, #ec4899);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.625rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        cursor: pointer;
+        transition: all 0.3s;
+        margin-top: 0.5rem;
+    }
+    
+    .fh-chat-btn:hover {
+        background: linear-gradient(90deg, #9333ea, #db2777);
+        transform: scale(1.02);
+    }
+    
+    @keyframes fh-fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .fh-card-animate {
+        animation: fh-fadeInUp 0.6s ease-out forwards;
+        opacity: 0;
+    }
+    
+    /* Модальное окно */
+    .fh-modal {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        backdrop-filter: blur(10px);
+        overflow-y: auto;
+    }
+    
+    .fh-modal.fh-active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: fh-fadeIn 0.3s ease-out;
+    }
+    
+    @keyframes fh-fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .fh-modal-content {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border: 1px solid rgba(100, 116, 139, 0.3);
+        border-radius: 1.5rem;
+        max-width: 900px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
+        animation: fh-slideUp 0.3s ease-out;
+    }
+    
+    @keyframes fh-slideUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    
+    .fh-modal-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(15, 23, 42, 0.5);
+        border: none;
+        color: #94a3b8;
+        font-size: 1.5rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: all 0.3s;
+    }
+    
+    .fh-modal-close:hover {
+        color: white;
+        background: rgba(15, 23, 42, 0.8);
+    }
+    
+    .fh-modal-body {
+        padding: 2rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .fh-modal-body {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .fh-preview-photo-wrap {
+        position: relative;
+        border-radius: 1rem;
+        overflow: hidden;
+        aspect-ratio: 3/4;
+        max-height: 500px;
+        background: #0f172a;
+        margin-bottom: 1rem;
+    }
+    
+    .fh-preview-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: opacity 0.3s ease;
+    }
+    
+    .fh-gallery-title {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 0.5rem;
+    }
+    
+    .fh-gallery {
+        display: flex;
+        gap: 0.75rem;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-behavior: smooth;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .fh-gallery::-webkit-scrollbar { height: 6px; }
+    .fh-gallery::-webkit-scrollbar-track {
+        background: rgba(100, 116, 139, 0.1);
+        border-radius: 3px;
+    }
+    .fh-gallery::-webkit-scrollbar-thumb {
+        background: rgba(100, 116, 139, 0.4);
+        border-radius: 3px;
+    }
+    
+    .fh-gallery-thumb {
+        flex: 0 0 auto;
+        width: 100px;
+        height: 100px;
+        border-radius: 0.75rem;
+        overflow: hidden;
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.3s ease;
+        scroll-snap-align: start;
+    }
+    
+    .fh-gallery-thumb:hover {
+        transform: scale(1.05);
+        border-color: rgba(139, 92, 246, 0.5);
+    }
+    
+    .fh-gallery-thumb.fh-active {
+        border-color: #a855f7;
+        box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+    }
+    
+    .fh-gallery-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .fh-audio-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e2e8f0;
+        margin-bottom: 0.75rem;
+    }
+    
+    .fh-audio {
+        width: 100%;
+        margin-bottom: 1.5rem;
+    }
+    
+    .fh-preview-name {
+        font-size: 1.875rem;
+        font-weight: 900;
+        color: white;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .fh-preview-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: #94a3b8;
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .fh-preview-section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e2e8f0;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .fh-preview-desc {
+        color: #94a3b8;
+        line-height: 1.7;
+        margin-bottom: 1.5rem;
+    }
+    
+    .fh-preview-traits { margin-bottom: 1.5rem; }
+    
+    .fh-preview-trait { margin-bottom: 0.75rem; }
+    
+    .fh-preview-trait-header {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .fh-preview-trait-name { color: #e2e8f0; }
+    .fh-preview-trait-value { color: #94a3b8; }
+    
+    .fh-preview-trait-bar {
+        height: 8px;
+        background: rgba(100, 116, 139, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .fh-preview-trait-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 4px;
+        transition: width 0.5s ease;
+    }
+    
+    .fh-preview-chat-btn {
+        width: 100%;
+        background: linear-gradient(90deg, #a855f7, #ec4899);
+        color: white;
+        border: none;
+        padding: 0.875rem 1.5rem;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .fh-preview-chat-btn:hover {
+        background: linear-gradient(90deg, #9333ea, #db2777);
+        transform: scale(1.02);
+    }
+    
+    .fh-loading, .fh-empty, .fh-error {
+        text-align: center;
+        padding: 3rem 1rem;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        grid-column: 1 / -1;
+    }
+    
+    .fh-loading { color: #0e7490; }
+    .fh-empty { color: #64748b; }
+    .fh-error { color: #ef4444; }
+    
+    .fh-spinner {
+        width: 3rem;
+        height: 3rem;
+        border: 3px solid transparent;
+        border-top-color: #a855f7;
+        border-radius: 50%;
+        animation: fh-spin 1s linear infinite;
+        margin: 0 auto 1rem;
+    }
+    
+    @keyframes fh-spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 640px) {
+        .fh-title { font-size: 1.5rem; }
+        .fh-grid { grid-template-columns: 1fr; }
+        .fh-card { height: auto; min-height: 400px; }
+    }
+</style>
+
+<!-- СЕКЦИЯ КАТАЛОГА -->
+<section class="fh-section" id="fhCatalogRoot">
+    
+    <h2 class="fh-title">🎭 Каталог виртуальных собеседников</h2>
+    <p class="fh-subtitle">Нажмите на карточку, чтобы узнать больше</p>
+
+    <!-- Фильтры -->
+    <div class="fh-filters">
+        <div class="fh-filter-group">
+            <label class="fh-filter-label">Пол</label>
+            <div class="fh-filter-chips" data-filter="gender">
+                <button class="fh-chip fh-active" data-value="all">Все</button>
+                <button class="fh-chip" data-value="female">👩 Женщины</button>
+                <button class="fh-chip" data-value="male">👨 Мужчины</button>
+            </div>
+        </div>
+
+        <div class="fh-filter-group">
+            <label class="fh-filter-label">Возраст</label>
+            <div class="fh-filter-chips" data-filter="age">
+                <button class="fh-chip fh-active" data-value="all">Все</button>
+                <button class="fh-chip" data-value="18-25">18-25</button>
+                <button class="fh-chip" data-value="26-35">26-35</button>
+                <button class="fh-chip" data-value="36+">36+</button>
+            </div>
+        </div>
+
+        <div class="fh-filter-group">
+            <label class="fh-filter-label">Стиль</label>
+            <div class="fh-filter-chips" data-filter="style">
+                <button class="fh-chip fh-active" data-value="all">Все</button>
+                <button class="fh-chip" data-value="realistic">📷 Фотореализм</button>
+                <button class="fh-chip" data-value="anime">🌸 Аниме</button>
+            </div>
+        </div>
+
+        <div class="fh-filter-group">
+            <label class="fh-filter-label">Тип</label>
+            <div class="fh-filter-chips" data-filter="type">
+                <button class="fh-chip fh-active" data-value="all">Все</button>
+                <button class="fh-chip" data-value="free">🆓 Бесплатные</button>
+                <button class="fh-chip" data-value="premium">💎 Премиум</button>
+                <button class="fh-chip" data-value="nsfw">🔥 18+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Сортировка -->
+    <div class="fh-sort-bar">
+        <div class="fh-sort-info" id="fhSortInfo">Загрузка...</div>
+        <select class="fh-sort-select" id="fhSortSelect">
+            <option value="name-asc">По имени (А-Я)</option>
+            <option value="name-desc">По имени (Я-А)</option>
+            <option value="age-asc">По возрасту (↑)</option>
+            <option value="age-desc">По возрасту (↓)</option>
+            <option value="intelligence-desc">По интеллекту (↓)</option>
+            <option value="empathy-desc">По эмпатии (↓)</option>
+            <option value="confidence-desc">По уверенности (↓)</option>
+            <option value="humor-desc">По юмору (↓)</option>
+        </select>
+    </div>
+
+    <!-- Сетка персонажей -->
+    <div class="fh-grid" id="fhGrid">
+        <div class="fh-loading">
+            <div class="fh-spinner"></div>
+            Загрузка собеседников...
+        </div>
+    </div>
+
+</section>
+
+<!-- Модальное окно превью -->
+<div class="fh-modal" id="fhPreviewModal">
+    <div class="fh-modal-content">
+        <button class="fh-modal-close" id="fhModalCloseBtn">✕</button>
+        <div class="fh-modal-body" id="fhPreviewContent"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    let fhAllCompanions = [];
+    let fhFilteredCompanions = [];
+    let fhActiveFilters = { gender: 'all', age: 'all', style: 'all', type: 'all' };
+    let fhCurrentSort = 'name-asc';
+
+    // Инициализация
+    function fhInit() {
+        fhBindFilters();
+        fhBindSort();
+        fhBindModal();
+        fhLoadCompanions();
+    }
+
+    // Загрузка персонажей
+    async function fhLoadCompanions() {
+        try {
+            const resp = await fetch('/api/studio/fishhook/characters');
+            const data = await resp.json();
+            
+            if (data.status === 'success') {
+                fhAllCompanions = Object.entries(data.characters).map(([key, char]) => ({
+                    key, ...char
+                }));
+                fhApplyFilters();
+            } else {
+                fhShowError('Ошибка загрузки каталога');
+            }
+        } catch (e) {
+            console.error('Ошибка загрузки:', e);
+            fhShowError('Ошибка загрузки каталога');
+        }
+    }
+
+    // Применение фильтров
+    function fhApplyFilters() {
+        let filtered = [...fhAllCompanions];
+        
+        if (fhActiveFilters.gender !== 'all') {
+            filtered = filtered.filter(c => c.gender === fhActiveFilters.gender);
+        }
+        
+        if (fhActiveFilters.age !== 'all') {
+            if (fhActiveFilters.age === '18-25') {
+                filtered = filtered.filter(c => c.age >= 18 && c.age <= 25);
+            } else if (fhActiveFilters.age === '26-35') {
+                filtered = filtered.filter(c => c.age >= 26 && c.age <= 35);
+            } else if (fhActiveFilters.age === '36+') {
+                filtered = filtered.filter(c => c.age >= 36);
+            }
+        }
+        
+        if (fhActiveFilters.style !== 'all') {
+            filtered = filtered.filter(c => c.style === fhActiveFilters.style);
+        }
+        
+        if (fhActiveFilters.type === 'free') {
+            filtered = filtered.filter(c => !c.subscription_required && !c.nsfw_allowed);
+        } else if (fhActiveFilters.type === 'premium') {
+            filtered = filtered.filter(c => c.subscription_required);
+        } else if (fhActiveFilters.type === 'nsfw') {
+            filtered = filtered.filter(c => c.nsfw_allowed);
+        }
+        
+        fhFilteredCompanions = filtered;
+        fhApplySort();
+    }
+
+    // Сортировка
+    function fhApplySort() {
+        const sorted = [...fhFilteredCompanions];
+        
+        switch (fhCurrentSort) {
+            case 'name-asc': sorted.sort((a, b) => a.name.localeCompare(b.name, 'ru')); break;
+            case 'name-desc': sorted.sort((a, b) => b.name.localeCompare(a.name, 'ru')); break;
+            case 'age-asc': sorted.sort((a, b) => a.age - b.age); break;
+            case 'age-desc': sorted.sort((a, b) => b.age - a.age); break;
+            case 'intelligence-desc': sorted.sort((a, b) => (b.traits?.intelligence || 0) - (a.traits?.intelligence || 0)); break;
+            case 'empathy-desc': sorted.sort((a, b) => (b.traits?.empathy || 0) - (a.traits?.empathy || 0)); break;
+            case 'confidence-desc': sorted.sort((a, b) => (b.traits?.confidence || 0) - (a.traits?.confidence || 0)); break;
+            case 'humor-desc': sorted.sort((a, b) => (b.traits?.humor || 0) - (a.traits?.humor || 0)); break;
+        }
+        
+        fhRenderCompanions(sorted);
+    }
+
+    // Рендер карточек
+    function fhRenderCompanions(companions) {
+        const grid = document.getElementById('fhGrid');
+        const info = document.getElementById('fhSortInfo');
+        
+        info.textContent = `Найдено: ${companions.length} из ${fhAllCompanions.length}`;
+        
+        if (companions.length === 0) {
+            grid.innerHTML = '<div class="fh-empty">Собеседники не найдены</div>';
+            return;
+        }
+        
+        grid.innerHTML = companions.map((comp, index) => fhCreateCard(comp, index)).join('');
+    }
+
+    // Создание карточки
+    function fhCreateCard(comp, index) {
+        const isOnline = Math.random() > 0.3;
+        const isPremium = comp.subscription_required || false;
+        const isNsfw = comp.nsfw_allowed || false;
+        const isAnime = comp.style === 'anime';
+        
+        let badgesHTML = '';
+        if (isAnime) {
+            badgesHTML += '<span class="fh-badge fh-badge-style fh-badge-anime">🌸 Аниме</span>';
+        } else {
+            badgesHTML += '<span class="fh-badge fh-badge-style fh-badge-realistic">📷 Фото</span>';
+        }
+        
+        if (isNsfw) {
+            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-nsfw-style">🔥 18+</span>';
+        } else if (isPremium) {
+            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-premium">💎 Premium</span>';
+        } else {
+            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-free">Free</span>';
+        }
+        
+        const photoURL = comp.main_photo_url || `/characters/${comp.key}/main.jpg`;
+        
+        const traitColors = {
+            intelligence: '#22d3ee',
+            confidence: '#c084fc',
+            openness: '#4ade80',
+            empathy: '#f472b6',
+            humor: '#fbbf24'
+        };
+        
+        const traitLabels = {
+            intelligence: '🧠 Ум',
+            confidence: '💪 Уверенность',
+            openness: '🌊 Открытость',
+            empathy: '💗 Эмпатия',
+            humor: '😄 Юмор'
+        };
+        
+        const traitsHTML = comp.traits ? Object.entries(comp.traits).slice(0, 3).map(([key, value]) => `
+            <div class="fh-trait-row">
+                <span class="fh-trait-label">${traitLabels[key] || key}</span>
+                <div class="fh-trait-bar">
+                    <div class="fh-trait-fill" style="width: ${value}%; background: ${traitColors[key] || '#64748b'}"></div>
+                </div>
+            </div>
+        `).join('') : '';
+        
+        const delay = Math.min(index + 1, 6) * 0.1;
+        
+        return `
+            <div class="fh-card fh-card-animate" 
+                 style="animation-delay: ${delay}s"
+                 data-key="${comp.key}">
+                
+                ${badgesHTML}
+                
+                <div class="fh-card-photo-wrap">
+                    <img src="${photoURL}" 
+                         alt="${comp.name}" 
+                         class="fh-card-photo"
+                         onerror="this.style.display='none'">
+                    <div class="fh-card-photo-overlay"></div>
+                    
+                    <div class="fh-online-status">
+                        <div class="${isOnline ? 'fh-online-dot' : 'fh-offline-dot'}"></div>
+                        <span class="fh-online-text">${isOnline ? 'Online' : 'Offline'}</span>
+                    </div>
+                </div>
+                
+                <div class="fh-card-info">
+                    <div class="fh-card-name-row">
+                        <h3 class="fh-card-name">${comp.emoji || '🎭'} ${comp.name}</h3>
+                        <span class="fh-card-age">${comp.age} лет</span>
+                    </div>
+                    
+                    <p class="fh-card-desc">${comp.description || comp.personality || ''}</p>
+                    
+                    <div class="fh-traits">
+                        ${traitsHTML}
+                    </div>
+                    
+                    <button class="fh-chat-btn" data-chat="${comp.key}">
+                        💬 Начать чат
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // Привязка фильтров
+    function fhBindFilters() {
+        document.querySelectorAll('#fhCatalogRoot .fh-filter-chips').forEach(group => {
+            const filterType = group.dataset.filter;
+            
+            group.querySelectorAll('.fh-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    const value = this.dataset.value;
+                    
+                    group.querySelectorAll('.fh-chip').forEach(c => c.classList.remove('fh-active'));
+                    this.classList.add('fh-active');
+                    
+                    fhActiveFilters[filterType] = value;
+                    fhApplyFilters();
+                });
+            });
+        });
+    }
+
+    // Привязка сортировки
+    function fhBindSort() {
+        document.getElementById('fhSortSelect').addEventListener('change', function() {
+            fhCurrentSort = this.value;
+            fhApplySort();
+        });
+    }
+
+    // Привязка модального окна
+    function fhBindModal() {
+        const grid = document.getElementById('fhGrid');
+        const modal = document.getElementById('fhPreviewModal');
+        const closeBtn = document.getElementById('fhModalCloseBtn');
+        
+        // Клик по карточке
+        grid.addEventListener('click', function(e) {
+            // Клик по кнопке чата
+            const chatBtn = e.target.closest('[data-chat]');
+            if (chatBtn) {
+                e.stopPropagation();
+                window.location.href = '/chat?character=' + chatBtn.dataset.chat;
+                return;
+            }
+            
+            // Клик по карточке
+            const card = e.target.closest('.fh-card');
+            if (card) {
+                fhOpenPreview(card.dataset.key);
+            }
+        });
+        
+        // Закрытие модального окна
+        closeBtn.addEventListener('click', fhClosePreview);
+        
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) fhClosePreview();
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.classList.contains('fh-active')) {
+                fhClosePreview();
+            }
+        });
+    }
+
+    // Открытие превью
+    async function fhOpenPreview(characterKey) {
+        const modal = document.getElementById('fhPreviewModal');
+        const content = document.getElementById('fhPreviewContent');
+        
+        content.innerHTML = `
+            <div class="fh-loading" style="grid-column: 1 / -1;">
+                <div class="fh-spinner"></div>
+                Загрузка превью...
+            </div>
+        `;
+        
+        modal.classList.add('fh-active');
+        document.body.style.overflow = 'hidden';
+        
+        try {
+            const response = await fetch(`/api/studio/fishhook/character/${characterKey}/preview`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                fhRenderPreview(data.preview);
+            } else {
+                throw new Error('Ошибка загрузки');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            content.innerHTML = '<div class="fh-error" style="grid-column: 1 / -1;">❌ Ошибка загрузки</div>';
+        }
+    }
+
+    // Рендер превью
+    function fhRenderPreview(preview) {
+        const content = document.getElementById('fhPreviewContent');
+        const allPhotos = [preview.main_photo, ...(preview.gallery || [])];
+        
+        const traitLabels = {
+            intelligence: '🧠 Интеллект',
+            confidence: '💪 Уверенность',
+            openness: '🌊 Открытость',
+            empathy: '💗 Эмпатия',
+            humor: '😄 Юмор'
+        };
+        
+        const traitsHTML = Object.entries(preview.traits || {}).map(([key, value]) => `
+            <div class="fh-preview-trait">
+                <div class="fh-preview-trait-header">
+                    <span class="fh-preview-trait-name">${traitLabels[key] || key}</span>
+                    <span class="fh-preview-trait-value">${value}/100</span>
+                </div>
+                <div class="fh-preview-trait-bar">
+                    <div class="fh-preview-trait-fill" style="width: ${value}%"></div>
+                </div>
+            </div>
+        `).join('');
+        
+        const galleryThumbsHTML = allPhotos.map((url, index) => `
+            <div class="fh-gallery-thumb ${index === 0 ? 'fh-active' : ''}" 
+                 data-url="${url}">
+                <img src="${url}" alt="Фото ${index + 1}">
+            </div>
+        `).join('');
+        
+        const voiceHTML = preview.voice ? `
+            <div>
+                <h4 class="fh-audio-title">🎤 Голосовое описание</h4>
+                <audio controls class="fh-audio">
+                    <source src="${preview.voice}" type="audio/wav">
+                </audio>
+            </div>
+        ` : '';
+        
+        content.innerHTML = `
+            <div>
+                <div class="fh-preview-photo-wrap">
+                    <img id="fhMainPreviewPhoto" class="fh-preview-photo" 
+                         src="${preview.main_photo}" alt="${preview.name}">
+                </div>
+                
+                ${allPhotos.length > 1 ? `
+                    <div>
+                        <h4 class="fh-gallery-title">🖼️ Галерея (${allPhotos.length} фото)</h4>
+                        <div class="fh-gallery" id="fhGallery">
+                            ${galleryThumbsHTML}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                ${voiceHTML}
+            </div>
+            
+            <div>
+                <h2 class="fh-preview-name">${preview.emoji || '🎭'} ${preview.name}</h2>
+                <div class="fh-preview-meta">
+                    <span>${preview.age} лет</span>
+                    <span>•</span>
+                    <span>${preview.gender === 'female' ? '♀ Женщина' : '♂ Мужчина'}</span>
+                    <span>•</span>
+                    <span>${preview.style === 'anime' ? '🌸 Аниме' : '📷 Фотореализм'}</span>
+                </div>
+                
+                <h4 class="fh-preview-section-title">📝 О персонаже</h4>
+                <p class="fh-preview-desc">${preview.description || preview.personality || 'Описание отсутствует'}</p>
+                
+                <h4 class="fh-preview-section-title">📊 Характеристики</h4>
+                <div class="fh-preview-traits">
+                    ${traitsHTML}
+                </div>
+                
+                <button class="fh-preview-chat-btn" data-preview-chat="${preview.key}">
+                    💬 Начать чат с ${preview.name}
+                </button>
+            </div>
+        `;
+        
+        // Привязка галереи
+        const gallery = document.getElementById('fhGallery');
+        if (gallery) {
+            gallery.addEventListener('click', function(e) {
+                const thumb = e.target.closest('.fh-gallery-thumb');
+                if (thumb) {
+                    const url = thumb.dataset.url;
+                    const mainPhoto = document.getElementById('fhMainPreviewPhoto');
+                    
+                    mainPhoto.style.opacity = '0';
+                    setTimeout(() => {
+                        mainPhoto.src = url;
+                        mainPhoto.style.opacity = '1';
+                    }, 150);
+                    
+                    gallery.querySelectorAll('.fh-gallery-thumb').forEach(t => t.classList.remove('fh-active'));
+                    thumb.classList.add('fh-active');
+                }
+            });
+        }
+        
+        // Привязка кнопки чата
+        const chatBtn = content.querySelector('[data-preview-chat]');
+        if (chatBtn) {
+            chatBtn.addEventListener('click', function() {
+                window.location.href = '/chat?character=' + this.dataset.previewChat;
+            });
+        }
+    }
+
+    // Закрытие превью
+    function fhClosePreview() {
+        const modal = document.getElementById('fhPreviewModal');
+        modal.classList.remove('fh-active');
+        document.body.style.overflow = '';
+        
+        const audio = modal.querySelector('audio');
+        if (audio) audio.pause();
+    }
+
+    // Показать ошибку
+    function fhShowError(message) {
+        const grid = document.getElementById('fhGrid');
+        grid.innerHTML = `<div class="fh-error">❌ ${message}</div>`;
+    }
+
+    // Запуск
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fhInit);
+    } else {
+        fhInit();
+    }
+
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- 🎯 ОТКРЫВАЕМ ЦЕНТРАЛЬНУЮ КОРОБКУ ДЛЯ ФИЛЬТРОВ И КАТАЛОГА СЕЛЛЕРОВ 
     <div class="max-w-6xl mx-auto px-6 py-4 relative z-20">
 
-        <!-- ПАНЕЛЬ ФИЛЬТРОВ (Добавил z-50 и четкий фон) -->
+        <!-- ПАНЕЛЬ ФИЛЬТРОВ (Добавил z-50 и четкий фон) 
         <div id="filter-panel" class="hidden mb-20 space-y-8 relative z-50 max-w-4xl mx-auto bg-slate-900/60 p-10 rounded-[3rem] border border-cyan-500/10 backdrop-blur-2xl shadow-2xl">
             
-            <!-- 🎯 КРИСТАЛЬНЫЙ СЕЛЛЕР-БЛОК ПОИСКА С ЛОКАЛИЗАЦИЕЙ ПО ТИПУ DATA-I18N -->
+            <!-- 🎯 КРИСТАЛЬНЫЙ СЕЛЛЕР-БЛОК ПОИСКА С ЛОКАЛИЗАЦИЕЙ ПО ТИПУ DATA-I18N 
             <div>
                 <label data-i18n="index.search.card_type" class="text-[9px] text-slate-500 uppercase font-black tracking-[0.3em] mb-4 block">
                     Тип карточки
@@ -204,14 +1352,14 @@
                 <div id="tool-chips" class="flex flex-wrap gap-3"></div>
             </div>
 
-            <!-- Нижняя панель с кнопками Сброса и Поиска -->
+            <!-- Нижняя панель с кнопками Сброса и Поиска 
             <div class="pt-6 flex flex-col sm:flex-row items-center justify-between border-t border-slate-800/50 gap-6">
                 <!-- Счетчик фильтров -->
                 <div id="active-filter-count" class="text-[10px] text-cyan-500 font-bold uppercase tracking-widest opacity-40">
                     <!-- Filters: 0 -->
                 </div>
 
-                <!-- Контейнер кнопок -->
+                <!-- Контейнер кнопок 
                 <div class="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                     <button onclick="resetFilters()" 
                             data-i18n="index.t4" class="text-[10px] text-slate-600 hover:text-white uppercase font-black tracking-widest transition-colors outline-none py-2">
@@ -231,7 +1379,7 @@
 
         </div>
 
-        <!-- 🎯 КОНТЕЙНЕР ДЛЯ КАРУСЕЛЕЙ (Теперь лежит строго внутри max-w-6xl и отцентрирован!) -->
+        <!-- 🎯 КОНТЕЙНЕР ДЛЯ КАРУСЕЛЕЙ (Теперь лежит строго внутри max-w-6xl и отцентрирован!) 
         <div id="catalog-container" class="space-y-4">
             <div class="text-center py-20 animate-pulse text-cyan-900 font-black uppercase tracking-widest">System_Sync...</div>
         </div>

@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKULLA.RU | WebSocket Чат</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background-color: #020617; 
+            color: #f8fafc; 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 10;
+        }
+
+        .chat-header {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chat-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(34, 211, 238, 0.3);
+        }
+
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scroll-behavior: smooth;
+        }
+
+        .messages-area::-webkit-scrollbar { width: 4px; }
+        .messages-area::-webkit-scrollbar-track { background: transparent; }
+        .messages-area::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.3);
+            border-radius: 2px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+            animation: messageIn 0.3s ease-out;
+            word-wrap: break-word;
+        }
+
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message-user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, rgba(34, 211, 238, 0.2), rgba(168, 85, 247, 0.2));
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-bottom-right-radius: 4px;
+            color: #e2e8f0;
+        }
+
+        .message-bot {
+            align-self: flex-start;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            border-bottom-left-radius: 4px;
+            color: #cbd5e1;
+        }
+
+        .message-image {
+            max-width: 100%;
+            border-radius: 12px;
+            margin-top: 8px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+            align-self: flex-start;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(34, 211, 238, 0.5);
+            animation: typingBounce 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+            30% { transform: translateY(-8px); opacity: 1; }
+        }
+
+        .input-panel {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(34, 211, 238, 0.1);
+            padding: 16px 20px;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            border-radius: 24px;
+            padding: 12px 20px;
+            color: #e2e8f0;
+            font-size: 14px;
+            resize: none;
+            max-height: 120px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .message-input:focus {
+            border-color: rgba(34, 211, 238, 0.5);
+        }
+
+        .send-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #22d3ee, #a855f7);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .mic-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+            color: #94a3b8;
+            font-size: 20px;
+        }
+
+        .mic-btn:hover {
+            border-color: rgba(34, 211, 238, 0.5);
+            color: #22d3ee;
+        }
+
+        .mic-btn.recording {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #f87171;
+            animation: pulseRecord 1.5s infinite;
+        }
+
+        @keyframes pulseRecord {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        }
+
+        .settings-panel {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(34, 211, 238, 0.1);
+            padding: 10px 20px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            overflow-x: auto;
+        }
+
+        .setting-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .setting-label {
+            font-size: 9px;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+        }
+
+        .setting-select {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.3);
+            border-radius: 8px;
+            padding: 6px 10px;
+            color: #e2e8f0;
+            font-size: 11px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .status-connected {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status-disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-connecting {
+            background: rgba(234, 179, 8, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(234, 179, 8, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+<div class="chat-container">
+    
+    <!-- ШАПКА ЧАТА -->
+    <div class="chat-header">
+        <a href="/" class="text-slate-500 hover:text-cyan-400 transition-colors text-xl">←</a>
+        <img id="chatAvatar" src="" alt="" class="chat-avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 48%22><rect fill=%22%231e293b%22 width=%2248%22 height=%2248%22 rx=%2224%22/><text fill=%22%2364748b%22 font-size=%2220%22 x=%2224%22 y=%2230%22 text-anchor=%22middle%22>🎭</text></svg>'">
+        <div class="flex-1">
+            <div class="flex items-center gap-2">
+                <h2 id="chatName" class="text-white font-bold text-sm">Загрузка...</h2>
+                <div id="wsStatus" class="status-indicator status-connecting">
+                    <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+                    <span>Подключение...</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="charAge" class="text-[10px] text-slate-500 font-bold"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ПАНЕЛЬ НАСТРОЕК -->
+    <div class="settings-panel">
+        <div class="setting-group">
+            <span class="setting-label">Сцена</span>
+            <select id="sceneSelect" class="setting-select">
+                <option value="nature">🌿 Природа</option>
+                <option value="sea">🌊 Море</option>
+                <option value="cafe">☕ Кафе</option>
+                <option value="gym">💪 Спортзал</option>
+                <option value="pastel">🌸 Пастель</option>
+                <option value="shower">🚿 Душ</option>
+                <option value="nsfw">🔥 18+</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <span class="setting-label">Роль</span>
+            <select id="roleSelect" class="setting-select">
+                <option value="assistant">🤖 Ассистент</option>
+                <option value="psychologist">🧠 Психолог</option>
+                <option value="pirate">🏴‍☠️ Пират</option>
+                <option value="coach">💪 Тренер</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <span class="setting-label">Голос</span>
+            <select id="genderSelect" class="setting-select">
+                <option value="male">👨 Мужской</option>
+                <option value="female">👩 Женский</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="generateImageCheck" class="w-4 h-4 accent-cyan-500 cursor-pointer" checked>
+                <span class="setting-label">🖼️ Фото</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- ОБЛАСТЬ СООБЩЕНИЙ -->
+    <div id="messagesArea" class="messages-area">
+        <!-- Сообщения будут добавляться сюда -->
+    </div>
+
+    <!-- ПАНЕЛЬ ВВОДА -->
+    <div class="input-panel">
+        <div class="input-row">
+            <button id="micBtn" class="mic-btn" onclick="toggleRecording()" title="Голосовое сообщение">
+                🎤
+            </button>
+            <textarea 
+                id="messageInput" 
+                class="message-input" 
+                placeholder="Напишите сообщение..."
+                rows="1"
+                onkeydown="handleKeyDown(event)"
+                oninput="autoResize(this)"
+            ></textarea>
+            <button id="sendBtn" class="send-btn" onclick="sendMessage()" title="Отправить">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                </svg>
+            </button>
+        </div>
+        <div id="imagePromptRow" class="mt-2">
+            <input 
+                type="text" 
+                id="imagePromptInput" 
+                class="message-input" 
+                style="border-radius: 12px; padding: 8px 16px; font-size: 12px;"
+                placeholder="🖼️ Опишите изображение (например: девушка пьёт кофе в кафе)"
+            >
+        </div>
+    </div>
+
+</div>
+
+<!-- АУДИО ПЛЕЕР (скрытый) -->
+<audio id="audioPlayer" class="hidden"></audio>
+
+<script>
+// ============================================================================
+// 💬 WEBSOCKET ЧАТ С ВИРТУАЛЬНЫМ СОБЕСЕДНИКОМ
+// ============================================================================
+
+let characterKey = '';
+let characterData = null;
+let isRecording = false;
+let mediaRecorder = null;
+let audioChunks = [];
+let isWaitingResponse = false;
+let ws = null;
+let wsReconnectTimer = null;
+
+// ВАЖНО: Замените на ваш user_id
+const USER_ID = 'RATANOV_PAVEL';
+const SERVER_WS_URL = 'wss://skulla.ru';  // Или ws://localhost:8000 для локального теста
+//const SERVER_WS_URL = 'ws://localhost';
+
+// Получаем ключ персонажа из URL
+const urlParams = new URLSearchParams(window.location.search);
+characterKey = urlParams.get('character') || 'anna';
+
+// ============================================================================
+// 📡 WEBSOCKET ПОДКЛЮЧЕНИЕ
+// ============================================================================
+
+function connectWebSocket() {
+    const wsUrl = `${SERVER_WS_URL}/ws/browser/${USER_ID}`;
+    
+    console.log(`🔌 Подключение к ${wsUrl}...`);
+    updateConnectionStatus('connecting');
+    
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+        console.log('✅ WebSocket подключён');
+        updateConnectionStatus('connected');
+        
+        // Проверяем статус воркера
+        ws.send(JSON.stringify({
+            type: 'check_worker'
+        }));
+    };
+    
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        } catch (e) {
+            console.error('❌ Ошибка парсинга сообщения:', e);
+        }
+    };
+    
+    ws.onclose = (event) => {
+        console.log(`🔌 WebSocket закрыт: ${event.code} ${event.reason}`);
+        updateConnectionStatus('disconnected');
+        
+        // Переподключение через 3 секунды
+        if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+    };
+    
+    ws.onerror = (error) => {
+        console.error('❌ WebSocket ошибка:', error);
+        updateConnectionStatus('disconnected');
+    };
+}
+
+function handleWebSocketMessage(data) {
+    console.log('📨 Получено сообщение:', data.type);
+    
+    switch (data.type) {
+        case 'welcome':
+            console.log(`👋 Приветствие: ${data.message}`);
+            if (!data.worker_connected) {
+                addBotMessage('⚠️ Воркер не подключён. Запустите main.py в Colab/Kaggle.');
+            }
+            break;
+        
+        case 'worker_status':
+            if (data.connected) {
+                console.log('✅ Воркер подключён');
+            } else {
+                console.log('❌ Воркер не подключён');
+                addBotMessage('⚠️ Воркер не подключён. Запустите websocket_worker.py');
+            }
+            break;
+        
+        case 'task_accepted':
+            console.log(`✅ Задача принята: ${data.task_id}`);
+            break;
+        
+        case 'task_status':
+            handleTaskStatus(data);
+            break;
+        
+        case 'task_result':
+            handleTaskResult(data);
+            break;
+        
+        case 'error':
+            console.error('❌ Ошибка от сервера:', data.message);
+            hideTypingIndicator();
+            addBotMessage(`❌ Ошибка: ${data.message}`);
+            isWaitingResponse = false;
+            document.getElementById('sendBtn').disabled = false;
+            break;
+        
+        default:
+            console.log('⚠️ Неизвестный тип:', data.type);
+    }
+}
+
+function handleTaskStatus(data) {
+    const statusMessages = {
+        'processing': '🤔 Думаю...',
+        'thinking': '🧠 Генерирую ответ...',
+        'speaking': '🎤 Синтезирую речь...',
+        'generating': '🎨 Генерирую изображение...',
+        'uploading': '📤 Отправляю результаты...'
+    };
+    
+    const message = statusMessages[data.status] || data.message || 'Обработка...';
+    
+    // Обновляем индикатор статуса
+    const statusEl = document.getElementById('taskStatus');
+    if (statusEl) {
+        statusEl.textContent = message;
+    } else {
+        showTypingIndicator(message);
+    }
+}
+
+function handleTaskResult(data) {
+    hideTypingIndicator();
+    isWaitingResponse = false;
+    document.getElementById('sendBtn').disabled = false;
+    
+    console.log('📦 Результат получен');
+    
+    // Показываем ответ бота
+    addBotMessage(
+        data.bot_text || '...',
+        data.audio_url,
+        data.image_url
+    );
+    
+    // Автовоспроизведение аудио
+    if (data.audio_url) {
+        const audio = new Audio(data.audio_url);
+        audio.play().catch(e => console.log('Автовоспроизведение заблокировано'));
+    }
+}
+
+function updateConnectionStatus(status) {
+    const statusEl = document.getElementById('wsStatus');
+    
+    statusEl.className = 'status-indicator';
+    
+    switch (status) {
+        case 'connected':
+            statusEl.classList.add('status-connected');
+            statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500"></div><span>Подключено</span>';
+            break;
+        case 'connecting':
+            statusEl.classList.add('status-connecting');
+            statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div><span>Подключение...</span>';
+            break;
+        case 'disconnected':
+            statusEl.classList.add('status-disconnected');
+            statusEl.innerHTML = '<div class="w-2 h-2 rounded-full bg-red-500"></div><span>Отключено</span>';
+            break;
+    }
+}
+
+// ============================================================================
+// 💬 ЧАТ ФУНКЦИИ
+// ============================================================================
+
+// Загрузка данных персонажа
+async function loadCharacter() {
+    try {
+        const resp = await fetch(`/api/studio/fishhook/character/${characterKey}/preview`);
+        const data = await resp.json();
+        
+        if (data.status === 'success') {
+            characterData = data.preview;
+            
+            document.getElementById('chatName').textContent = characterData.name;
+            document.getElementById('charAge').textContent = `${characterData.age} лет`;
+            
+            const avatar = characterData.main_photo || `/characters/${characterKey}/main.jpg`;
+            document.getElementById('chatAvatar').src = avatar;
+            
+            document.getElementById('genderSelect').value = characterData.gender || 'female';
+            
+            addBotMessage(`Привет! Я ${characterData.name}. ${characterData.description || 'Рада знакомству!'}`);
+            
+            document.title = `SKULLA.RU | Чат с ${characterData.name}`;
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки персонажа:', e);
+        addBotMessage('Ошибка загрузки собеседника. Попробуйте обновить страницу.');
+    }
+}
+
+function addUserMessage(text, imageUrl = null) {
+    const area = document.getElementById('messagesArea');
+    const msg = document.createElement('div');
+    msg.className = 'message message-user';
+    
+    let content = `<div>${escapeHtml(text)}</div>`;
+    if (imageUrl) {
+        content += `<img src="${imageUrl}" class="message-image" alt="Ваше изображение">`;
+    }
+    
+    msg.innerHTML = content;
+    area.appendChild(msg);
+    scrollToBottom();
+}
+
+function addBotMessage(text, audioUrl = null, imageUrl = null) {
+    const area = document.getElementById('messagesArea');
+    const msg = document.createElement('div');
+    msg.className
+    msg.className = 'message message-bot';
+    
+    let content = `<div>${escapeHtml(text)}</div>`;
+    if (imageUrl) {
+        content += `<img src="${imageUrl}" class="message-image" alt="Изображение">`;
+    }
+    if (audioUrl) {
+        // Проверяем, является ли URL data URL (base64) или обычным URL
+        if (audioUrl.startsWith('data:')) {
+            content += `<audio controls src="${audioUrl}" class="mt-2 w-full" style="max-width: 300px;"></audio>`;
+        } else {
+            content += `<audio controls src="${audioUrl}" class="mt-2 w-full" style="max-width: 300px;"></audio>`;
+        }
+    }
+    
+    msg.innerHTML = content;
+    area.appendChild(msg);
+    scrollToBottom();
+}
+
+function showTypingIndicator(customText = null) {
+    const area = document.getElementById('messagesArea');
+    
+    // Удаляем старый индикатор если есть
+    hideTypingIndicator();
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.id = 'typingIndicator';
+    
+    if (customText) {
+        indicator.innerHTML = `<div class="text-slate-400 text-sm">${customText}</div>`;
+    } else {
+        indicator.innerHTML = `
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+            <div class="typing-dot"></div>
+        `;
+    }
+    
+    area.appendChild(indicator);
+    scrollToBottom();
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typingIndicator');
+    if (indicator) indicator.remove();
+}
+
+// Отправка текстового сообщения через WebSocket
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    
+    if (!text || isWaitingResponse) return;
+    
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addBotMessage('❌ WebSocket не подключён. Подождите или обновите страницу.');
+        return;
+    }
+    
+    const generateImage = document.getElementById('generateImageCheck').checked;
+    const imagePrompt = document.getElementById('imagePromptInput').value.trim();
+    const scene = document.getElementById('sceneSelect').value;
+    const role = document.getElementById('roleSelect').value;
+    const gender = document.getElementById('genderSelect').value;
+    
+    input.value = '';
+    autoResize(input);
+    
+    addUserMessage(text);
+    showTypingIndicator();
+    isWaitingResponse = true;
+    document.getElementById('sendBtn').disabled = true;
+    
+    // Отправляем задачу через WebSocket
+    ws.send(JSON.stringify({
+        type: 'task',
+        task_data: {
+            character: characterKey,
+            text_message: text,
+            scene: scene,
+            role: role,
+            gender: gender,
+            generate_image: generateImage,
+            image_prompt: generateImage ? imagePrompt : '',
+            nsfw: ['shower', 'nsfw'].includes(scene)
+        }
+    }));
+    
+    if (generateImage && imagePrompt) {
+        document.getElementById('imagePromptInput').value = '';
+    }
+}
+
+// Запись голоса
+async function toggleRecording() {
+    const micBtn = document.getElementById('micBtn');
+    
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            let audioChunks = []; // ✅ Объявляем переменную локально
+
+            // ✅ Добавлена стрелка => и фигурные скобки для стрелочной функции
+            mediaRecorder.ondataavailable = (e) => { 
+                audioChunks.push(e.data); 
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                await sendVoiceMessage(audioBlob);
+                stream.getTracks().forEach(t => t.stop());
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            micBtn.classList.add('recording');
+            micBtn.innerHTML = '⏹';
+            
+        } catch (e) {
+            alert('Не удалось получить доступ к микрофону: ' + e.message);
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        micBtn.classList.remove('recording');
+        micBtn.innerHTML = '🎤';
+    }
+}
+
+// Отправка голосового сообщения через WebSocket
+async function sendVoiceMessage(audioBlob) {
+    if (isWaitingResponse) return;
+    
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        addBotMessage('❌ WebSocket не подключён.');
+        return;
+    }
+    
+    const generateImage = document.getElementById('generateImageCheck').checked;
+    const imagePrompt = document.getElementById('imagePromptInput').value.trim();
+    const scene = document.getElementById('sceneSelect').value;
+    const role = document.getElementById('roleSelect').value;
+    const gender = document.getElementById('genderSelect').value;
+    
+    addUserMessage('🎤 Голосовое сообщение');
+    showTypingIndicator();
+    isWaitingResponse = true;
+    document.getElementById('sendBtn').disabled = true;
+    
+    // Конвертируем аудио в base64
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        const audioBase64 = reader.result.split(',')[1];
+        
+        ws.send(JSON.stringify({
+            type: 'task',
+            task_data: {
+                character: characterKey,
+                audio_base64: audioBase64,
+                text_message: '',
+                scene: scene,
+                role: role,
+                gender: gender,
+                generate_image: generateImage,
+                image_prompt: generateImage ? imagePrompt : '',
+                nsfw: ['shower', 'nsfw'].includes(scene)
+            }
+        }));
+    };
+    reader.readAsDataURL(audioBlob);
+}
+
+// Утилиты
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function scrollToBottom() {
+    const area = document.getElementById('messagesArea');
+    area.scrollTop = area.scrollHeight;
+}
+
+function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
+
+// ============================================================================
+// 🚀 ИНИЦИАЛИЗАЦИЯ
+// ============================================================================
+
+// Подключаем WebSocket
+connectWebSocket();
+
+// Загружаем данные персонажа
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadCharacter);
+} else {
+    loadCharacter();
+}
+
+// Ping каждые 30 секунд для поддержания соединения
+setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping' }));
+    }
+}, 30000);
+</script>
+
+</body>
+</html>
