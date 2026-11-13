@@ -342,14 +342,6 @@ REALISTIC_MALE_APPEARANCES = [
     "black curly hair, dark eyes, mysterious aura, tall build"
 ]
 
-ANIME_APPEARANCES = [
-    "anime style, long pink hair, big blue eyes, cute face, school uniform, kawaii",
-    "anime style, long black hair with blue highlights, purple eyes, elegant, gothic lolita dress",
-    "anime style, short blonde hair, green eyes, cheerful, casual outfit, energetic",
-    "anime style, long red hair, amber eyes, mysterious, traditional japanese dress",
-    "anime style, silver hair, violet eyes, cool, futuristic outfit, sci-fi style"
-]
-
 GALLERY_SCENES = {
     "realistic_female": [
         ("office", "modern bright office interior, smart business attire, soft natural light"),
@@ -465,14 +457,6 @@ COMMUNICATION_STYLES = [
     "Обладает живым умом, тактичностью и широким кругозором."
 ]
 
-
-# Базовые списки внешности для аниме и реалистичных персонажей, галереи сцен, хобби и профессий
-#ANIME_MALE_APPEARANCES = [...]
-#GALLERY_SCENES = {...}
-#HOBBIES = [...]
-#PROFESSIONAL_ROLES = {...}
-#QUIRKS = [...]
-#COMMUNICATION_STYLES = [...]
 
 def format_age_ru(age):
     last_two = age % 100
