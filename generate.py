@@ -804,9 +804,10 @@ def generate_all_characters():
             # 2. Генерируем config.json
             config = generate_character_config(
                 char["key"], char["name"], char["age"], char["gender"],
-                char["appearance"], char["personality"], char["hobbies"],
-                char["style"]
+                char["appearance"], char["role"], char["quirk"],
+                char["comm_style"], char["hobbies"], char["style"]
             )
+
             
             config_file = char_dir / "config.json"
             with open(config_file, 'w', encoding='utf-8') as f:
@@ -837,8 +838,10 @@ def generate_all_characters():
             
             # 4. Генерируем 4 фото для галереи
             if model is not None:
-                scene_key = f"{char['style']}_{char['gender']}" if char['style'] == 'anime' else char['gender']
-                available_scenes = GALLERY_SCENES.get(scene_key, GALLERY_SCENES.get(char['gender'], GALLERY_SCENES["realistic_female"]))
+                
+                scene_key = "anime" if char["style"] == "anime" else f"realistic_{char['gender']}"
+                available_scenes = GALLERY_SCENES.get(scene_key, GALLERY_SCENES["realistic_female"])
+
                 scenes = random.sample(available_scenes, 4)
                 
                 for scene_name, scene_desc in scenes:
