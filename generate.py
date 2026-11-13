@@ -504,7 +504,7 @@ def generate_self_introduction(name, age, role, quirk, comm_style, hobbies, gend
     rad = "рада" if gender == "female" else "рад"
     templates = [
         f"Привет! Меня зовут {name}, мне {age_text}. Я {role}. В свободное время {quirk}, а также люблю {hobby_text}. Буду {rad} интересному разговору!",
-        f"Здравствуйте! Я {name}, мне {age_text}, работаю как {role}. Помимо работы, меня увлекает {hobby_text}. {comm_style} Приятно познакомиться!",
+        f"Здравствуйте! Я {name}, мне {age_text}, моя профессия — {role}. Помимо работы, я {quirk}, а из интересов могу выделить {hobby_text}. Приятно познакомиться!",
         f"Привет! Я {name}, {age_text}. По профессии я {role}, а для души {quirk}. С удовольствием обсужу {hobby_text}. Буду {rad} общению!"
     ]
     return random.choice(templates)
