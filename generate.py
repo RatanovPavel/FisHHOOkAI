@@ -420,21 +420,7 @@ ANIME_MALE_APPEARANCES = [
     "anime portrait, wavy chestnut hair, green eyes, hoodie under blazer, creative workspace"
 ]
 
-# Словарь сцен для галереи с различными визуальными стилями (realistic_female, realistic_male, anime)
-GALLERY_SCENES = {
-    "realistic_female": [
-        ("office", "modern bright office interior, smart business attire, soft natural light"),
-        # ...остальные сцены доступны в исходном коде
-    ],
-    "realistic_male": [
-        ("office", "modern architectural office, tailored suit, professional lighting"),
-        # ...остальные сцены доступны в исходном коде
-    ],
-    "anime": [
-        ("library", "anime modern library interior, warm sunlight through tall windows, anime style"),
-        # ...остальные сцены доступны в исходном коде
-    ]
-}
+
 
 # Список увлечений и интересов персонажей
 HOBBIES = [
@@ -481,7 +467,6 @@ COMMUNICATION_STYLES = [
 
 
 # Базовые списки внешности для аниме и реалистичных персонажей, галереи сцен, хобби и профессий
-#ANIME_FEMALE_APPEARANCES = [...] # полные списки доступны в исходном коде
 #ANIME_MALE_APPEARANCES = [...]
 #GALLERY_SCENES = {...}
 #HOBBIES = [...]
