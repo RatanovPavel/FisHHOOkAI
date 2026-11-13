@@ -371,10 +371,6 @@ GALLERY_SCENES = {
     ]
 }
 
-# ============================================================================
-# 📝 ГЕНЕРАЦИЯ ТЕКСТА И КОНФИГА
-# ============================================================================
-
 ANIME_FEMALE_APPEARANCES = [
     "anime illustration, short dark blue bob cut, glasses, smart casual blazer, modern office, makoto shinkai lighting",
     "anime art, long wavy silver hair with side braid, gentle green eyes, cozy knit sweater, sunlit cafe",
@@ -396,8 +392,6 @@ ANIME_MALE_APPEARANCES = [
     "stylized manhwa art, slicked back dark hair, confident look, minimalist black shirt, evening lighting",
     "anime portrait, wavy chestnut hair, green eyes, hoodie under blazer, creative workspace"
 ]
-
-
 
 # Список увлечений и интересов персонажей
 HOBBIES = [
@@ -441,7 +435,9 @@ COMMUNICATION_STYLES = [
     "Говорит спокойно и рассудительно, помогает разложить сложные мысли по полочкам.",
     "Обладает живым умом, тактичностью и широким кругозором."
 ]
-
+# ============================================================================
+# 📝 ГЕНЕРАЦИЯ ТЕКСТА И КОНФИГА
+# ============================================================================
 
 def format_age_ru(age):
     last_two = age % 100
