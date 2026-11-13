@@ -865,8 +865,10 @@ def generate_all_characters():
             # 5. Генерируем голосовое описание
             if voice_path and tts_model is not None:
                 voice_text = generate_self_introduction(
-                    char["name"], char["age"], char["personality"], char["hobbies"], char["gender"]
+                    char["name"], char["age"], char["role"],
+                    char["quirk"], char["comm_style"], char["hobbies"], char["gender"]
                 )
+
                 voice_file = char_dir / "voice_intro.wav"
                 if generate_voice(tts_model, voice_text, voice_path, str(voice_file)):
                     log(f"Создано voice_intro.wav", "SUCCESS")
