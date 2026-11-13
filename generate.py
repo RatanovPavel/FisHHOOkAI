@@ -452,8 +452,41 @@ def format_age_ru(age):
         word = "лет"
     return f"{age} {word}"
 
+def format_age_words_ru(age):
+    tens = {
+        2: "двадцать", 3: "тридцать", 4: "сорок", 5: "пятьдесят",
+        6: "шестьдесят", 7: "семьдесят", 8: "восемьдесят", 9: "девяносто"
+    }
+    teens = {
+        10: "десять", 11: "одиннадцать", 12: "двенадцать", 13: "тринадцать",
+        14: "четырнадцать", 15: "пятнадцать", 16: "шестнадцать",
+        17: "семнадцать", 18: "восемнадцать", 19: "девятнадцать"
+    }
+    ones = {
+        1: "один", 2: "два", 3: "три", 4: "четыре", 5: "пять",
+        6: "шесть", 7: "семь", 8: "восемь", 9: "девять"
+    }
+
+    if 10 <= age <= 19:
+        num_words = teens[age]
+        word = "лет"
+    else:
+        t = tens.get(age // 10, "")
+        o = ones.get(age % 10, "")
+        num_words = f"{t} {o}".strip()
+
+        last_one = age % 10
+        if last_one == 1:
+            word = "год"
+        elif 2 <= last_one <= 4:
+            word = "года"
+        else:
+            word = "лет"
+
+    return f"{num_words} {word}"
+
 def generate_self_introduction(name, age, role, quirk, comm_style, hobbies, gender):
-    age_text = format_age_ru(age)
+    age_text = format_age_words_ru(age)
     hobby_text = ", ".join(random.sample(hobbies, min(3, len(hobbies))))
     rad = "рада" if gender == "female" else "рад"
     templates = [
