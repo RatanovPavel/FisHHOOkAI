@@ -685,8 +685,7 @@ def generate_all_characters():
     log_step(7, "Формирование списка персонажей")
     
     characters = []
-    
-    # 50 реалистичных женщин
+
     for i in range(NUM_REALISTIC_FEMALE):
         if i < FEMALE_AGE_DISTRIBUTION["young"]:
             age_group = "young"
@@ -694,64 +693,77 @@ def generate_all_characters():
             age_group = "middle"
         else:
             age_group = "old"
-        
+
         age = random.randint(*AGE_GROUPS[age_group])
         name = REALISTIC_FEMALE_NAMES[i % len(REALISTIC_FEMALE_NAMES)]
         appearance = REALISTIC_FEMALE_APPEARANCES[i % len(REALISTIC_FEMALE_APPEARANCES)]
-        personality = PERSONALITIES[i % len(PERSONALITIES)]
+        role = random.choice(PROFESSIONAL_ROLES["female"])
+        quirk = random.choice(QUIRKS)
+        comm_style = random.choice(COMMUNICATION_STYLES)
         hobbies = random.sample(HOBBIES, random.randint(3, 5))
-        
+
         characters.append({
             "key": f"realistic_female_{i+1}",
             "name": name,
             "age": age,
             "gender": "female",
             "appearance": appearance,
-            "personality": personality,
+            "role": role,
+            "quirk": quirk,
+            "comm_style": comm_style,
             "hobbies": hobbies,
             "style": "realistic",
             "age_group": age_group
         })
-    
-    # 20 реалистичных мужчин
+
     for i in range(NUM_REALISTIC_MALE):
-        age = random.randint(20, 50)
+        age = random.randint(24, 52)
         name = REALISTIC_MALE_NAMES[i % len(REALISTIC_MALE_NAMES)]
         appearance = REALISTIC_MALE_APPEARANCES[i % len(REALISTIC_MALE_APPEARANCES)]
-        personality = random.choice(["романтичный и застенчивый", "уверенный и харизматичный", "спокойный и мудрый"])
+        role = random.choice(PROFESSIONAL_ROLES["male"])
+        quirk = random.choice(QUIRKS)
+        comm_style = random.choice(COMMUNICATION_STYLES)
         hobbies = random.sample(HOBBIES, random.randint(3, 5))
-        
+
         characters.append({
             "key": f"realistic_male_{i+1}",
             "name": name,
             "age": age,
             "gender": "male",
             "appearance": appearance,
-            "personality": personality,
+            "role": role,
+            "quirk": quirk,
+            "comm_style": comm_style,
             "hobbies": hobbies,
             "style": "realistic"
         })
-    
-    # 30 аниме персонажей
+
     for i in range(NUM_ANIME):
-        age = random.randint(16, 30)
+        age = random.randint(19, 32)
         name = ANIME_NAMES[i % len(ANIME_NAMES)]
-        appearance = ANIME_APPEARANCES[i % len(ANIME_APPEARANCES)]
         gender = "female" if i < 20 else "male"
-        personality = random.choice(["милая и застенчивая", "загадочная и элегантная", "энергичная и весёлая"])
+        if gender == "female":
+            appearance = ANIME_FEMALE_APPEARANCES[i % len(ANIME_FEMALE_APPEARANCES)]
+        else:
+            appearance = ANIME_MALE_APPEARANCES[i % len(ANIME_MALE_APPEARANCES)]
+        role = random.choice(PROFESSIONAL_ROLES[gender])
+        quirk = random.choice(QUIRKS)
+        comm_style = random.choice(COMMUNICATION_STYLES)
         hobbies = random.sample(HOBBIES, random.randint(3, 5))
-        
+
         characters.append({
             "key": f"anime_{i+1}",
             "name": name,
             "age": age,
             "gender": gender,
             "appearance": appearance,
-            "personality": personality,
+            "role": role,
+            "quirk": quirk,
+            "comm_style": comm_style,
             "hobbies": hobbies,
             "style": "anime"
         })
-    
+
     random.shuffle(characters)
     
     log(f"Сгенерировано {len(characters)} персонажей:")
