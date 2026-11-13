@@ -352,32 +352,33 @@ ANIME_APPEARANCES = [
 
 GALLERY_SCENES = {
     "realistic_female": [
-        ("gym", "modern gym interior, athletic pose, sportswear, dynamic lighting"),
-        ("cafe", "cozy cafe interior, warm ambient lighting, coffee cup, casual outfit"),
-        ("beach", "beautiful beach, turquoise ocean waves, summer dress, sunset"),
-        ("nature", "lush green forest, dappled sunlight, casual outfit, serene"),
-        ("city", "urban street, modern buildings, stylish outfit, confident pose"),
-        ("studio", "professional photo studio, elegant dress, soft lighting"),
-        ("party", "elegant party venue, evening dress, sparkling lights"),
-        ("home", "cozy living room, comfortable clothes, warm lighting")
+        ("office", "modern bright office interior, smart business attire, soft natural light"),
+        ("cafe", "cozy specialty coffee shop interior, warm ambient lighting, coffee cup, casual chic outfit"),
+        ("gallery", "modern art gallery interior, minimalist paintings on background, stylish blazer"),
+        ("library", "architectural library interior, bookshelves, smart casual sweater, natural daylight"),
+        ("city", "european city street, modern architecture, trench coat, golden hour lighting"),
+        ("studio", "professional photo studio, elegant minimalist dress, soft key lighting"),
+        ("park", "botanical garden pathway, dappled sunlight, relaxed smart casual outfit"),
+        ("lounge", "stylish hotel lounge interior, warm evening lights, sophisticated attire")
     ],
     "realistic_male": [
-        ("gym", "modern gym interior, athletic pose, sportswear, dynamic lighting"),
-        ("office", "modern office, business suit, professional lighting"),
-        ("cafe", "cozy cafe interior, casual outfit, warm ambient lighting"),
-        ("nature", "outdoor adventure, hiking gear, mountain background"),
-        ("studio", "professional photo studio, smart casual, soft lighting"),
-        ("street", "urban street, stylish outfit, city background")
+        ("office", "modern architectural office, tailored suit, professional lighting"),
+        ("cafe", "specialty coffee shop interior, smart casual shirt, warm ambient lighting"),
+        ("studio", "professional photo studio, minimalist turtleneck, soft key lighting"),
+        ("city", "modern business district street, stylish coat, evening city lights"),
+        ("library", "modern workspace library, bookshelves, casual blazer, natural light"),
+        ("nature", "scenic mountain viewpoint, outdoor jacket, crisp morning daylight")
     ],
     "anime": [
-        ("school", "anime school classroom, cherry blossoms outside window, school uniform, anime style"),
-        ("sakura", "anime style, under cherry blossom trees, petals falling, beautiful scenery, spring"),
-        ("festival", "anime festival scene, lanterns, fireworks, yukata, summer night, beautiful"),
-        ("rooftop", "anime rooftop scene, sunset, city skyline, wind blowing hair, dramatic sky"),
-        ("cafe", "anime cafe interior, cozy atmosphere, coffee, warm lighting, slice of life"),
-        ("garden", "anime garden scene, flowers, butterflies, magical atmosphere, beautiful")
+        ("library", "anime modern library interior, warm sunlight through tall windows, anime style"),
+        ("cafe", "anime cozy coffee shop, wooden interior, latte art, warm evening lighting, anime art"),
+        ("rooftop", "anime rooftop terrace, panoramic city skyline at sunset, dramatic clouds, anime style"),
+        ("gallery", "anime contemporary art museum, clean lighting, stylish outfit, detailed background"),
+        ("garden", "anime botanical conservatory, lush green plants, glass roof, soft daylight, anime style"),
+        ("street", "anime modern Tokyo street at twilight, soft bokeh city lights, stylish coat, anime art")
     ]
 }
+
 
 HOBBIES = [
     "искусство", "музыка", "чтение", "путешествия", "спорт", "фотография",
