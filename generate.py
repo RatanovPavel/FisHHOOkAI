@@ -397,45 +397,93 @@ PERSONALITIES = [
 # 📝 ГЕНЕРАЦИЯ ТЕКСТА И КОНФИГА
 # ============================================================================
 
-def generate_self_introduction(name, age, personality, hobbies, gender):
+ANIME_FEMALE_APPEARANCES = [
+    "anime illustration, short dark blue bob cut, glasses, smart casual blazer, modern office, makoto shinkai lighting",
+    "anime art, long wavy silver hair with side braid, gentle green eyes, cozy knit sweater, sunlit cafe",
+    "stylized anime portrait, sleek high ponytail, auburn hair, sharp amber eyes, tailored trench coat, evening city",
+    "semi-realistic anime style, shoulder-length chestnut hair, hairpins, warm brown eyes, minimalist studio",
+    "kyoto animation style, long straight black hair, violet eyes, white blouse, botanical garden background",
+    "modern digital anime, asymmetrical emerald hair, confident smile, techwear jacket, futuristic library",
+    "90s retro anime aesthetic, curly honey blonde hair, soft film grain, vintage dress, art gallery",
+    "anime portrait, braided dark red hair, freckles, hazel eyes, turtleneck sweater, autumn park",
+    "clean lineart anime, platinum blonde pixie cut, piercing blue eyes, business shirt, bright workspace",
+    "detailed anime art, long dark purple hair in low bun, calm expression, kimono-inspired modern jacket"
+]
+
+ANIME_MALE_APPEARANCES = [
+    "anime illustration, messy dark brown hair, round glasses, grey turtleneck, modern studio, soft daylight",
+    "semi-realistic anime art, neat black hair, sharp grey eyes, dark tailored suit, city skyline background",
+    "modern digital anime, tousled silver hair, calm blue eyes, casual denim jacket, sunlit cafe",
+    "kyoto animation style, short auburn hair, warm smile, beige cardigan, university library background",
+    "stylized manhwa art, slicked back dark hair, confident look, minimalist black shirt, evening lighting",
+    "anime portrait, wavy chestnut hair, green eyes, hoodie under blazer, creative workspace"
+]
+
+# Базовые списки внешности для аниме и реалистичных персонажей, галереи сцен, хобби и профессий
+#ANIME_FEMALE_APPEARANCES = [...] # полные списки доступны в исходном коде
+#ANIME_MALE_APPEARANCES = [...]
+#GALLERY_SCENES = {...}
+#HOBBIES = [...]
+#PROFESSIONAL_ROLES = {...}
+#QUIRKS = [...]
+#COMMUNICATION_STYLES = [...]
+
+def format_age_ru(age):
+    last_two = age % 100
+    last_one = age % 10
+    if 11 <= last_two <= 19:
+        word = "лет"
+    elif last_one == 1:
+        word = "год"
+    elif 2 <= last_one <= 4:
+        word = "года"
+    else:
+        word = "лет"
+    return f"{age} {word}"
+
+def generate_self_introduction(name, age, role, quirk, comm_style, hobbies, gender):
+    age_text = format_age_ru(age)
     hobby_text = ", ".join(random.sample(hobbies, min(3, len(hobbies))))
-    gender_word = "девушка" if gender == "female" else "парень"
-    
+    rad = "рада" if gender == "female" else "рад"
     templates = [
-        f"Привет! Меня зовут {name}, мне {age} лет. Я {personality} {gender_word}. Обожаю {hobby_text}. Ра{'да' if gender == 'female' else 'д'} познакомиться!",
-        f"Здравствуй! Я {name}, {age} лет. По характеру я {personality}. В свободное время увлекаюсь {hobby_text}. Приятно познакомиться!",
-        f"Привет! Меня зовут {name}. Мне {age} лет. Я {personality} натура. Мои увлечения: {hobby_text}. Буду {'рада' if gender == 'female' else 'рад'} общению!"
+        f"Привет! Меня зовут {name}, мне {age_text}. Я {role}. В свободное время {quirk}, а также люблю {hobby_text}. Буду {rad} интересному разговору!",
+        f"Здравствуйте! Я {name}, мне {age_text}, работаю как {role}. Помимо работы, меня увлекает {hobby_text}. {comm_style} Приятно познакомиться!",
+        f"Привет! Я {name}, {age_text}. По профессии я {role}, а для души {quirk}. С удовольствием обсужу {hobby_text}. Буду {rad} общению!"
     ]
-    
     return random.choice(templates)
 
-def generate_character_config(key, name, age, gender, appearance, personality, hobbies, style="realistic"):
+def generate_character_config(key, name, age, gender, appearance, role, quirk, comm_style, hobbies, style="realistic"):
     traits = {
-        "intelligence": random.randint(40, 98),
-        "confidence": random.randint(30, 95),
-        "openness": random.randint(50, 98),
-        "empathy": random.randint(40, 95),
-        "humor": random.randint(25, 90)
+        "intelligence": random.randint(60, 98),
+        "confidence": random.randint(55, 95),
+        "openness": random.randint(60, 98),
+        "empathy": random.randint(55, 95),
+        "humor": random.randint(45, 90)
     }
-    
+
     initial_state = {
-        "arousal": random.randint(10, 40),
-        "mood": random.randint(40, 80),
-        "trust": random.randint(20, 50),
-        "intimacy": random.randint(5, 25),
-        "energy": random.randint(50, 95)
+        "arousal": random.randint(10, 30),
+        "mood": random.randint(50, 85),
+        "trust": random.randint(30, 60),
+        "intimacy": random.randint(10, 30),
+        "energy": random.randint(60, 95)
     }
-    
-    gender_word = "девушка" if gender == "female" else "парень"
-    personality_text = f"Ты — {name}, {age} лет. {personality.capitalize()} {gender_word}. Любишь {', '.join(random.sample(hobbies, 3))}."
-    description = f"{personality.capitalize()} {gender_word}, {age} лет"
-    seed = hash(f"{name}_{age}_{gender}_{style}") % 10000
-    
+
+    age_text = format_age_ru(age)
+    hobby_list = ", ".join(random.sample(hobbies, 3))
+    personality_text = (
+        f"Ты — {name}, {age_text}. Твоя профессия: {role}. "
+        f"Твоя особенность: {quirk}. {comm_style} "
+        f"Твои интересы: {hobby_list}. Общайся профессионально, доброжелательно и по делу."
+    )
+    description = f"{role.capitalize()}, {age_text}. {comm_style}"
+    seed = hash(f"{name}_{age}_{gender}_{style}_{random.randint(1, 99999)}") % 100000
+
     emoji_map = {
-        "realistic": ["💕", "🔥", "📚", "⚡", "🌸", "👑", "🤗", "💪", "🎓", "💎"],
-        "anime": ["🌸", "✨", "🎀", "💫", "🌙", "⭐"]
+        "realistic": ["💼", "📚", "💡", "🎯", "🧭", "🏛️", "☕", "🎨", "🔬", "✨"],
+        "anime": ["✨", "📚", "🎨", "☕", "💡", "🌟"]
     }
-    
+
     config = {
         "name": name,
         "age": age,
@@ -444,16 +492,16 @@ def generate_character_config(key, name, age, gender, appearance, personality, h
         "emoji": random.choice(emoji_map[style]),
         "personality": personality_text,
         "description": description,
-        "face_desc": f"{age}yo {'woman' if gender == 'female' else 'man'}, {appearance}",
-        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry",
+        "face_desc": f"{age} yo {'woman' if gender == 'female' else 'man'}, {appearance}",
+        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry, nsfw, nude",
         "seed": seed,
         "subscription_required": random.choice([False, False, False, True]),
-        "nsfw_allowed": random.choice([False, False, False, False, True]),
+        "nsfw_allowed": False,
         "traits": traits,
         "initial_state": initial_state
     }
-    
     return config
+
 
 # ============================================================================
 # 🖼️ ГЕНЕРАЦИЯ ФОТО (ИСПРАВЛЕНО: ПОРТРЕТЫ ПО ПЛЕЧИ!)
