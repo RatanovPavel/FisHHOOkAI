@@ -744,7 +744,7 @@ def generate_all_characters():
     try:
         import insightface, urllib.request
         if not os.path.exists("inswapper_128.onnx"):
-            urllib.request.urlretrieve("https://huggingface.co", "inswapper_128.onnx")
+            urllib.request.urlretrieve("https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx", "inswapper_128.onnx")
         face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
         face_app.prepare(ctx_id=0, det_size=(320, 320))
         face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
