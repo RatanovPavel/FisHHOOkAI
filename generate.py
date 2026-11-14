@@ -147,7 +147,8 @@ def install_dependencies():
     
     packages = [
         "transformers", "accelerate", "bitsandbytes", "diffusers",
-        "coqui-tts", "torch", "torchaudio", "Pillow"
+        "coqui-tts", "torch", "torchaudio", "Pillow",
+        "insightface", "onnxruntime-gpu", "opencv-python-headless"
     ]
     
     for pkg in packages:
@@ -596,9 +597,18 @@ def load_image_models():
     
     # Загружаем DreamShaper
     try:
-        log("Загружаю DreamShaper (фотореализм)...")
-        from diffusers import StableDiffusionPipeline
+        log("Загружаю DreamShaper с VAE...")
+        from diffusers import StableDiffusionPipeline, AutoencoderKL
         import torch
+        vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse", torch_dtype=torch.float16)
+        realistic_model = StableDiffusionPipeline.from_pretrained(
+            "Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None
+        ).to("cuda")
+        realistic_model.enable_attention_slicing()
+        log("DreamShaper загружен", "SUCCESS")
+    except Exception as e:
+        log(f"Ошибка загрузки DreamShaper: {e}", "ERROR")
+
         
         realistic_model = StableDiffusionPipeline.from_pretrained(
             "Lykon/DreamShaper",
@@ -646,14 +656,10 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         
         with torch.inference_mode():
             image = model(
-                prompt,
-                negative_prompt=negative_prompt,
-                num_inference_steps=35,
-                guidance_scale=guidance_scale,
-                width=512,
-                height=768,
-                generator=generator,
+                prompt, negative_prompt=negative_prompt, num_inference_steps=30,
+                guidance_scale=7.0, width=512, height=512, generator=generator
             ).images[0]
+
         
         image.save(output_path, quality=95)
         return True
@@ -685,19 +691,19 @@ def load_tts_model():
         return None
 
 def generate_voice(tts, text, speaker_wav, output_path):
-    """Генерирует голосовое описание с обработкой ошибок"""
+    import re
     try:
+        clean_text = text.replace("!", ".").replace("—", ",").replace("–", ",")
+        clean_text = re.sub(r'\.+', '.', re.sub(r'\s+', ' ', clean_text)).strip()
         tts.tts_to_file(
-            text=text,
-            language="ru",
-            speaker_wav=speaker_wav,
-            file_path=output_path
+            text=clean_text, language="ru", speaker_wav=speaker_wav,
+            file_path=output_path, speed=1.1, temperature=0.65, repetition_penalty=2.5
         )
         return True
     except Exception as e:
         log(f"Ошибка генерации голоса: {e}", "ERROR")
-        traceback.print_exc()
         return False
+
 
 # ============================================================================
 # 🎯 ГЛАВНАЯ ФУНКЦИЯ
@@ -744,7 +750,19 @@ def generate_all_characters():
     
     if tts_model is None:
         log("Не удалось загрузить TTS модель. Продолжаю без озвучки.", "WARNING")
-    
+
+    face_app, face_swapper = None, None
+    try:
+        import insightface, urllib.request
+        if not os.path.exists("inswapper_128.onnx"):
+            urllib.request.urlretrieve("https://huggingface.co", "inswapper_128.onnx")
+        face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
+        face_app.prepare(ctx_id=0, det_size=(320, 320))
+        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
+        log("FaceSwap (единое лицо) загружен", "SUCCESS")
+    except Exception as e:
+        log(f"FaceSwap не загружен: {e}", "WARNING")
+
     # Создаём папку characters/
     characters_dir = Path(CHARACTERS_DIR)
     characters_dir.mkdir(exist_ok=True)
@@ -912,6 +930,31 @@ def generate_all_characters():
                 available_scenes = GALLERY_SCENES.get(scene_key, GALLERY_SCENES["realistic_female"])
 
                 scenes = random.sample(available_scenes, 4)
+                shot_types = [
+                    ("waist up shot, medium shot, natural pose", "cropped head"),
+                    ("cowboy shot, three-quarter portrait, stylish outfit", "cropped head"),
+                    ("full body shot, standing pose, head to toe, shoes visible", "cropped legs, close-up"),
+                    ("medium full shot, candid lifestyle pose, relaxed posture", "cropped head")
+                ]
+                for idx_s, (scene_name, scene_desc) in enumerate(scenes):
+                    shot_p, shot_n = shot_types[idx_s % len(shot_types)]
+                    prefix = "masterpiece, best quality" if is_anime else "photorealistic, 8k, sharp focus"
+                    g_prompt = f"{prefix}, {shot_p}, {config['face_desc']}, {scene_desc}"
+                    g_neg = f"{config['negative']}, {shot_n}"
+                    gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
+                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime):
+                        if face_swapper and not is_anime and main_photo.exists():
+                            try:
+                                import cv2
+                                src_img, dst_img = cv2.imread(str(main_photo)), cv2.imread(str(gallery_photo))
+                                src_faces, dst_faces = face_app.get(src_img), face_app.get(dst_img)
+                                if src_faces and dst_faces:
+                                    res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
+                                    cv2.imwrite(str(gallery_photo), res)
+                            except Exception:
+                                pass
+                        log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
+
                 
                 for scene_name, scene_desc in scenes:
                     is_anime = char["style"] == "anime"
