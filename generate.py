@@ -609,18 +609,7 @@ def load_image_models():
     except Exception as e:
         log(f"Ошибка загрузки DreamShaper: {e}", "ERROR")
 
-        
-        realistic_model = StableDiffusionPipeline.from_pretrained(
-            "Lykon/DreamShaper",
-            torch_dtype=torch.float16,
-            safety_checker=None,
-        ).to("cuda")
-        realistic_model.enable_attention_slicing()
-        log("DreamShaper загружен", "SUCCESS")
-    except Exception as e:
-        log(f"Ошибка загрузки DreamShaper: {e}", "ERROR")
-        traceback.print_exc()
-    
+          
     # Загружаем Anything V3.1
     try:
         log("Загружаю Anything V3.1 (аниме)...")
