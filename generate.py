@@ -898,10 +898,10 @@ def generate_all_characters():
                 is_anime = char["style"] == "anime"
                 
                 if is_anime:
-                    main_prompt = f"masterpiece, best quality, centered portrait, close-up face, head and shoulders, face in center, {config['face_desc']}, detailed eyes, looking at viewer, simple clean background"
+                    main_prompt = f"masterpiece, best quality, centered portrait, medium portrait, upper body, head and shoulders, face in center, {config['face_desc']}, detailed eyes, looking at viewer, simple clean background"
                     main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
                 else:
-                    main_prompt = f"photorealistic centered portrait, close-up face, head and shoulders, face in center, {config['face_desc']}, 85mm portrait lens, eye-level shot, sharp focus on eyes, looking at viewer, soft studio bokeh"
+                    main_prompt = f"photorealistic centered portrait, medium portrait, upper body, head and shoulders, face in center, {config['face_desc']}, 85mm portrait lens, eye-level shot, sharp focus on eyes, looking at viewer, soft studio bokeh"
                     main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
 
                 
@@ -921,10 +921,11 @@ def generate_all_characters():
                 scenes = random.sample(available_scenes, 4)
                 shot_types = [
                     ("waist up shot, medium shot, natural pose", "cropped head"),
-                    ("cowboy shot, three-quarter portrait, stylish outfit", "cropped head"),
-                    ("full body shot, standing pose, head to toe, shoes visible", "cropped legs, close-up"),
-                    ("medium full shot, candid lifestyle pose, relaxed posture", "cropped head")
+                    ("cowboy shot, knees up portrait, stylish outfit", "cropped head"),
+                    ("three-quarter length shot, standing pose, stylish clothes", "cropped head, close-up"),
+                    ("medium portrait, candid lifestyle pose, relaxed posture", "cropped head")
                 ]
+
                 for idx_s, (scene_name, scene_desc) in enumerate(scenes):
                     shot_p, shot_n = shot_types[idx_s % len(shot_types)]
                     prefix = "masterpiece, best quality" if is_anime else "photorealistic, 8k, sharp focus"
@@ -938,8 +939,12 @@ def generate_all_characters():
                                 src_img, dst_img = cv2.imread(str(main_photo)), cv2.imread(str(gallery_photo))
                                 src_faces, dst_faces = face_app.get(src_img), face_app.get(dst_img)
                                 if src_faces and dst_faces:
-                                    res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
-                                    cv2.imwrite(str(gallery_photo), res)
+                                    bbox = dst_faces[0].bbox
+                                    face_w = bbox[2] - bbox[0]
+                                    if face_w >= 55:
+                                        res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
+                                        cv2.imwrite(str(gallery_photo), res)
+
                             except Exception:
                                 pass
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
