@@ -322,25 +322,47 @@ ANIME_NAMES = [
 ]
 
 REALISTIC_FEMALE_APPEARANCES = [
-    "long wavy chestnut hair, green eyes, delicate features, porcelain skin",
-    "short platinum blonde bob, blue eyes, sharp features, fair skin, freckles",
-    "long straight dark brown hair, brown eyes, sophisticated features, olive skin",
-    "long bright red hair with bangs, hazel eyes, playful features, fair skin, rosy cheeks",
-    "long blonde hair, blue eyes, innocent face, soft features, fair skin",
-    "sleek black bob hair, sharp green eyes, elegant features, pale skin",
-    "medium brown hair, warm brown eyes, kind face, gentle smile",
-    "ponytail blonde hair, bright blue eyes, athletic build, tanned skin",
-    "short grey-streaked hair, piercing grey eyes, stern features, glasses",
-    "long dark hair, striking hazel eyes, perfect makeup, model features"
+    "long wavy chestnut hair, green eyes, delicate features, porcelain skin, soft natural daylight",
+    "short platinum blonde pixie cut, blue eyes, sharp cheekbones, fair skin, light freckles",
+    "long straight dark brown hair, warm amber eyes, sophisticated features, olive skin",
+    "shoulder-length copper red hair with soft bangs, hazel eyes, warm smile, fair skin",
+    "long honey blonde hair in loose waves, bright blue eyes, gentle features, soft studio light",
+    "sleek black chin-length bob, emerald green eyes, elegant jawline, pale skin",
+    "layered medium ash brown hair, warm brown eyes, kind expression, natural skin texture",
+    "high messy bun, golden blonde hair, grey-blue eyes, athletic build, sun-kissed skin",
+    "short silver-grey textured hair, piercing grey eyes, intelligent look, thin-rimmed glasses",
+    "long raven black hair, deep dark brown eyes, expressive eyebrows, subtle natural makeup",
+    "curly dark auburn hair, warm green eyes, dimples, genuine smile, golden hour lighting",
+    "asymmetrical caramel brown bob, light hazel eyes, modern minimalist style, fair skin",
+    "long braided light brown hair, calm blue-grey eyes, serene expression, Nordic features",
+    "shoulder-length wavy dark chocolate hair, round tortoise-shell glasses, warm smile",
+    "sleek low ponytail, strawberry blonde hair, bright green eyes, delicate freckles",
+    "short curly dark brown hair, expressive dark eyes, confident gaze, warm bronze skin",
+    "long straight silver-blonde hair, ice blue eyes, poised expression, soft rim lighting",
+    "wavy dark chestnut hair with side part, warm hazel eyes, friendly approachable look",
+    "short textured dark pixie hair, expressive brown eyes, minimalist silver earrings",
+    "medium-length golden brown hair, soft green eyes, natural beauty, warm daylight"
 ]
 
+
 REALISTIC_MALE_APPEARANCES = [
-    "messy brown hair, gentle blue eyes, soft features, slim build",
-    "short dark hair, confident brown eyes, strong jawline, athletic build",
-    "short grey-brown hair, calm brown eyes, mature features, kind face",
-    "blonde spiky hair, bright blue eyes, energetic look, fit body",
-    "black curly hair, dark eyes, mysterious aura, tall build"
+    "textured messy brown hair, calm blue eyes, light stubble, slim build, soft daylight",
+    "neat short dark hair, confident brown eyes, strong jawline, athletic build, studio light",
+    "salt-and-pepper short hair, warm hazel eyes, mature intelligent face, thin-rimmed glasses",
+    "wavy golden blonde hair, bright blue-grey eyes, open friendly expression, fair skin",
+    "curly jet-black hair, deep dark eyes, neatly trimmed beard, warm olive skin",
+    "side-parted chestnut hair, sharp green eyes, clean-shaven, classic tailored look",
+    "short buzzcut dark brown hair, piercing grey eyes, rugged features, natural skin texture",
+    "medium-length tousled ash brown hair, thoughtful brown eyes, minimalist turtleneck",
+    "slicked-back dark auburn hair, warm amber eyes, subtle smile, smart casual blazer",
+    "short silver-white hair, calm blue eyes, distinguished mature features, kind gaze",
+    "wavy dark brown hair, round tortoiseshell glasses, creative studio aesthetic, soft light",
+    "short textured sandy blonde hair, green-grey eyes, athletic build, golden hour lighting",
+    "curly dark brown hair, expressive dark eyes, approachable warm smile, natural daylight",
+    "neat undercut black hair, sharp grey-blue eyes, focused expression, modern urban style",
+    "layered medium chestnut hair, light hazel eyes, light beard, relaxed confident look"
 ]
+
 
 GALLERY_SCENES = {
     "realistic_female": [
@@ -869,11 +891,12 @@ def generate_all_characters():
                 is_anime = char["style"] == "anime"
                 
                 if is_anime:
-                    main_prompt = f"masterpiece, best quality, portrait, upper body, head and shoulders, {config['face_desc']}, beautiful, detailed face, looking at viewer"
-                    main_negative = f"{config['negative']}, full body, legs, feet, wide shot, distant, small figure"
+                    main_prompt = f"masterpiece, best quality, centered portrait, close-up face, head and shoulders, face in center, {config['face_desc']}, detailed eyes, looking at viewer, simple clean background"
+                    main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
                 else:
-                    main_prompt = f"photorealistic portrait, upper body, head and shoulders, {config['face_desc']}, professional photography, 8k, sharp focus, detailed face, looking at viewer"
-                    main_negative = f"{config['negative']}, full body, legs, feet, wide shot, distant, small figure"
+                    main_prompt = f"photorealistic centered portrait, close-up face, head and shoulders, face in center, {config['face_desc']}, 85mm portrait lens, eye-level shot, sharp focus on eyes, looking at viewer, soft studio bokeh"
+                    main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
+
                 
                 main_photo = char_dir / "main.jpg"
                 if generate_photo(model, main_prompt, main_negative, str(main_photo), config["seed"], is_anime, guidance_scale=8.0):
