@@ -293,9 +293,9 @@ AGE_GROUPS = {
 }
 
 FEMALE_AGE_DISTRIBUTION = {
-    "young": 20,
+    "young": 30,
     "middle": 15,
-    "old": 15
+    "old": 5
 }
 
 REALISTIC_FEMALE_NAMES = [
