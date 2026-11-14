@@ -956,6 +956,7 @@ def generate_all_characters():
                                         res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
                                         cv2.imwrite(str(gallery_photo), res)
 
+
                             except Exception:
                                 pass
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
