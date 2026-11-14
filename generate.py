@@ -950,11 +950,11 @@ def generate_all_characters():
                                 src_img, dst_img = cv2.imread(str(main_photo)), cv2.imread(str(gallery_photo))
                                 src_faces, dst_faces = face_app.get(src_img), face_app.get(dst_img)
                                 if src_faces and dst_faces:
-                                    bbox = dst_faces[0].bbox
-                                    face_w = bbox[2] - bbox[0]
-                                    if face_w >= 55:
-                                        res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
-                                        cv2.imwrite(str(gallery_photo), res)
+                                    res = face_swapper.get(dst_img, dst_faces[0], src_faces[0], paste_back=True)
+                                    if face_enhancer:
+                                        _, _, res = face_enhancer.enhance(res, has_aligned=False, only_center_face=False, paste_back=True)
+                                    cv2.imwrite(str(gallery_photo), res)
+
 
 
                             except Exception:
