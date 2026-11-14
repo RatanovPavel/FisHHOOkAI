@@ -945,23 +945,9 @@ def generate_all_characters():
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
 
                 
-                for scene_name, scene_desc in scenes:
-                    is_anime = char["style"] == "anime"
-                    
-                    if is_anime:
-                        gallery_prompt = f"masterpiece, best quality, portrait, upper body, {config['face_desc']}, {scene_desc}"
-                        gallery_negative = f"{config['negative']}, full body, legs, feet, wide shot, distant"
                     else:
-                        gallery_prompt = f"photorealistic, portrait, upper body, {config['face_desc']}, {scene_desc}, 8k, sharp focus"
-                        gallery_negative = f"{config['negative']}, full body, legs, feet, wide shot, distant"
-                    
-                    gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
-                    if generate_photo(model, gallery_prompt, gallery_negative, str(gallery_photo), 
-                                 config["seed"] + hash(scene_name) % 1000, is_anime, guidance_scale=8.0):
-                        log(f"Создано gallery/{scene_name}.jpg (ПОРТРЕТ)", "SUCCESS")
-                    else:
-                        log(f"Ошибка генерации gallery/{scene_name}.jpg", "ERROR")
                         errors.append(f"{char['key']}: gallery/{scene_name}.jpg")
+
             
             # 5. Генерируем голосовое описание
             if voice_path and tts_model is not None:
