@@ -933,7 +933,7 @@ def generate_all_characters():
                 shot_types = [
                     ("waist up shot, medium shot, natural pose", "cropped head"),
                     ("cowboy shot, knees up portrait, stylish outfit", "cropped head"),
-                    ("three-quarter length shot, standing pose, stylish clothes", "cropped head, close-up"),
+                    ("full body shot, standing pose, head to toe, shoes visible", "cropped head, close-up"),
                     ("medium portrait, candid lifestyle pose, relaxed posture", "cropped head")
                 ]
 
