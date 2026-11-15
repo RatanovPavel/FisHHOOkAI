@@ -622,6 +622,9 @@ def load_image_models():
             safety_checker=None,
         ).to("cuda")
         anime_model.enable_attention_slicing()
+        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.safetensors")
+        realistic_model.set_ip_adapter_scale(0.6)
+
         log("Anything V3.1 загружен", "SUCCESS")
     except Exception as e:
         log(f"Ошибка загрузки Anything V3.1: {e}", "ERROR")
