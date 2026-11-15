@@ -604,28 +604,27 @@ def load_image_models():
         realistic_model = StableDiffusionPipeline.from_pretrained(
             "Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None
         ).to("cuda")
-        realistic_model.enable_attention_slicing()
-        log("DreamShaper загружен", "SUCCESS")
+        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.safetensors")
+        realistic_model.set_ip_adapter_scale(0.6)
+        log("DreamShaper + IP-Adapter загружен", "SUCCESS")
     except Exception as e:
         log(f"Ошибка загрузки DreamShaper: {e}", "ERROR")
+        traceback.print_exc()
 
-          
     # Загружаем Anything V3.1
     try:
         log("Загружаю Anything V3.1 (аниме)...")
         from diffusers import StableDiffusionPipeline
         import torch
-        
+
         anime_model = StableDiffusionPipeline.from_pretrained(
             "Linaqruf/anything-v3-1",
             torch_dtype=torch.float16,
             safety_checker=None,
         ).to("cuda")
         anime_model.enable_attention_slicing()
-        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.safetensors")
-        realistic_model.set_ip_adapter_scale(0.6)
-
         log("Anything V3.1 загружен", "SUCCESS")
+
     except Exception as e:
         log(f"Ошибка загрузки Anything V3.1: {e}", "ERROR")
         traceback.print_exc()
