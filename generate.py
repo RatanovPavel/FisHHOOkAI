@@ -651,7 +651,7 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
             model.set_ip_adapter_scale(0.65 if ip_image is not None else 0.0)
             extra_kwargs["ip_adapter_image"] = ip_image if ip_image is not None else Image.new("RGB", (512, 512))
         with torch.inference_mode():
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra_kwargs).images
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra_kwargs).images[0]
 
 
         
@@ -744,29 +744,6 @@ def generate_all_characters():
     
     if tts_model is None:
         log("Не удалось загрузить TTS модель. Продолжаю без озвучки.", "WARNING")
-
-    face_app, face_swapper = None, None
-    try:
-        import insightface, urllib.request
-        if not os.path.exists("inswapper_128.onnx"):
-            urllib.request.urlretrieve("https://huggingface.co/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx", "inswapper_128.onnx")
-        face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
-        face_app.prepare(ctx_id=0, det_size=(320, 320))
-        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", providers=["CUDAExecutionProvider", "CPUExecutionProvider"])
-        log("FaceSwap (единое лицо) загружен", "SUCCESS")
-    except Exception as e:
-        log(f"FaceSwap не загружен: {e}", "WARNING")
-
-    face_enhancer = None
-    try:
-        from gfpgan import GFPGANer
-        gfpgan_url = "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth"
-        face_enhancer = GFPGANer(model_path=gfpgan_url, upscale=2, arch="clean", channel_multiplier=2, bg_upsampler=None)
-        log("GFPGAN (реставратор лиц) загружен", "SUCCESS")
-    except Exception as e:
-        log(f"GFPGAN не загружен: {e}", "WARNING")
-
-
 
     # Создаём папку characters/
     characters_dir = Path(CHARACTERS_DIR)
