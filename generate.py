@@ -912,7 +912,8 @@ def generate_all_characters():
                     main_prompt = f"masterpiece, best quality, centered portrait, medium portrait, upper body, head and shoulders, face in center, {config['face_desc']}, detailed eyes, looking at viewer, simple clean background"
                     main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
                 else:
-                    main_prompt = f"photorealistic centered portrait, medium portrait, upper body, head and shoulders, face in center, {config['face_desc']}, 85mm portrait lens, eye-level shot, sharp focus on eyes, looking at viewer, soft studio bokeh"
+                    #main_prompt = f"photorealistic centered portrait, medium portrait, upper body, head and shoulders, face in center, {config['face_desc']}, 85mm portrait lens, eye-level shot, sharp focus on eyes, looking at viewer, soft studio bokeh"
+                    main_prompt = f"photorealistic waist up portrait, upper body, head and shoulders, centered, {config['face_desc']}, 85mm lens, sharp focus on eyes, looking at viewer, soft studio bokeh"
                     main_negative = f"{config['negative']}, off-center, cropped face, cut off head, full body, legs, feet, wide shot, distant, side view, profile"
 
                 
