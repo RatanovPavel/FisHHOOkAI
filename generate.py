@@ -646,11 +646,13 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
         
+        extra_kwargs = {}
+        if not is_anime and hasattr(model, "set_ip_adapter_scale"):
+            model.set_ip_adapter_scale(0.65 if ip_image is not None else 0.0)
+            extra_kwargs["ip_adapter_image"] = ip_image if ip_image is not None else Image.new("RGB", (512, 512))
         with torch.inference_mode():
-            image = model(
-                prompt, negative_prompt=negative_prompt, num_inference_steps=30,
-                guidance_scale=7.0, width=512, height=512, generator=generator
-            ).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra_kwargs).images
+
 
         
         image.save(output_path, quality=95)
