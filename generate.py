@@ -926,28 +926,13 @@ def generate_all_characters():
                     g_prompt = f"{prefix}, {shot_p}, {config['face_desc']}, {scene_desc}"
                     g_neg = f"{config['negative']}, {shot_n}"
                     gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
-                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime):
-                        if face_swapper and not is_anime and main_photo.exists():
-                            try:
-                                import cv2
-                                src_img, dst_img = cv2.imread(str(main_photo)), cv2.imread(str(gallery_photo))
-                                dst_up = cv2.resize(dst_img, (1024, 1024), interpolation=cv2.INTER_CUBIC)
-                                src_faces, dst_faces = face_app.get(src_img), face_app.get(dst_up)
-                                if src_faces and dst_faces:
-                                    res = face_swapper.get(dst_up, dst_faces[0], src_faces[0], paste_back=True)
-                                    res = cv2.resize(res, (512, 512), interpolation=cv2.INTER_AREA)
-                                    cv2.imwrite(str(gallery_photo), res)
-
-
-
-
-                            except Exception:
-                                pass
+                    from PIL import Image
+                    ref_img = Image.open(main_photo) if (not is_anime and main_photo.exists()) else None
+                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime, ip_image=ref_img):
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
-
-                
                     else:
                         errors.append(f"{char['key']}: gallery/{scene_name}.jpg")
+
 
             
             # 5. Генерируем голосовое описание
