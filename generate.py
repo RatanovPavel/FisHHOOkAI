@@ -756,7 +756,7 @@ def generate_all_characters():
     try:
         from gfpgan import GFPGANer
         gfpgan_url = "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth"
-        face_enhancer = GFPGANer(model_path=gfpgan_url, upscale=1, arch="clean", channel_multiplier=2, bg_upsampler=None)
+        face_enhancer = GFPGANer(model_path=gfpgan_url, upscale=2, arch="clean", channel_multiplier=2, bg_upsampler=None)
         log("GFPGAN (реставратор лиц) загружен", "SUCCESS")
     except Exception as e:
         log(f"GFPGAN не загружен: {e}", "WARNING")
