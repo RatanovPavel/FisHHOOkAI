@@ -636,12 +636,12 @@ def load_image_models():
     
     return realistic_model, anime_model
 
-def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=8.0):
-    """Генерирует одно фото с обработкой ошибок"""
+def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, ip_image=None):
     import torch
-    
+    from PIL import Image
     try:
         generator = torch.Generator(device="cuda").manual_seed(seed)
+
         
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
