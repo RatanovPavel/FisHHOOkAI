@@ -609,11 +609,9 @@ def load_image_models():
         ).to("cuda")
         realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.safetensors")
         realistic_model.image_encoder.to(torch.float32)
-        realistic_model.upcast_vae()
         realistic_model.set_ip_adapter_scale(0.35)
-
-
         log("DreamShaper с VAE загружен", "SUCCESS")
+
 
 
     except Exception as e:
