@@ -644,41 +644,49 @@ def load_image_models():
     
     return realistic_model, anime_model
 
-def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, ref_image=None):
+
+def extract_faceid_data(main_path, face_app):
+    import cv2, torch
+    from insightface.utils import face_align
+    from PIL import Image
+    img = cv2.imread(str(main_path))
+    faces = face_app.get(img)
+    if not faces:
+        return None, None
+    face = faces[0]
+    face_crop = face_align.norm_crop(img, landmark=face.kps, image_size=224)
+    face_pil = Image.fromarray(cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB))
+    id_embeds = torch.from_numpy(face.normed_embedding).unsqueeze(0).unsqueeze(0)
+    neg_embeds = torch.zeros_like(id_embeds)
+    embeds = torch.cat([neg_embeds, id_embeds], dim=0).to(device="cuda", dtype=torch.float16)
+    return face_pil, embeds
+
+
+def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, face_data=None):
     import torch
     from PIL import Image
     try:
-
         generator = torch.Generator(device="cuda").manual_seed(seed)
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
-
-        # Если передан ref_image (т.е. генерируем галерею):
-        if ref_image is not None and not is_anime:
-            model.set_ip_adapter_scale(0.35)
-            image = model(
-                prompt, negative_prompt=negative_prompt, ip_adapter_image=ref_image,
-                num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator
-            ).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images
+        elif face_data is not None and face_data is not None:
+            face_pil, embeds = face_data
+            model.set_adapters(["faceid"], adapter_weights=[0.7])
+            model.set_ip_adapter_scale(0.6)
+            image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image=face_pil, ip_adapter_image_embeds=[embeds], num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
         else:
-            # Для главного фото main.jpg отключаем влияние референса (scale=0.0)
-            if not is_anime and hasattr(model, "set_ip_adapter_scale"):
-                model.set_ip_adapter_scale(0.0)
-            dummy_img = Image.new("RGB", (512, 512))
-            extra = {"ip_adapter_image": dummy_img} if not is_anime else {}
-            image = model(
-                prompt, negative_prompt=negative_prompt,
-                num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator, **extra
-            ).images[0]
-
-
-        
+            model.set_adapters(["faceid"], adapter_weights=[0.0])
+            model.set_ip_adapter_scale(0.0)
+            dummy_embeds = torch.zeros((2, 1, 512), device="cuda", dtype=torch.float16)
+            image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image=Image.new("RGB", (224, 224)), ip_adapter_image_embeds=[dummy_embeds], num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
         image.save(output_path, quality=95)
         return True
     except Exception as e:
         log(f"Ошибка генерации фото: {e}", "ERROR")
         traceback.print_exc()
         return False
+
 
 # ============================================================================
 # 🎤 ГЕНЕРАЦИЯ ГОЛОСА
