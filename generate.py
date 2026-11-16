@@ -771,6 +771,15 @@ def generate_all_characters():
     if tts_model is None:
         log("Не удалось загрузить TTS модель. Продолжаю без озвучки.", "WARNING")
 
+    face_app = None
+    try:
+        import insightface
+        face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+        face_app.prepare(ctx_id=0, det_size=(320, 320))
+        log("Детектор FaceID загружен", "SUCCESS")
+    except Exception as e:
+        log(f"Детектор FaceID не загружен: {e}", "WARNING")
+
     # Создаём папку characters/
     characters_dir = Path(CHARACTERS_DIR)
     characters_dir.mkdir(exist_ok=True)
