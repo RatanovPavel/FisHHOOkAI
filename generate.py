@@ -758,18 +758,6 @@ def generate_all_characters():
     if tts_model is None:
         log("Не удалось загрузить TTS модель. Продолжаю без озвучки.", "WARNING")
 
-    face_app, face_swapper = None, None
-    try:
-        import insightface, urllib.request
-        if not os.path.exists("inswapper_128.onnx"):
-            urllib.request.urlretrieve("https://huggingface.com/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx", "inswapper_128.onnx")
-        face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
-        face_app.prepare(ctx_id=0, det_size=(320, 320))
-        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", providers=["CPUExecutionProvider"])
-        log("FaceSwap (кроп 512x512) загружен", "SUCCESS")
-    except Exception as e:
-        log(f"FaceSwap не загружен: {e}", "WARNING")
-
     # Создаём папку characters/
     characters_dir = Path(CHARACTERS_DIR)
     characters_dir.mkdir(exist_ok=True)
