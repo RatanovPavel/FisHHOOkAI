@@ -941,12 +941,11 @@ def generate_all_characters():
                     gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
                     from PIL import Image
                     ref_img = Image.open(main_photo) if (not is_anime and main_photo.exists()) else None
-                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime):
-                        if face_swapper and not is_anime and main_photo.exists():
-                            swap_face_clean(main_photo, gallery_photo, face_app, face_swapper)
+                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime, ref_image=ref_img):
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
                     else:
                         errors.append(f"{char['key']}: gallery/{scene_name}.jpg")
+
 
 
             
