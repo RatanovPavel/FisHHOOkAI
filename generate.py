@@ -645,8 +645,25 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         generator = torch.Generator(device="cuda").manual_seed(seed)
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
-        with torch.inference_mode():
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator).images[0]
+
+        # Если передан ref_image (т.е. генерируем галерею):
+        if ref_image is not None and not is_anime:
+            model.set_ip_adapter_scale(0.45)
+            image = model(
+                prompt, negative_prompt=negative_prompt, ip_adapter_image=ref_image,
+                num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator
+            ).images
+        else:
+            # Для главного фото main.jpg отключаем влияние референса (scale=0.0)
+            if not is_anime and hasattr(model, "set_ip_adapter_scale"):
+                model.set_ip_adapter_scale(0.0)
+            dummy_img = Image.new("RGB", (512, 512))
+            extra = {"ip_adapter_image": dummy_img} if not is_anime else {}
+            image = model(
+                prompt, negative_prompt=negative_prompt,
+                num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra
+            ).images[0]
+
 
         
         image.save(output_path, quality=95)
