@@ -1,3 +1,6 @@
+!rm -rf ./characters ./characters*.zip
+print("Старый каталог characters удален")
+
 import os
 import sys
 import json
