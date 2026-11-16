@@ -287,9 +287,9 @@ def copy_voice_to_character(source_voice, character_dir):
 # 🎨 БАЗА ДАННЫХ ПЕРСОНАЖЕЙ
 # ============================================================================
 
-NUM_REALISTIC_FEMALE = 2
-NUM_REALISTIC_MALE = 1
-NUM_ANIME = 2
+NUM_REALISTIC_FEMALE = 50
+NUM_REALISTIC_MALE = 20
+NUM_ANIME = 30
 
 AGE_GROUPS = {
     "young": (18, 30),
@@ -839,7 +839,7 @@ def generate_all_characters():
     for i in range(NUM_ANIME):
         age = random.randint(19, 32)
         name = ANIME_NAMES[i % len(ANIME_NAMES)]
-        gender = "female" if i < 1 else "male"
+        gender = "female" if i < 20 else "male"
         if gender == "female":
             appearance = ANIME_FEMALE_APPEARANCES[i % len(ANIME_FEMALE_APPEARANCES)]
         else:
