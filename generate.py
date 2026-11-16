@@ -173,6 +173,7 @@ def install_dependencies():
                     log(f"Ошибка установки {pkg}: {result.stderr}", "ERROR")
             except Exception as e:
                 log(f"Критическая ошибка установки {pkg}: {e}", "ERROR")
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-U", "torchao"], capture_output=True, text=True)
 
 def check_gpu():
     """Проверяет доступность GPU"""
@@ -957,7 +958,7 @@ def generate_all_characters():
                     ("full body shot, standing pose, head to toe, shoes visible", "cropped head, close-up"),
                     ("medium portrait, candid lifestyle pose, relaxed posture", "cropped head")
                 ]
-                
+
                 for idx_s, (scene_name, scene_desc) in enumerate(scenes):
                     shot_p, shot_n = shot_types[idx_s % len(shot_types)]
                     prefix = "masterpiece, best quality" if is_anime else "photorealistic, 8k, sharp focus"
