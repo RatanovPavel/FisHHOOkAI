@@ -948,11 +948,12 @@ def generate_all_characters():
 
                 scenes = random.sample(available_scenes, 4)
                 shot_types = [
-                    ("waist up shot, medium shot, natural pose", "cropped head"),
-                    ("cowboy shot, knees up portrait, stylish outfit", "cropped head"),
-                    ("full body shot, standing pose, head to toe, shoes visible", "cropped head, close-up"),
-                    ("medium portrait, candid lifestyle pose, relaxed posture", "cropped head")
+                    ("waist up shot, medium shot, arms crossed, relaxed posture", "cropped head"),
+                    ("cowboy shot, knees up portrait, hands in pockets, stylish outfit", "cropped head"),
+                    ("full body shot, standing pose, hands in pockets, head to toe, shoes visible", "cropped head, close-up"),
+                    ("medium portrait, candid lifestyle pose, hands behind back, natural smile", "cropped head")
                 ]
+
 
                 for idx_s, (scene_name, scene_desc) in enumerate(scenes):
                     shot_p, shot_n = shot_types[idx_s % len(shot_types)]
