@@ -634,6 +634,8 @@ def load_image_models():
             safety_checker=None,
         ).to("cuda")
         anime_model.enable_attention_slicing()
+        anime_model.load_textual_inversion("EvilEngine/easynegative", weight_name="easynegative.safetensors", token="EasyNegative")
+
         log("Anything V3.1 загружен", "SUCCESS")
 
     except Exception as e:
