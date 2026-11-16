@@ -645,26 +645,13 @@ def load_image_models():
     
     return realistic_model, anime_model
 
-
 def extract_faceid_data(main_path, face_app, model):
     import cv2, torch
-    from insightface.utils import face_align
-    from PIL import Image
-    img = cv2.imread(str(main_path))
-    faces = face_app.get(img)
-    if not faces:
-        return None
-    face = faces[0]
-    face_crop = face_align.norm_crop(img, landmark=face.kps, image_size=224)
-    face_pil = Image.fromarray(cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB))
-    id_embeds = torch.from_numpy(face.normed_embedding).unsqueeze(0).unsqueeze(0)
+    faces = face_app.get(cv2.imread(str(main_path)))
+    if not faces: return None
+    id_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0).unsqueeze(0)
     id_embeds = torch.cat([torch.zeros_like(id_embeds), id_embeds], dim=0).to(device="cuda", dtype=torch.float16)
-
-    return model.prepare_ip_adapter_image_embeds(
-        ip_adapter_image=face_pil, ip_adapter_image_embeds=[id_embeds],
-        device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=True
-    )
-
+    return [id_embeds]
 
 
 def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, face_data=None):
