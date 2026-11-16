@@ -600,18 +600,20 @@ def load_image_models():
     
     # Загружаем DreamShaper
     try:
-        log("Загружаю DreamShaper с VAE...")
-        from diffusers import StableDiffusionPipeline, AutoencoderKL
+        log("Загружаю DreamShaper + IP-Adapter-FaceID-PlusV2...")
+        from diffusers import StableDiffusionPipeline, AutoencoderKL, DDIMScheduler
+        from transformers import CLIPVisionModelWithProjection
         import torch
-        vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse", torch_dtype=torch.float16)
-        realistic_model = StableDiffusionPipeline.from_pretrained(
-            "Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None
-        ).to("cuda")
-        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.safetensors")
-        realistic_model.image_encoder.to(torch.float32)
-        realistic_model.set_ip_adapter_scale(0.35)
-        log("DreamShaper с VAE загружен", "SUCCESS")
 
+        vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse", torch_dtype=torch.float16)
+        image_encoder = CLIPVisionModelWithProjection.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K", torch_dtype=torch.float32)
+        realistic_model = StableDiffusionPipeline.from_pretrained("Lykon/DreamShaper", vae=vae, image_encoder=image_encoder, torch_dtype=torch.float16, safety_checker=None).to("cuda")
+        realistic_model.scheduler = DDIMScheduler.from_config(realistic_model.scheduler.config)
+        realistic_model.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder=None, weight_name="ip-adapter-faceid-plusv2_sd15.bin", image_encoder_folder=None)
+        realistic_model.load_lora_weights("h94/IP-Adapter-FaceID", weight_name="ip-adapter-faceid-plusv2_sd15_lora.safetensors", adapter_name="faceid")
+        realistic_model.set_adapters(["faceid"], adapter_weights=[0.7])
+        realistic_model.set_ip_adapter_scale(0.6)
+        log("DreamShaper + FaceID PlusV2 загружен", "SUCCESS")
 
 
     except Exception as e:
