@@ -628,11 +628,7 @@ def load_image_models():
         from diffusers import StableDiffusionPipeline
         import torch
 
-        anime_model = StableDiffusionPipeline.from_pretrained(
-            "Linaqruf/anything-v3-1",
-            torch_dtype=torch.float16,
-            safety_checker=None,
-        ).to("cuda")
+        anime_model = StableDiffusionPipeline.from_pretrained("Linaqruf/anything-v3-1", torch_dtype=torch.float16, safety_checker=None).to("cuda")
         anime_model.enable_attention_slicing()
         anime_model.load_textual_inversion("EvilEngine/easynegative", weight_name="easynegative.safetensors", token="EasyNegative")
 
