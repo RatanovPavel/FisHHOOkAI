@@ -644,7 +644,8 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
         with torch.inference_mode():
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator).images
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator).images[0]
+
         
         image.save(output_path, quality=95)
         return True
