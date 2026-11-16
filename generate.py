@@ -614,6 +614,7 @@ def load_image_models():
         realistic_model.load_lora_weights("h94/IP-Adapter-FaceID", weight_name="ip-adapter-faceid_sd15_lora.safetensors", adapter_name="faceid")
         realistic_model.set_adapters(["faceid"], adapter_weights=[0.7])
         realistic_model.set_ip_adapter_scale(0.6)
+        realistic_model.load_textual_inversion("yesyeahvh/bad-hands-5", weight_name="bad-hands-5.pt", token="bad-hands-5")
         log("DreamShaper + FaceID PlusV2 загружен", "SUCCESS")
 
 
