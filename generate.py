@@ -604,9 +604,11 @@ def load_image_models():
         realistic_model = StableDiffusionPipeline.from_pretrained(
             "Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None
         ).to("cuda")
-        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter-plus-face_sd15.safetensors")
-        realistic_model.set_ip_adapter_scale(0.6)
-        log("DreamShaper + IP-Adapter загружен", "SUCCESS")
+
+        realistic_model.enable_attention_slicing()
+        log("DreamShaper с VAE загружен", "SUCCESS")
+
+
     except Exception as e:
         log(f"Ошибка загрузки DreamShaper: {e}", "ERROR")
         traceback.print_exc()
@@ -635,24 +637,14 @@ def load_image_models():
     
     return realistic_model, anime_model
 
-def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, ip_image=None):
+def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0):
     import torch
-    from PIL import Image
     try:
         generator = torch.Generator(device="cuda").manual_seed(seed)
-
-        
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
-        
-        extra_kwargs = {}
-        if not is_anime and hasattr(model, "set_ip_adapter_scale"):
-            model.set_ip_adapter_scale(0.65 if ip_image is not None else 0.0)
-            extra_kwargs["ip_adapter_image"] = ip_image if ip_image is not None else Image.new("RGB", (512, 512))
         with torch.inference_mode():
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra_kwargs).images[0]
-
-
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator).images
         
         image.save(output_path, quality=95)
         return True
