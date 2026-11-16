@@ -577,7 +577,7 @@ def generate_character_config(key, name, age, gender, appearance, role, quirk, c
         "personality": personality_text,
         "description": description,
         "face_desc": f"{age} yo {'woman' if gender == 'female' else 'man'}, {appearance}",
-        "negative": "ugly, deformed, bad anatomy, bad hands, extra fingers, worst quality, low quality, blurry, nsfw, nude",
+        "negative": "bad-hands-5, EasyNegative, ugly, deformed, bad anatomy, bad hands, extra fingers, missing fingers, mutated hands, poorly drawn hands, fused fingers, too many fingers, long fingers, extra limbs, worst quality, low quality, blurry, nsfw, nude",
         "seed": seed,
         "subscription_required": random.choice([False, False, False, True]),
         "nsfw_allowed": False,
