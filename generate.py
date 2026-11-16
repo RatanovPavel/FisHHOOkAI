@@ -661,19 +661,19 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         generator = torch.Generator(device="cuda").manual_seed(seed)
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=generator).images[0]
         elif face_data is not None:
             if not hasattr(model.unet, "encoder_hid_proj") or model.unet.encoder_hid_proj is None:
                 model.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder="", weight_name="ip-adapter-faceid_sd15.bin", image_encoder_folder=None)
 
             model.set_adapters(["faceid"], adapter_weights=[0.7])
             model.set_ip_adapter_scale(0.6)
-            image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image_embeds=face_data, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image_embeds=face_data, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=generator).images[0]
         else:
             if hasattr(model, "unload_ip_adapter"):
                 model.unload_ip_adapter()
             model.set_adapters(["faceid"], adapter_weights=[0.0])
-            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=generator).images[0]
 
 
         image.save(output_path, quality=95)
@@ -957,9 +957,11 @@ def generate_all_characters():
 
                 for idx_s, (scene_name, scene_desc) in enumerate(scenes):
                     shot_p, shot_n = shot_types[idx_s % len(shot_types)]
-                    prefix = "masterpiece, best quality" if is_anime else "photorealistic, 8k, sharp focus"
+                    solo_tag = "solo, 1girl" if char["gender"] == "female" else "solo, 1boy"
+                    prefix = f"masterpiece, best quality, {solo_tag}" if is_anime else f"photorealistic, 8k, sharp focus, {solo_tag}, single person"
                     g_prompt = f"{prefix}, {shot_p}, {config['face_desc']}, {scene_desc}"
-                    g_neg = f"{config['negative']}, {shot_n}"
+                    g_neg = f"{config['negative']}, {shot_n}, multiple people, two people, crowd, twins, clones, duplicate, group"
+
                     gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
                     if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime, face_data=face_data):
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
