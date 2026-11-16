@@ -611,7 +611,7 @@ def load_image_models():
         realistic_model = StableDiffusionPipeline.from_pretrained("Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None).to("cuda")
         realistic_model.scheduler = DDIMScheduler.from_config(realistic_model.scheduler.config)
         realistic_model.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder="", weight_name="ip-adapter-faceid_sd15.bin", image_encoder_folder=None)
-        realistic_model.load_lora_weights("h94/IP-Adapter-FaceID", weight_name="ip-adapter-faceid-plusv2_sd15_lora.safetensors", adapter_name="faceid")
+        realistic_model.load_lora_weights("h94/IP-Adapter-FaceID", weight_name="ip-adapter-faceid_sd15_lora.safetensors", adapter_name="faceid")
         realistic_model.set_adapters(["faceid"], adapter_weights=[0.7])
         realistic_model.set_ip_adapter_scale(0.6)
         log("DreamShaper + FaceID PlusV2 загружен", "SUCCESS")
