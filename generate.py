@@ -639,9 +639,11 @@ def load_image_models():
     
     return realistic_model, anime_model
 
-def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0):
+def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anime=False, guidance_scale=7.0, ref_image=None):
     import torch
+    from PIL import Image
     try:
+
         generator = torch.Generator(device="cuda").manual_seed(seed)
         if is_anime:
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
@@ -652,7 +654,7 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
             image = model(
                 prompt, negative_prompt=negative_prompt, ip_adapter_image=ref_image,
                 num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator
-            ).images
+            ).images[0]
         else:
             # Для главного фото main.jpg отключаем влияние референса (scale=0.0)
             if not is_anime and hasattr(model, "set_ip_adapter_scale"):
@@ -672,51 +674,6 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         log(f"Ошибка генерации фото: {e}", "ERROR")
         traceback.print_exc()
         return False
-
-def swap_face_clean(main_path, target_path, face_app, face_swapper):
-    import cv2
-    import numpy as np
-
-    src_img = cv2.imread(str(main_path))
-    dst_img = cv2.imread(str(target_path))
-    if src_img is None or dst_img is None:
-        return
-
-    src_faces = face_app.get(src_img)
-    dst_faces = face_app.get(dst_img)
-    if not src_faces or not dst_faces:
-        return
-
-    # Берём координаты головы на целевом фото с запасом 60%
-    h, w, _ = dst_img.shape
-    x1, y1, x2, y2 = dst_faces[0].bbox.astype(int)
-    fw, fh = x2 - x1, y2 - y1
-    pad_x, pad_y = int(fw * 0.6), int(fh * 0.6)
-
-    cx1, cy1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
-    cx2, cy2 = min(w, x2 + pad_x), min(h, y2 + pad_y)
-
-    crop = dst_img[cy1:cy2, cx1:cx2]
-    if crop.size == 0:
-        return
-
-    # Увеличиваем вырезанную голову до 512x512 (как крупный портрет!)
-    crop_512 = cv2.resize(crop, (512, 512), interpolation=cv2.INTER_LANCZOS4)
-    crop_faces = face_app.get(crop_512)
-    if not crop_faces:
-        return
-
-    # Переносим лицо на крупном квадрате 512x512 (без артефактов!)
-    swapped_512 = face_swapper.get(crop_512, crop_faces[0], src_faces[0], paste_back=True)
-
-    # Возвращаем размер и вклеиваем по мягкой овальной маске
-    swapped_crop = cv2.resize(swapped_512, (cx2 - cx1, cy2 - cy1), interpolation=cv2.INTER_AREA)
-    mask = np.zeros((cy2 - cy1, cx2 - cx1), dtype=np.float32)
-    cv2.ellipse(mask, ((cx2 - cx1)//2, (cy2 - cy1)//2), (int((cx2 - cx1)*0.38), int((cy2 - cy1)*0.42)), 0, 0, 360, 1.0, -1)
-    mask = cv2.GaussianBlur(mask, (21, 21), 0)[:, :, None]
-
-    dst_img[cy1:cy2, cx1:cx2] = (swapped_crop * mask + crop * (1.0 - mask)).astype(np.uint8)
-    cv2.imwrite(str(target_path), dst_img)
 
 # ============================================================================
 # 🎤 ГЕНЕРАЦИЯ ГОЛОСА
