@@ -606,7 +606,9 @@ def load_image_models():
         ).to("cuda")
         realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.safetensors")
         realistic_model.image_encoder.to(torch.float32)
-        realistic_model.set_ip_adapter_scale(0.45)
+        realistic_model.vae.to(torch.float32)
+        realistic_model.set_ip_adapter_scale(0.35)
+
 
         log("DreamShaper с VAE загружен", "SUCCESS")
 
@@ -650,10 +652,10 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
 
         # Если передан ref_image (т.е. генерируем галерею):
         if ref_image is not None and not is_anime:
-            model.set_ip_adapter_scale(0.45)
+            model.set_ip_adapter_scale(0.35)
             image = model(
                 prompt, negative_prompt=negative_prompt, ip_adapter_image=ref_image,
-                num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator
+                num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator
             ).images[0]
         else:
             # Для главного фото main.jpg отключаем влияние референса (scale=0.0)
@@ -663,7 +665,7 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
             extra = {"ip_adapter_image": dummy_img} if not is_anime else {}
             image = model(
                 prompt, negative_prompt=negative_prompt,
-                num_inference_steps=30, guidance_scale=7.0, width=512, height=512, generator=generator, **extra
+                num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator, **extra
             ).images[0]
 
 
