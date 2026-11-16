@@ -682,7 +682,7 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         else:
             model.set_adapters(["faceid"], adapter_weights=[0.0])
             model.set_ip_adapter_scale(0.0)
-            dummy_id = torch.zeros((1, 2, 512), device="cuda", dtype=torch.float16)
+            dummy_id = torch.zeros((2, 1, 512), device="cuda", dtype=torch.float16)
             dummy_embeds = model.prepare_ip_adapter_image_embeds(
                 ip_adapter_image=Image.new("RGB", (224, 224)), ip_adapter_image_embeds=[dummy_id],
                 device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=True
