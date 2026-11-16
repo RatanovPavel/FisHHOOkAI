@@ -676,18 +676,16 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
             negative_prompt = "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality, normal quality, jpeg artifacts, signature, watermark, username, blurry, 3d, realistic, photorealistic, " + negative_prompt
             image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
         elif face_data is not None:
+            if not hasattr(model.unet, "encoder_hid_proj") or model.unet.encoder_hid_proj is None:
+                model.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder=None, weight_name="ip-adapter-faceid-plusv2_sd15.bin")
             model.set_adapters(["faceid"], adapter_weights=[0.7])
             model.set_ip_adapter_scale(0.6)
             image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image_embeds=face_data, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
         else:
+            if hasattr(model, "unload_ip_adapter"):
+                model.unload_ip_adapter()
             model.set_adapters(["faceid"], adapter_weights=[0.0])
-            model.set_ip_adapter_scale(0.0)
-            dummy_id = torch.zeros((2, 1, 512), device="cuda", dtype=torch.float16)
-            dummy_embeds = model.prepare_ip_adapter_image_embeds(
-                ip_adapter_image=Image.new("RGB", (224, 224)), ip_adapter_image_embeds=[dummy_id],
-                device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=True
-            )
-            image = model(prompt, negative_prompt=negative_prompt, ip_adapter_image_embeds=dummy_embeds, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
+            image = model(prompt, negative_prompt=negative_prompt, num_inference_steps=30, guidance_scale=7.0, width=768, height=768, generator=generator).images[0]
 
 
         image.save(output_path, quality=95)
