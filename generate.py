@@ -658,7 +658,8 @@ def extract_faceid_data(main_path, face_app, model):
     face_crop = face_align.norm_crop(img, landmark=face.kps, image_size=224)
     face_pil = Image.fromarray(cv2.cvtColor(face_crop, cv2.COLOR_BGR2RGB))
     id_embeds = torch.from_numpy(face.normed_embedding).unsqueeze(0).unsqueeze(0)
-    id_embeds = torch.cat([torch.zeros_like(id_embeds), id_embeds], dim=0).to(device="cuda", dtype=torch.float16)
+    id_embeds = torch.cat([torch.zeros_like(id_embeds), id_embeds], dim=1).to(device="cuda", dtype=torch.float16)
+
     return model.prepare_ip_adapter_image_embeds(
         ip_adapter_image=face_pil, ip_adapter_image_embeds=[id_embeds],
         device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=True
@@ -681,7 +682,7 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         else:
             model.set_adapters(["faceid"], adapter_weights=[0.0])
             model.set_ip_adapter_scale(0.0)
-            dummy_id = torch.zeros((2, 1, 512), device="cuda", dtype=torch.float16)
+            dummy_id = torch.zeros((1, 2, 512), device="cuda", dtype=torch.float16)
             dummy_embeds = model.prepare_ip_adapter_image_embeds(
                 ip_adapter_image=Image.new("RGB", (224, 224)), ip_adapter_image_embeds=[dummy_id],
                 device="cuda", num_images_per_prompt=1, do_classifier_free_guidance=True
