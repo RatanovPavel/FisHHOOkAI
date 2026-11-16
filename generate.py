@@ -604,8 +604,10 @@ def load_image_models():
         realistic_model = StableDiffusionPipeline.from_pretrained(
             "Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None
         ).to("cuda")
+        realistic_model.load_ip_adapter("h94/IP-Adapter", subfolder="models", weight_name="ip-adapter_sd15.safetensors")
+        realistic_model.image_encoder.to(torch.float32)
+        realistic_model.set_ip_adapter_scale(0.45)
 
-        realistic_model.enable_attention_slicing()
         log("DreamShaper с VAE загружен", "SUCCESS")
 
 
