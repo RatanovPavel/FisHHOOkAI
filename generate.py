@@ -949,13 +949,30 @@ def generate_all_characters():
 
                 face_data = (None, None)
                 if not is_anime and face_app and main_photo.exists():
+
+                scenes = random.sample(available_scenes, 4)
+                shot_types = [
+                    ("waist up shot, medium shot, natural pose", "cropped head"),
+                    ("cowboy shot, knees up portrait, stylish outfit", "cropped head"),
+                    ("full body shot, standing pose, head to toe, shoes visible", "cropped head, close-up"),
+                    ("medium portrait, candid lifestyle pose, relaxed posture", "cropped head")
+                ]
+
+                for idx_s, (scene_name, scene_desc) in enumerate(scenes):
+                    shot_p, shot_n = shot_types[idx_s % len(shot_types)]
+                    prefix = "masterpiece, best quality" if is_anime else "photorealistic, 8k, sharp focus"
+                    g_prompt = f"{prefix}, {shot_p}, {config['face_desc']}, {scene_desc}"
+                    g_neg = f"{config['negative']}, {shot_n}"
+                    gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
+                    from PIL import Image
+                    ref_img = Image.open(main_photo) if (not is_anime and main_photo.exists()) else None
                     face_data = extract_faceid_data(main_photo, face_app)
                     if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime, face_data=face_data):
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
                     else:
                         errors.append(f"{char['key']}: gallery/{scene_name}.jpg")
 
-           
+            
             # 5. Генерируем голосовое описание
             if voice_path and tts_model is not None:
                 voice_text = generate_self_introduction(
