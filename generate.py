@@ -653,6 +653,51 @@ def generate_photo(model, prompt, negative_prompt, output_path, seed=42, is_anim
         traceback.print_exc()
         return False
 
+def swap_face_clean(main_path, target_path, face_app, face_swapper):
+    import cv2
+    import numpy as np
+
+    src_img = cv2.imread(str(main_path))
+    dst_img = cv2.imread(str(target_path))
+    if src_img is None or dst_img is None:
+        return
+
+    src_faces = face_app.get(src_img)
+    dst_faces = face_app.get(dst_img)
+    if not src_faces or not dst_faces:
+        return
+
+    # Берём координаты головы на целевом фото с запасом 60%
+    h, w, _ = dst_img.shape
+    x1, y1, x2, y2 = dst_faces[0].bbox.astype(int)
+    fw, fh = x2 - x1, y2 - y1
+    pad_x, pad_y = int(fw * 0.6), int(fh * 0.6)
+
+    cx1, cy1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
+    cx2, cy2 = min(w, x2 + pad_x), min(h, y2 + pad_y)
+
+    crop = dst_img[cy1:cy2, cx1:cx2]
+    if crop.size == 0:
+        return
+
+    # Увеличиваем вырезанную голову до 512x512 (как крупный портрет!)
+    crop_512 = cv2.resize(crop, (512, 512), interpolation=cv2.INTER_LANCZOS4)
+    crop_faces = face_app.get(crop_512)
+    if not crop_faces:
+        return
+
+    # Переносим лицо на крупном квадрате 512x512 (без артефактов!)
+    swapped_512 = face_swapper.get(crop_512, crop_faces[0], src_faces[0], paste_back=True)
+
+    # Возвращаем размер и вклеиваем по мягкой овальной маске
+    swapped_crop = cv2.resize(swapped_512, (cx2 - cx1, cy2 - cy1), interpolation=cv2.INTER_AREA)
+    mask = np.zeros((cy2 - cy1, cx2 - cx1), dtype=np.float32)
+    cv2.ellipse(mask, ((cx2 - cx1)//2, (cy2 - cy1)//2), (int((cx2 - cx1)*0.38), int((cy2 - cy1)*0.42)), 0, 0, 360, 1.0, -1)
+    mask = cv2.GaussianBlur(mask, (21, 21), 0)[:, :, None]
+
+    dst_img[cy1:cy2, cx1:cx2] = (swapped_crop * mask + crop * (1.0 - mask)).astype(np.uint8)
+    cv2.imwrite(str(target_path), dst_img)
+
 # ============================================================================
 # 🎤 ГЕНЕРАЦИЯ ГОЛОСА
 # ============================================================================
@@ -735,6 +780,18 @@ def generate_all_characters():
     
     if tts_model is None:
         log("Не удалось загрузить TTS модель. Продолжаю без озвучки.", "WARNING")
+
+    face_app, face_swapper = None, None
+    try:
+        import insightface, urllib.request
+        if not os.path.exists("inswapper_128.onnx"):
+            urllib.request.urlretrieve("https://huggingface.com/ezioruan/inswapper_128.onnx/resolve/main/inswapper_128.onnx", "inswapper_128.onnx")
+        face_app = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+        face_app.prepare(ctx_id=0, det_size=(320, 320))
+        face_swapper = insightface.model_zoo.get_model("inswapper_128.onnx", providers=["CPUExecutionProvider"])
+        log("FaceSwap (кроп 512x512) загружен", "SUCCESS")
+    except Exception as e:
+        log(f"FaceSwap не загружен: {e}", "WARNING")
 
     # Создаём папку characters/
     characters_dir = Path(CHARACTERS_DIR)
@@ -919,7 +976,9 @@ def generate_all_characters():
                     gallery_photo = char_dir / "gallery" / f"{scene_name}.jpg"
                     from PIL import Image
                     ref_img = Image.open(main_photo) if (not is_anime and main_photo.exists()) else None
-                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime, ip_image=ref_img):
+                    if generate_photo(model, g_prompt, g_neg, str(gallery_photo), config["seed"] + idx_s * 17, is_anime):
+                        if face_swapper and not is_anime and main_photo.exists():
+                            swap_face_clean(main_photo, gallery_photo, face_app, face_swapper)
                         log(f"Создано gallery/{scene_name}.jpg", "SUCCESS")
                     else:
                         errors.append(f"{char['key']}: gallery/{scene_name}.jpg")
