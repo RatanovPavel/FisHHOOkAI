@@ -414,8 +414,9 @@ function copyWorkerUserId() {
 }
 
 function getWorkerCode() {
-    return `!wget -q -O main.py https://raw.githubusercontent.com/RatanovPavel/FisHHOOkAI/main/main.py\nimport importlib, main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
+    return `!rm -rf /content/FisHHOOkAI && git clone -q https://github.com/RatanovPavel/FisHHOOkAI\nimport os, sys, importlib\nos.chdir('/content/FisHHOOkAI')\nsys.path.insert(0, '/content/FisHHOOkAI')\nimport main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
 }
+
 
 function copyUserIdOnly() {
     navigator.clipboard.writeText(USER_ID);
