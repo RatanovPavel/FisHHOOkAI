@@ -420,8 +420,9 @@ function getWorkerCode(platform = 'colab') {
         hf: '# 1. Включите GPU: Settings -> Space hardware -> Nvidia T4 small\n# 2. Запустите ячейку (▶)'
     };
     const gpuCheck = `import torch\nif not torch.cuda.is_available():\n    raise RuntimeError("❌ GPU не включён!\\n${(hints[platform] || hints.colab).replace(/# /g, '').replace(/\n/g, '\\n')}")\nprint("✅ GPU готов:", torch.cuda.get_device_name(0))`;
-    return `${hints[platform] || hints.colab}\n\n${gpuCheck}\n!rm -rf /content/FisHHOOkAI && git clone -q https://github.com/RatanovPavel/FisHHOOkAI\nimport os, sys, importlib\nos.chdir('/content/FisHHOOkAI')\nsys.path.insert(0, '/content/FisHHOOkAI')\nimport main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
+    return `${hints[platform] || hints.colab}\n\n${gpuCheck}\nimport os, sys, shutil, subprocess, importlib\nrepo_dir = os.path.abspath('FisHHOOkAI')\nif os.getcwd() == repo_dir:\n    os.chdir('..')\nshutil.rmtree(repo_dir, ignore_errors=True)\nsubprocess.run(['git', 'clone', '-q', 'https://github!com/RatanovPavel/FisHHOOkAI', repo_dir], check=True)\nos.chdir(repo_dir)\nif repo_dir not in sys.path:\n    sys.path.insert(0, repo_dir)\nimport main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
 }
+
 
 
 
