@@ -412,8 +412,9 @@ function copyWorkerUserId() {
     
     alert(`Скопирован ваш USER_ID: ${USER_ID}\nВставьте его в переменную USER_ID в Colab/Kaggle.`);
 }
+
 function getWorkerCode() {
-    return `!wget -q -O main.py https://githubusercontent.com\nimport importlib, main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
+    return `!wget -q -O main.py https://raw.githubusercontent.com/RatanovPavel/FisHHOOkAI/main/main.py\nimport importlib, main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
 }
 
 function copyUserIdOnly() {
