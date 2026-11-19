@@ -413,9 +413,16 @@ function copyWorkerUserId() {
     alert(`Скопирован ваш USER_ID: ${USER_ID}\nВставьте его в переменную USER_ID в Colab/Kaggle.`);
 }
 
-function getWorkerCode() {
-    return `!rm -rf /content/FisHHOOkAI && git clone -q https://github.com/RatanovPavel/FisHHOOkAI\nimport os, sys, importlib\nos.chdir('/content/FisHHOOkAI')\nsys.path.insert(0, '/content/FisHHOOkAI')\nimport main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
+function getWorkerCode(platform = 'colab') {
+    const hints = {
+        colab: '# 1. Включите GPU: Среда выполнения -> Сменить среду выполнения -> T4 GPU -> Сохранить\n# 2. Нажмите кнопку запуска (▶) слева от ячейки',
+        kaggle: '# 1. Включите GPU: Справа Settings -> Accelerator -> GPU T4 x2 (или P100)\n# 2. Нажмите кнопку запуска (▶) слева от ячейки',
+        hf: '# 1. Включите GPU: Settings -> Space hardware -> Nvidia T4 small\n# 2. Запустите ячейку (▶)'
+    };
+    const gpuCheck = `import torch\nif not torch.cuda.is_available():\n    raise RuntimeError("❌ GPU не включён!\\n${(hints[platform] || hints.colab).replace(/# /g, '').replace(/\n/g, '\\n')}")\nprint("✅ GPU готов:", torch.cuda.get_device_name(0))`;
+    return `${hints[platform] || hints.colab}\n\n${gpuCheck}\n!rm -rf /content/FisHHOOkAI && git clone -q https://github.com/RatanovPavel/FisHHOOkAI\nimport os, sys, importlib\nos.chdir('/content/FisHHOOkAI')\nsys.path.insert(0, '/content/FisHHOOkAI')\nimport main\nimportlib.reload(main)\nmain.USER_ID = "${USER_ID}"\nawait main.worker_loop()`;
 }
+
 
 
 function copyUserIdOnly() {
@@ -423,10 +430,11 @@ function copyUserIdOnly() {
     alert(`Скопирован ID: ${USER_ID}\nВставьте его в поле USER_ID в Colab и нажмите ▶`);
 }
 
-function copyFullCode() {
-    navigator.clipboard.writeText(getWorkerCode());
-    alert(`Готовый код с вашим ID скопирован!\nВставьте его в ячейку и запустите.`);
+function copyFullCode(platform = 'colab') {
+    navigator.clipboard.writeText(getWorkerCode(platform));
+    alert(`Готовый код для ${platform.toUpperCase()} с инструкцией и вашим ID скопирован!\nВставьте его в ячейку (Ctrl+V) и запустите.`);
 }
+
 
 function showWorkerSetupCard() {
     if (document.getElementById('workerSetupCard')) return;
@@ -445,24 +453,15 @@ function showWorkerSetupCard() {
         <p class="text-xs text-slate-300 mb-3">Выберите платформу с бесплатным GPU для запуска собеседника:</p>
         
         <div class="flex flex-col gap-2 mb-3">
-            <a href="${colabUrl}" target="_blank" onclick="copyFullCode()" class="block text-center py-2 px-3 rounded-lg bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 font-bold text-xs">
+            <a href="${colabUrl}" target="_blank" onclick="copyFullCode('colab')" class="block text-center py-2 px-3 rounded-lg bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 font-bold text-xs">
                 1. Google Colab (создать ноутбук + копировать код) 🚀
             </a>
-            <a href="${kaggleUrl}" target="_blank" onclick="copyFullCode()" class="block text-center py-2 px-3 rounded-lg bg-sky-500/20 border border-sky-500/40 hover:bg-sky-500/30 text-sky-300 font-bold text-xs">
+            <a href="${kaggleUrl}" target="_blank" onclick="copyFullCode('kaggle')" class="block text-center py-2 px-3 rounded-lg bg-sky-500/20 border border-sky-500/40 hover:bg-sky-500/30 text-sky-300 font-bold text-xs">
                 2. Kaggle Notebooks (включить GPU T4 + копировать код) 📊
             </a>
-            <a href="${hfUrl}" target="_blank" onclick="copyFullCode()" class="block text-center py-2 px-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 hover:bg-yellow-500/30 text-yellow-300 font-bold text-xs">
+            <a href="${hfUrl}" target="_blank" onclick="copyFullCode('hf')" class="block text-center py-2 px-3 rounded-lg bg-yellow-500/20 border border-yellow-500/40 hover:bg-yellow-500/30 text-yellow-300 font-bold text-xs">
                 3. Hugging Face Spaces (GPU / Docker + копировать код) 🤗
             </a>
-        </div>
-
-        <div class="flex gap-2">
-            <button onclick="copyUserIdOnly()" class="flex-1 py-1.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-cyan-400 text-[11px] font-bold border border-slate-700 cursor-pointer">
-                📋 Копировать ID
-            </button>
-            <button onclick="copyFullCode()" class="flex-1 py-1.5 px-2 rounded bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[11px] font-bold border border-slate-700 cursor-pointer">
-                📄 Копировать код ячейки
-            </button>
         </div>
     `;
 
