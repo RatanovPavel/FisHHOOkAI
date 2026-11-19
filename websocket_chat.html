@@ -679,7 +679,6 @@ function addUserMessage(text, imageUrl = null) {
 function addBotMessage(text, audioUrl = null, imageUrl = null) {
     const area = document.getElementById('messagesArea');
     const msg = document.createElement('div');
-    msg.className
     msg.className = 'message message-bot';
     
     let content = `<div>${escapeHtml(text)}</div>`;
