@@ -676,6 +676,14 @@ async function loadMemoryBadge() {
     if (r.ok) { const d = await r.json(); document.getElementById('trustBadge').textContent = `💖 ${d.memory?.state?.trust ?? 30}%`; }
 }
 
+async function sendGift(name, mood, trust, intimacy) {
+    toggleGiftMenu();
+    const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}/gift`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mood, trust, intimacy }) });
+    if (r.ok) { const d = await r.json(); document.getElementById('trustBadge').textContent = `💖 ${d.memory?.state?.trust ?? 30}%`; }
+    document.getElementById('messageInput').value = `🎁 Подарил тебе: ${name}`;
+    sendMessage();
+}
+
 function addUserMessage(text, imageUrl = null) {
     const area = document.getElementById('messagesArea');
     const msg = document.createElement('div');
