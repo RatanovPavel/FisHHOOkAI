@@ -663,6 +663,7 @@ async function loadCharacter() {
             addBotMessage(`Привет! Я ${characterData.name}. ${characterData.description || 'Рада знакомству!'}`);
             
             document.title = `SKULLA.RU | Чат с ${characterData.name}`;
+            loadMemoryBadge();
         }
     } catch (e) {
         console.error('Ошибка загрузки персонажа:', e);
