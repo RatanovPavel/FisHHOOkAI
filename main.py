@@ -541,7 +541,8 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
     if model is None: return False
     try:
         scene = SCENES.get(scene_key, SCENES["nature"])
-        action = (translate_to_english(user_prompt) if has_cyrillic(user_prompt) else user_prompt).strip()[:80]
+        subj = "woman" if character.get("gender") == "female" else "man"
+        action = (translate_to_english(user_prompt, subj) if has_cyrillic(user_prompt) else user_prompt).strip()[:100]
         solo_tag = "solo, 1girl" if character.get("gender") == "female" else "solo, 1boy"
         full_prompt = f"({action}:1.4), full body action shot, {solo_tag}, {character.get('face_desc', 'person')}, {scene['prompt_en']}"[:320]
 
