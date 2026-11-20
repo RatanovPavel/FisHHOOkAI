@@ -737,7 +737,8 @@ async def process_task(task_data, ws, send_status):
                     text=clean_text,
                     language="ru",
                     speaker_wav=speaker_name,
-                    file_path=output_audio_name
+                    file_path=output_audio_name,
+                    speed=1.1, temperature=0.65, repetition_penalty=2.5
                 )
                 
                 pitch_shift = voice_params.get("pitch_shift", 0)
@@ -766,7 +767,8 @@ async def process_task(task_data, ws, send_status):
                         text=clean_text,
                         language="ru",
                         speaker_wav=speaker_wav,
-                        file_path=output_audio_name
+                        file_path=output_audio_name,
+                        speed=1.1, temperature=0.65, repetition_penalty=2.5
                     )
                     print("✅ XTTS v2: голос синтезирован")
                 else:
