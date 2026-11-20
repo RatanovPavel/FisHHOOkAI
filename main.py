@@ -240,23 +240,16 @@ def translate_to_english(russian_text):
         return russian_text
     
     try:
-        prompt = f"Translate this Russian phrase to a short English image description. Output ONLY the translation, 5-10 words max.\n\nRussian: {russian_text}\nEnglish:"
-        
+        msgs = [{"role": "system", "content": "Translate Russian to a concise English Stable Diffusion prompt (5-12 words). Output ONLY English keywords."}, {"role": "user", "content": russian_text}]
+        prompt = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
-        
-        with torch.no_grad():
-            outputs = VOICE_MODEL.generate(**inputs, max_new_tokens=30, temperature=0.1, do_sample=False)
-        
-        translation = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
-        translation = translation.replace(prompt, "").strip()
-        translation = re.sub(r'^["\']|["\']$', '', translation)
-        translation = translation.split('.')[0].split('\n')[0]
-        
-        if len(translation) > 100 or 'explicit' in translation.lower():
-            return russian_text
-        
+        with torch.no_grad(): outputs = VOICE_MODEL.generate(**inputs, max_new_tokens=30, do_sample=False)
+
+        translation = VOICE_TOKENIZER.decode(outputs[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
+        translation = re.sub(r'^["\']|["\']$', '', translation).split('\n')[0].strip()
         print(f"🌐 Перевод: {translation}")
-        return translation
+        return translation or russian_text
+
     except Exception as e:
         print(f"⚠️ Ошибка перевода: {e}")
         return russian_text
@@ -550,16 +543,16 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         scene = SCENES.get(scene_key, SCENES["nature"])
         action = (translate_to_english(user_prompt) if has_cyrillic(user_prompt) else user_prompt).strip()[:80]
         solo_tag = "solo, 1girl" if character.get("gender") == "female" else "solo, 1boy"
-        prefix = f"masterpiece, best quality, {solo_tag}" if is_anime else f"photorealistic, 8k, sharp focus, {solo_tag}, single person"
-        full_prompt = f"{prefix}, {action}, {character.get('face_desc', 'person')}, {scene['prompt_en']}"[:320]
+        full_prompt = f"({action}:1.4), full body action shot, {solo_tag}, {character.get('face_desc', 'person')}, {scene['prompt_en']}"[:320]
+
         neg = f"bad-hands-5, EasyNegative, {character.get('negative', '')}, multiple people, two people, crowd, twins, clones, duplicate"
         if not nsfw and not NSFW_ENABLED: neg += ", nude, naked, nsfw"
         gen = torch.Generator(device="cuda").manual_seed(make_unique_seed(character.get("seed", 42), user_prompt + scene_key))
         face_data = None if is_anime else get_cached_faceid(character_key)
         with torch.inference_mode():
             if not is_anime and face_data is not None:
-                model.set_adapters(["faceid"], adapter_weights=[0.7])
-                model.set_ip_adapter_scale(0.6)
+                model.set_adapters(["faceid"], adapter_weights=[0.55])
+                model.set_ip_adapter_scale(0.5)
                 img = model(full_prompt, negative_prompt=neg, ip_adapter_image_embeds=face_data, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=gen).images[0]
             else:
                 if not is_anime and hasattr(model, "set_adapters"): model.set_adapters(["faceid"], adapter_weights=[0.0])
