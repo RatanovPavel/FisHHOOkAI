@@ -51,17 +51,24 @@ NSFW_ENABLED = True
 
 def install_dependencies():
     packages = {
-        "transformers":       "transformers",
-        "accelerate":         "accelerate",
-        "bitsandbytes":       "bitsandbytes",
-        "optimum":            "optimum",
-        "coqui-tts":          "TTS",
-        "diffusers":          "diffusers",
-        "openai-whisper":     "whisper",
-        "SpeechRecognition":  "speech_recognition",
-        "gtts":               "gtts",
-        "pydub":              "pydub",
-        "websockets":         "websockets"
+        "transformers":             "transformers",
+        "accelerate":               "accelerate",
+        "bitsandbytes":             "bitsandbytes",
+        "optimum":                  "optimum",
+        "coqui-tts":                "TTS",
+        "diffusers":                "diffusers",
+        "openai-whisper":           "whisper",
+        "SpeechRecognition":        "speech_recognition",
+        "gtts":                     "gtts",
+        "pydub":                    "pydub",
+        "websockets":               "websockets",
+        "pydub":                    "pydub",
+        "websockets":               "websockets",
+        "insightface":              "insightface",
+        "onnxruntime-gpu":          "onnxruntime",
+        "opencv-python-headless":   "cv2"
+    }
+
     }
     
     for pip_name, import_name in packages.items():
