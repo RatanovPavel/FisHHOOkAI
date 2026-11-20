@@ -610,6 +610,8 @@ function handleTaskResult(data) {
         data.audio_url,
         data.image_url
     );
+
+    loadMemoryBadge();
     
     // Автовоспроизведение аудио
     if (data.audio_url) {
