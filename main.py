@@ -155,6 +155,7 @@ def load_one_character(character_key: str):
             config = json.load(f)
         config["key"] = character_key
         config["voice_sample"] = os.path.join(char_path, "voice.wav")
+        config["main_photo"] = os.path.join(char_path, "main.jpg")
         config["gallery_dir"] = os.path.join(char_path, "gallery")
         CHARACTERS[character_key] = config
         return config
