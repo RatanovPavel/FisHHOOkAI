@@ -127,9 +127,10 @@ def download_one_character(character_key: str) -> bool:
             return False
 
         preview = resp.json().get("preview", {})
-        files = ["config.json"]
+        files = ["config.json", "main.jpg"]
         if preview.get("voice"):
             files.append("voice.wav")
+
 
         for filename in files:
             file_resp = requests.get(f"{base_url}/characters/{character_key}/{filename}", timeout=30)
