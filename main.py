@@ -680,14 +680,7 @@ async def process_task(task_data, ws, send_status):
             extract_user_memory(user_text, mem)
             system_prompt = generate_personality_prompt(character_key, state, mem)
             chat_history = mem.get("history", [])
-
-            if os.path.exists(history_file):
-                try:
-                    with open(history_file, "r", encoding="utf-8") as hf:
-                        chat_history = json.load(hf)
-                except:
-                    pass
-            
+          
             if chat_history and chat_history[0]["role"] == "system":
                 chat_history[0]["content"] = system_prompt
             else:
