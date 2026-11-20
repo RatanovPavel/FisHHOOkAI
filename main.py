@@ -536,7 +536,7 @@ def get_cached_faceid(character_key):
     faces = FACE_APP.get(cv2.imread(main_path))
     if not faces:
         return None
-    id_embeds = torch.from_numpy(faces.normed_embedding).unsqueeze(0).unsqueeze(0)
+    id_embeds = torch.from_numpy(faces[0].normed_embedding).unsqueeze(0).unsqueeze(0)
     id_embeds = torch.cat([torch.zeros_like(id_embeds), id_embeds], dim=0).to(device="cuda", dtype=torch.float16)
     FACE_EMBEDS_CACHE[character_key] = [id_embeds]
     return FACE_EMBEDS_CACHE[character_key]
