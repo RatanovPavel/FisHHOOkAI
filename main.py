@@ -524,6 +524,24 @@ def init_models():
         print("✅ DreamShaper + FaceID загружен в VRAM!")
     except Exception as e:
         print(f"❌ Ошибка загрузки DreamShaper: {e}")
+    # Аниме-модель (Anything V3.1)
+    print("\n⏳ Загрузка Anything V3.1 (аниме)...")
+    try:
+        from diffusers import StableDiffusionPipeline
+        ANIME_MODEL = StableDiffusionPipeline.from_pretrained("Linaqruf/anything-v3-1", torch_dtype=torch.float16, safety_checker=None).to("cuda")
+        ANIME_MODEL.enable_attention_slicing()
+        ANIME_MODEL.load_textual_inversion("EvilEngine/easynegative", weight_name="easynegative.safetensors", token="EasyNegative")
+        print("✅ Anything V3.1 загружен в VRAM!")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки Anything V3.1: {e}")
+    # Детектор FaceID
+    try:
+        import insightface
+        FACE_APP = insightface.app.FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+        FACE_APP.prepare(ctx_id=0, det_size=(320, 320))
+        print("✅ Детектор FaceID загружен!")
+    except Exception as e:
+        print(f"⚠ Детектор FaceID не загружен: {e}")
 
 
     gc.collect()
