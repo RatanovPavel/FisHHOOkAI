@@ -124,15 +124,15 @@ def download_one_character(character_key: str) -> bool:
 
         preview = resp.json().get("preview", {})
         files = ["config.json", "main.jpg", "voice.wav"]
-
-
-
         for filename in files:
-            file_resp = requests.get(f"{base_url}/characters/{character_key}/{filename}", timeout=30)
+            file_resp = requests.get(f"{base_url}/characters/{character_key}/{filename}", timeout=60)
             if file_resp.status_code == 200:
                 with open(os.path.join(char_dir, filename), "wb") as f:
                     f.write(file_resp.content)
                 print(f"  📥 Скачан: {character_key}/{filename}")
+            else:
+                print(f"  ⚠ Ошибка скачивания {filename}: HTTP {file_resp.status_code}")
+
 
         return os.path.exists(config_path)
     except Exception as e:
