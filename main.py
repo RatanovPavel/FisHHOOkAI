@@ -62,8 +62,6 @@ def install_dependencies():
         "gtts":                     "gtts",
         "pydub":                    "pydub",
         "websockets":               "websockets",
-        "pydub":                    "pydub",
-        "websockets":               "websockets",
         "insightface":              "insightface",
         "onnxruntime-gpu":          "onnxruntime",
         "opencv-python-headless":   "cv2"
