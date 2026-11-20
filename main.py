@@ -484,33 +484,6 @@ def init_models():
         print(f"❌ Ошибка загрузки Whisper: {e}")
         WHISPER_MODEL = None
 
-    # Модель генерации изображений
-    print("\n⏳ Загрузка модели для генерации изображений...")
-    
-    models_to_try = [
-        ("Lykon/DreamShaper", "DreamShaper"),
-        ("prompthero/openjourney-v4", "OpenJourney v4"),
-        ("runwayml/stable-diffusion-v1-5", "SD 1.5")
-    ]
-    
-    IMAGE_MODEL = None
-    for model_id, model_name in models_to_try:
-        try:
-            print(f"   Пробую загрузить {model_name}...")
-            from diffusers import StableDiffusionPipeline
-            
-            IMAGE_MODEL = StableDiffusionPipeline.from_pretrained(
-                model_id,
-                torch_dtype=torch.float16,
-                safety_checker=None,
-            ).to("cuda")
-            
-            IMAGE_MODEL.enable_attention_slicing()
-            print(f"✅ {model_name} загружен в VRAM!")
-            break
-        except Exception as e:
-            print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
-            continue
     
     # Модель генерации изображений (DreamShaper + FaceID)
     print("\n⏳ Загрузка DreamShaper + FaceID...")
