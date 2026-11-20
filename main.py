@@ -240,7 +240,7 @@ def translate_to_english(russian_text):
         return russian_text
     
     try:
-        msgs = [{"role": "system", "content": "Translate Russian to a concise English Stable Diffusion prompt (5-12 words). Output ONLY English keywords."}, {"role": "user", "content": russian_text}]
+        msgs = [{"role": "system", "content": "Convert Russian image prompt into detailed English Stable Diffusion tags (10-18 words) describing exact body pose, hands, and objects. Output ONLY English tags."}, {"role": "user", "content": russian_text}]
         prompt = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inputs = VOICE_TOKENIZER(prompt, return_tensors="pt").to("cuda")
         with torch.no_grad(): outputs = VOICE_MODEL.generate(**inputs, max_new_tokens=30, do_sample=False)
