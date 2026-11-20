@@ -671,13 +671,16 @@ async def process_task(task_data, ws, send_status):
         if VOICE_MODEL is None or VOICE_TOKENIZER is None:
             bot_text = "Мой LLM-модуль не был загружен."
         else:
+            mem = load_server_memory(character_key)
+            if mem.get("state"):
+                CHARACTER_STATES[character_key] = mem["state"]
             sentiment = analyze_message_sentiment(user_text)
             state = update_character_state(character_key, sentiment)
-            
-            system_prompt = generate_personality_prompt(character_key, state)
-            
-            history_file = f"chat_history_{session_id}_{character_key}.json"
-            chat_history = []
+            mem["state"] = state
+            extract_user_memory(user_text, mem)
+            system_prompt = generate_personality_prompt(character_key, state, mem)
+            chat_history = mem.get("history", [])
+
             if os.path.exists(history_file):
                 try:
                     with open(history_file, "r", encoding="utf-8") as hf:
