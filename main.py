@@ -670,8 +670,8 @@ async def process_task(task_data, ws, send_status):
             
             outputs = await asyncio.to_thread(
                 lambda: VOICE_MODEL.generate(
-                    **inputs, max_new_tokens=180, temperature=0.85,
-                    do_sample=True, top_p=0.9
+                    **inputs, max_new_tokens=180, temperature=0.72,
+                    do_sample=True, top_p=0.9, repetition_penalty=1.12
                 )
             )
             
