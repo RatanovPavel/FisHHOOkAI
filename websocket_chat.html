@@ -349,6 +349,11 @@
 
     <!-- ПАНЕЛЬ ВВОДА -->
     <div class="input-panel">
+        <div id="giftMenu" class="hidden flex gap-2 mb-2 pb-2 border-b border-slate-800 overflow-x-auto">
+            <button type="button" onclick="sendGift('☕ Авторский кофе', 10, 5, 5)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-pink-500/20 border border-slate-700 text-xs whitespace-nowrap">☕ Кофе</button>
+            <button type="button" onclick="sendGift('💐 Букет цветов', 15, 10, 10)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-pink-500/20 border border-slate-700 text-xs whitespace-nowrap">💐 Цветы</button>
+            <button type="button" onclick="sendGift('💎 Изящное украшение', 25, 20, 20)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-pink-500/20 border border-slate-700 text-xs whitespace-nowrap">💎 Украшение</button>
+        </div>
         <div class="input-row">
             <button id="micBtn" class="mic-btn" onclick="toggleRecording()" title="Голосовое сообщение">
                 🎤
