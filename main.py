@@ -232,7 +232,7 @@ def ensure_dir(path):
 def has_cyrillic(text):
     return bool(re.search('[а-яА-Я]', text))
 
-def translate_to_english(russian_text):
+def translate_to_english(russian_text, subject="woman"):
     """Переводит промпт с русского на английский"""
     global VOICE_MODEL, VOICE_TOKENIZER
     
