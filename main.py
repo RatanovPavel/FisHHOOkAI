@@ -511,8 +511,12 @@ def init_models():
             print(f"   ⚠️ Не удалось загрузить {model_name}: {str(e)[:100]}")
             continue
     
-    if IMAGE_MODEL is None:
-        print("❌ Критическая ошибка: ни одна модель не загрузилась!")
+    # Модель генерации изображений (DreamShaper + FaceID)
+    print("\n⏳ Загрузка DreamShaper + FaceID...")
+    try:
+        from diffusers import StableDiffusionPipeline, AutoencoderKL, DDIMScheduler
+        vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse", torch_dtype=torch.float16)
+
 
     gc.collect()
     torch.cuda.empty_cache()
