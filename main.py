@@ -545,7 +545,7 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
         solo_tag = "solo, 1girl" if character.get("gender") == "female" else "solo, 1boy"
         full_prompt = f"({action}:1.4), full body action shot, {solo_tag}, {character.get('face_desc', 'person')}, {scene['prompt_en']}"[:320]
 
-        neg = f"bad-hands-5, EasyNegative, {character.get('negative', '')}, multiple people, two people, crowd, twins, clones, duplicate"
+        neg = f"bad-hands-5, EasyNegative, {character.get('negative', '')}, multiple people, two people, crowd, twins, clones, duplicate, deformed anatomy, extra arms, twisted limbs"
         if not nsfw and not NSFW_ENABLED: neg += ", nude, naked, nsfw"
         gen = torch.Generator(device="cuda").manual_seed(make_unique_seed(character.get("seed", 42), user_prompt + scene_key))
         face_data = None if is_anime else get_cached_faceid(character_key)
