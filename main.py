@@ -68,8 +68,6 @@ def install_dependencies():
         "onnxruntime-gpu":          "onnxruntime",
         "opencv-python-headless":   "cv2"
     }
-
-    }
     
     for pip_name, import_name in packages.items():
         try:
