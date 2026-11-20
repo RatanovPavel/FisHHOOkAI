@@ -679,7 +679,7 @@ async def process_task(task_data, ws, send_status):
             bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯！？，。、；：「」『』（）]+', '', bot_text)
             bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
-            if len(bot_text) < 20:
+            if len(bot_text) < 5:
                 with torch.no_grad():
                     outputs = VOICE_MODEL.generate(
                         **inputs, max_new_tokens=180, temperature=0.7,
