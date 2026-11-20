@@ -268,6 +268,25 @@ def load_server_memory(character_key):
         print(f"⚠ Ошибка загрузки памяти: {e}")
     return {"user_name": "", "facts": [], "state": {}, "gifts": [], "history": []}
 
+def save_server_memory(character_key, mem):
+    base_url = get_http_base_url()
+    try:
+        requests.post(f"{base_url}/api/memory/{USER_ID}/{character_key}", json=mem, timeout=10)
+    except Exception as e:
+        print(f"⚠ Ошибка сохранения памяти: {e}")
+
+def extract_user_memory(user_text, mem):
+    m = re.search(r'(?:меня зовут|мо[её] имя|я\s+—?\s*)([А-ЯЁ][а-яё]{2,15})', user_text)
+    if m and m.group(1).lower() not in ["привет", "хорошо", "сегодня", "очень", "просто", "тоже"]:
+        mem["user_name"] = m.group(1)
+    low = user_text.lower()
+    if "на ты" in low:
+        mem["facts"] = [f for f in mem.get("facts", []) if "обращаться на" not in f] + ["Общаться с пользователем на 'ты'"]
+    elif any(w in low for w in ["работаю", "увлекаюсь", "люблю", "живу в", "мне ", "мой город", "моя работа"]):
+        fact = user_text.strip()[:90]
+        if fact not in mem.get("facts", []):
+            mem.setdefault("facts", []).append(fact)
+
 # ============================================================================
 # 🧠 ПСИХОЛОГИЧЕСКАЯ СИСТЕМА
 # ============================================================================
@@ -342,7 +361,8 @@ def update_character_state(character_key, sentiment):
     CHARACTER_STATES[character_key] = state
     return state
 
-def generate_personality_prompt(character_key, state):
+def generate_personality_prompt(character_key, state, mem=None):
+
     character = CHARACTERS[character_key]
     traits = character.get("traits", {})
     
@@ -416,6 +436,15 @@ def generate_personality_prompt(character_key, state):
     else:
         prompt_parts.append("Ты устала.")
     
+    if mem:
+        if mem.get("user_name"):
+            prompt_parts.append(f"Собеседника зовут {mem['user_name']}, обращайся к нему по имени.")
+        if mem.get("facts"):
+            prompt_parts.append("Что ты помнишь о собеседнике: " + "; ".join(mem["facts"][-8:]) + ".")
+        if mem.get("gifts"):
+            gifts_str = ", ".join(g["name"] for g in mem["gifts"][-5:])
+            prompt_parts.append(f"Собеседник дарил тебе подарки: {gifts_str}. Ты ценишь это и помнишь о них.")
+
     from datetime import datetime
     months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]
     days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
