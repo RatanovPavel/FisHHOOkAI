@@ -670,6 +670,12 @@ async function loadCharacter() {
     }
 }
 
+function toggleGiftMenu() { document.getElementById('giftMenu').classList.toggle('hidden'); }
+async function loadMemoryBadge() {
+    const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}`);
+    if (r.ok) { const d = await r.json(); document.getElementById('trustBadge').textContent = `💖 ${d.memory?.state?.trust ?? 30}%`; }
+}
+
 function addUserMessage(text, imageUrl = null) {
     const area = document.getElementById('messagesArea');
     const msg = document.createElement('div');
