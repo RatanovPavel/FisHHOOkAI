@@ -207,10 +207,14 @@ SCENES = {
 # ============================================================================
 
 IMAGE_MODEL = None
+ANIME_MODEL = None
+FACE_APP = None
+FACE_EMBEDS_CACHE = {}
 VOICE_MODEL = None
 VOICE_TOKENIZER = None
 TTS_ENGINE = None
 WHISPER_MODEL = None
+
 
 # ============================================================================
 # 🔧 УТИЛИТЫ
