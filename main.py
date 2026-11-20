@@ -418,7 +418,12 @@ def generate_personality_prompt(character_key, state):
     else:
         prompt_parts.append("Ты устала.")
     
-    prompt_parts.append("Отвечай кратко и по делу, строго на русском языке.")
+    from datetime import datetime
+    months = ["января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря"]
+    days = ["понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье"]
+    now = datetime.now()
+    prompt_parts.append(f"Сегодня {now.day} {months[now.month - 1]} {now.year} года, {days[now.weekday()]}. Общайся как живой человек в переписке (2-4 предложения), без нумерованных списков и канцелярита, строго на русском языке.")
+
     
     return " ".join(prompt_parts)
 
@@ -686,8 +691,9 @@ async def process_task(task_data, ws, send_status):
             
             chat_history.append({"role": "user", "content": user_text})
             
-            if len(chat_history) > 5:
-                chat_history = [chat_history[0]] + chat_history[-4:]
+            if len(chat_history) > 17:
+                chat_history = [chat_history[0]] + chat_history[-16:]
+
             
             prompt = VOICE_TOKENIZER.apply_chat_template(
                 chat_history, tokenize=False, add_generation_prompt=True
