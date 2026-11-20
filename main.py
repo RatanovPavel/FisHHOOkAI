@@ -552,66 +552,51 @@ def init_models():
 # 🖼️ ГЕНЕРАЦИЯ ИЗОБРАЖЕНИЙ
 # ============================================================================
 
+def get_cached_faceid(character_key):
+    if character_key in FACE_EMBEDS_CACHE:
+        return FACE_EMBEDS_CACHE[character_key]
+    main_path = os.path.join(CHARACTERS_DIR, character_key, "main.jpg")
+    if FACE_APP is None or not os.path.exists(main_path):
+        return None
+    import cv2
+    faces = FACE_APP.get(cv2.imread(main_path))
+    if not faces:
+        return None
+    id_embeds = torch.from_numpy(faces.normed_embedding).unsqueeze(0).unsqueeze(0)
+    id_embeds = torch.cat([torch.zeros_like(id_embeds), id_embeds], dim=0).to(device="cuda", dtype=torch.float16)
+    FACE_EMBEDS_CACHE[character_key] = [id_embeds]
+    return FACE_EMBEDS_CACHE[character_key]
+
 def generate_photorealistic_image(user_prompt, character_key, scene_key, output_path, nsfw=False):
-    global IMAGE_MODEL
-    
-    if IMAGE_MODEL is None:
-        print("⚠️ Модель генерации изображений не загружена")
-        return False
-    
+    character = CHARACTERS.get(character_key)
+    if not character: return False
+    is_anime = character.get("style") == "anime"
+    model = ANIME_MODEL if is_anime else IMAGE_MODEL
+    if model is None: return False
     try:
-        character = CHARACTERS.get(character_key)
-        if not character:
-            print(f"❌ Персонаж {character_key} не найден")
-            return False
-        
         scene = SCENES.get(scene_key, SCENES["nature"])
-        
-        if has_cyrillic(user_prompt):
-            translated_prompt = translate_to_english(user_prompt)
-        else:
-            translated_prompt = user_prompt
-        
-        quality = "photorealistic, masterpiece, 8k, sharp focus"
-        face = character.get("face_desc", "person")
-        scene_desc = scene["prompt_en"]
-        action = translated_prompt.strip()[:60]
-        
-        full_prompt = f"{action}, {face}, {scene_desc}, {quality}"
-        
-        if len(full_prompt) > 300:
-            full_prompt = full_prompt[:300]
-        
-        negative_prompt = character.get("negative", "ugly, deformed, worst quality")
-        if not nsfw and not NSFW_ENABLED:
-            negative_prompt += ", nude, naked, nsfw"
-        
-        unique_seed = make_unique_seed(character.get("seed", 42), user_prompt + scene_key)
-        generator = torch.Generator(device="cuda").manual_seed(unique_seed)
-        
-        print(f"🎨 Генерация изображения...")
-        print(f"   Промпт: {full_prompt[:80]}...")
-        
+        action = (translate_to_english(user_prompt) if has_cyrillic(user_prompt) else user_prompt).strip()[:80]
+        solo_tag = "solo, 1girl" if character.get("gender") == "female" else "solo, 1boy"
+        prefix = f"masterpiece, best quality, {solo_tag}" if is_anime else f"photorealistic, 8k, sharp focus, {solo_tag}, single person"
+        full_prompt = f"{prefix}, {action}, {character.get('face_desc', 'person')}, {scene['prompt_en']}"[:320]
+        neg = f"bad-hands-5, EasyNegative, {character.get('negative', '')}, multiple people, two people, crowd, twins, clones, duplicate"
+        if not nsfw and not NSFW_ENABLED: neg += ", nude, naked, nsfw"
+        gen = torch.Generator(device="cuda").manual_seed(make_unique_seed(character.get("seed", 42), user_prompt + scene_key))
+        face_data = None if is_anime else get_cached_faceid(character_key)
         with torch.inference_mode():
-            image = IMAGE_MODEL(
-                full_prompt,
-                negative_prompt=negative_prompt,
-                num_inference_steps=35,
-                guidance_scale=7.5,
-                width=512,
-                height=768,
-                generator=generator,
-            ).images[0]
-        
-        image.save(output_path, quality=75, optimize=True)
-        print(f"✅ Изображение сохранено: {output_path}")
+            if not is_anime and face_data is not None:
+                model.set_adapters(["faceid"], adapter_weights=[0.7])
+                model.set_ip_adapter_scale(0.6)
+                img = model(full_prompt, negative_prompt=neg, ip_adapter_image_embeds=face_data, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=gen).images[0]
+            else:
+                if not is_anime and hasattr(model, "set_adapters"): model.set_adapters(["faceid"], adapter_weights=[0.0])
+                img = model(full_prompt, negative_prompt=neg, num_inference_steps=30, guidance_scale=7.0, width=576, height=768, generator=gen).images[0]
+        img.save(output_path, quality=85, optimize=True)
         return True
-        
     except Exception as e:
-        print(f"❌ Ошибка генерации изображения: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"❌ Ошибка генерации: {e}")
         return False
+
 
 # ============================================================================
 # 🎙️ ОБРАБОТКА ЗАДАЧИ
