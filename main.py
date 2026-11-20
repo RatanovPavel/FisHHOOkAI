@@ -79,6 +79,8 @@ def install_dependencies():
             print(f"📦 Устанавливаю {pip_name}...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", pip_name])
 
+    subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-U", "torchao"], capture_output=True, text=True)
+
     if not shutil.which("ffmpeg"):
         print("📦 Устанавливаю ffmpeg...")
         os.system("apt-get update -qq && apt-get install -y -qq ffmpeg > /dev/null 2>&1")
