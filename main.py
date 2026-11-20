@@ -737,8 +737,9 @@ async def process_task(task_data, ws, send_status):
             print(f"🤖 {character['name']}: {bot_text}")
             
             chat_history.append({"role": "assistant", "content": bot_text})
-            with open(history_file, "w", encoding="utf-8") as hf:
-                json.dump(chat_history, hf, ensure_ascii=False, indent=2)
+            mem["history"] = chat_history
+            save_server_memory(character_key, mem)
+
     
     except Exception as e:
         print(f"❌ Сбой LLM: {e}")
