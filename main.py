@@ -123,9 +123,8 @@ def download_one_character(character_key: str) -> bool:
             return False
 
         preview = resp.json().get("preview", {})
-        files = ["config.json", "main.jpg"]
-        if preview.get("voice"):
-            files.append("voice.wav")
+        files = ["config.json", "main.jpg", "voice.wav"]
+
 
 
         for filename in files:
@@ -819,7 +818,7 @@ async def process_task(task_data, ws, send_status):
         try:
             from pydub import AudioSegment
             mp3_path = output_audio_name.replace(".wav", ".mp3")
-            AudioSegment.from_wav(output_audio_name).export(mp3_path, format="mp3", bitrate="64k")
+            AudioSegment.from_file(output_audio_name).export(mp3_path, format="mp3", bitrate="64k")
             with open(mp3_path, "rb") as f:
                 audio_data = f.read()
             audio_b64 = base64.b64encode(audio_data).decode('utf-8')
