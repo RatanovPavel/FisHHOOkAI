@@ -427,7 +427,9 @@ def generate_personality_prompt(character_key, state):
 # ============================================================================
 
 def init_models():
-    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL, WHISPER_MODEL
+    global VOICE_MODEL, VOICE_TOKENIZER, TTS_ENGINE, IMAGE_MODEL, ANIME_MODEL, FACE_APP, WHISPER_MODEL
+
+
 
     if not check_gpu():
         print("⛔ Без GPU дальнейшая работа невозможна.")
