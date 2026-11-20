@@ -516,6 +516,14 @@ def init_models():
     try:
         from diffusers import StableDiffusionPipeline, AutoencoderKL, DDIMScheduler
         vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse", torch_dtype=torch.float16)
+        IMAGE_MODEL = StableDiffusionPipeline.from_pretrained("Lykon/DreamShaper", vae=vae, torch_dtype=torch.float16, safety_checker=None).to("cuda")
+        IMAGE_MODEL.scheduler = DDIMScheduler.from_config(IMAGE_MODEL.scheduler.config)
+        IMAGE_MODEL.load_ip_adapter("h94/IP-Adapter-FaceID", subfolder="", weight_name="ip-adapter-faceid_sd15.bin", image_encoder_folder=None)
+        IMAGE_MODEL.load_lora_weights("h94/IP-Adapter-FaceID", weight_name="ip-adapter-faceid_sd15_lora.safetensors", adapter_name="faceid")
+        IMAGE_MODEL.load_textual_inversion("yesyeahvh/bad-hands-5", weight_name="bad-hands-5.pt", token="bad-hands-5")
+        print("✅ DreamShaper + FaceID загружен в VRAM!")
+    except Exception as e:
+        print(f"❌ Ошибка загрузки DreamShaper: {e}")
 
 
     gc.collect()
