@@ -263,10 +263,14 @@ def load_server_memory(character_key):
     try:
         r = requests.get(f"{base_url}/api/memory/{USER_ID}/{character_key}", timeout=10)
         if r.status_code == 200:
-            return r.json().get("memory", {})
+            d = r.json()
+            mem = d.get("memory", {})
+            mem["_account"] = d.get("account", {})
+            return mem
     except Exception as e:
         print(f"⚠ Ошибка загрузки памяти: {e}")
-    return {"user_name": "", "facts": [], "state": {}, "gifts": [], "history": []}
+    return {"user_name": "", "facts": [], "state": {}, "gifts": [], "history": [], "_account": {}}
+
 
 def save_server_memory(character_key, mem):
     base_url = get_http_base_url()
