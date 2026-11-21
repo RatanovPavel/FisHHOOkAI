@@ -836,11 +836,11 @@ async def process_task(task_data, ws, send_status):
             except Exception as e2:
                 print(f"❌ gTTS тоже упал: {e2}")
     
-    await send_status(task_id, "generating", "Генерация изображения...")
     
     # ШАГ 4: Генерация изображения
     output_image_name = None
     if generate_img:
+        await send_status(task_id, "generating", "Генерация изображения...")
         final_img_prompt = image_prompt.strip() or bot_text or user_text
         output_image_name = os.path.join(session_dir, "generated_image.jpg")
         success = await asyncio.to_thread(
