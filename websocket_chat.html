@@ -305,46 +305,16 @@
     </div>
 
     <!-- ПАНЕЛЬ НАСТРОЕК -->
-    <div class="settings-panel">
-        <div class="setting-group">
-            <span class="setting-label">Сцена</span>
-            <select id="sceneSelect" class="setting-select">
-                <option value="nature">🌿 Природа</option>
-                <option value="sea">🌊 Море</option>
-                <option value="cafe">☕ Кафе</option>
-                <option value="gym">💪 Спортзал</option>
-                <option value="pastel">🌸 Пастель</option>
-                <option value="shower">🚿 Душ</option>
-                <option value="nsfw">🔥 18+</option>
-            </select>
+    <div class="settings-panel justify-between">
+        <div id="statsBar" class="flex items-center gap-3 text-[11px] font-bold">
+            <span id="statMood" class="text-amber-300">😊 Настроение: 50%</span>
+            <span id="statTrust" class="text-emerald-300">💖 Доверие: 30%</span>
+            <span id="statIntimacy" class="text-pink-300">🔥 Близость: 20%</span>
+            <span id="statEnergy" class="text-cyan-300">⚡ Энергия: 80%</span>
         </div>
-        <div class="setting-group">
-            <span class="setting-label">Роль</span>
-            <select id="roleSelect" class="setting-select">
-                <option value="assistant">🤖 Ассистент</option>
-                <option value="psychologist">🧠 Психолог</option>
-                <option value="pirate">🏴‍☠️ Пират</option>
-                <option value="coach">💪 Тренер</option>
-            </select>
-        </div>
-        <div class="setting-group">
-            <span class="setting-label">Голос</span>
-            <select id="genderSelect" class="setting-select">
-                <option value="male">👨 Мужской</option>
-                <option value="female">👩 Женский</option>
-            </select>
-        </div>
-        <div class="setting-group">
-            <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" id="generateImageCheck" class="w-4 h-4 accent-cyan-500 cursor-pointer" checked>
-                <span class="setting-label">🖼️ Фото</span>
-            </label>
-        </div>
-        <div class="setting-group">
-            <button type="button" onclick="toggleGiftMenu()" class="px-2.5 py-1 rounded-lg bg-pink-500/20 border border-pink-500/40 hover:bg-pink-500/30 text-pink-300 text-xs font-bold cursor-pointer">🎁 Подарок</button>
-            <span id="trustBadge" class="text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">💖 30%</span>
-        </div>
+        <button type="button" onclick="document.getElementById('statsBar').classList.toggle('hidden')" class="text-[10px] text-slate-400 hover:text-white cursor-pointer">📊 Статы</button>
     </div>
+
 
     <!-- ОБЛАСТЬ СООБЩЕНИЙ -->
     <div id="messagesArea" class="messages-area">
