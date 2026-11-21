@@ -724,13 +724,20 @@ async def process_task(task_data, ws, send_status):
             sentiment = analyze_message_sentiment(user_text)
             state = update_character_state(character_key, sentiment)
             mem["state"] = state
-            extract_user_memory(user_text, mem)
             system_prompt = generate_personality_prompt(character_key, state, mem)
             chat_history = mem.get("history", [])
 
             is_prem = mem.get("_account", {}).get("is_premium", False)
             is_gift_msg = "подарил тебе:" in user_text.lower() or "🎁" in user_text
             intent = await asyncio.to_thread(classify_user_intent, user_text)
+            if intent.get("user_name") and len(str(intent["user_name"]).strip()) >= 2:
+                mem["user_name"] = str(intent["user_name"]).strip().capitalize()
+            if intent.get("fact") and len(str(intent["fact"]).strip()) >= 4:
+                f_str = str(intent["fact"]).strip()[:90]
+                if f_str not in mem.get("facts", []):
+                    mem.setdefault("facts", []).append(f_str)
+            system_prompt = generate_personality_prompt(character_key, state, mem)
+
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
             if intent.get("is_nsfw") and not is_prem:
                 generate_img = False
