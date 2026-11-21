@@ -761,80 +761,80 @@ async def process_task(task_data, ws, send_status):
         await send_status(task_id, "speaking", "Синтез речи...")
 
     # ШАГ 3: Синтез речи (TTS)
-
-    clean_text = bot_text
-    clean_text = re.sub(r'\*.*?\*', '', clean_text)
-    clean_text = re.sub(r'[一-鿿㐀-䶿]+', '', clean_text)
-    clean_text = re.sub(r'[\U0001F600-\U0001F64F]', '', clean_text)
-    clean_text = re.sub(r'([.!?]){2,}', r'\1', clean_text)
-    clean_text = re.sub(r'\s+', ' ', clean_text).strip()
-    
-    if not clean_text:
-        clean_text = "Извини, я не могу ответить сейчас."
-    
-    output_audio_name = os.path.join(session_dir, "bot_response.wav")
-    
-    try:
-        if TTS_ENGINE is not None:
-            voice_params = character.get("voice_params")
-            
-            if voice_params:
-                speakers = TTS_ENGINE.speakers
-                speaker_idx = voice_params.get("speaker_idx", 0) % len(speakers)
-                speaker_name = speakers[speaker_idx]
+    if want_voice:
+        clean_text = bot_text
+        clean_text = re.sub(r'\*.*?\*', '', clean_text)
+        clean_text = re.sub(r'[一-鿿㐀-䶿]+', '', clean_text)
+        clean_text = re.sub(r'[\U0001F600-\U0001F64F]', '', clean_text)
+        clean_text = re.sub(r'([.!?]){2,}', r'\1', clean_text)
+        clean_text = re.sub(r'\s+', ' ', clean_text).strip()
+        
+        if not clean_text:
+            clean_text = "Извини, я не могу ответить сейчас."
+        
+        output_audio_name = os.path.join(session_dir, "bot_response.wav")
+        
+        try:
+            if TTS_ENGINE is not None:
+                voice_params = character.get("voice_params")
                 
-                await asyncio.to_thread(
-                    TTS_ENGINE.tts_to_file,
-                    text=clean_text,
-                    language="ru",
-                    speaker_wav=speaker_name,
-                    file_path=output_audio_name,
-                    speed=1.1, temperature=0.65, repetition_penalty=2.5
-                )
-                
-                pitch_shift = voice_params.get("pitch_shift", 0)
-                if pitch_shift != 0:
-                    # Применяем pitch shift через ffmpeg
-                    pass
-                
-                print("✅ XTTS v2: голос синтезирован")
-            else:
-                voice_sample = character.get("voice_sample")
-                speaker_wav = None
-                
-                if voice_sample and os.path.exists(voice_sample):
-                    speaker_wav = voice_sample
-                else:
-                    # Ищем любой доступный голос
-                    for char_key, char_data in CHARACTERS.items():
-                        vs = char_data.get("voice_sample")
-                        if vs and os.path.exists(vs):
-                            speaker_wav = vs
-                            break
-                
-                if speaker_wav:
+                if voice_params:
+                    speakers = TTS_ENGINE.speakers
+                    speaker_idx = voice_params.get("speaker_idx", 0) % len(speakers)
+                    speaker_name = speakers[speaker_idx]
+                    
                     await asyncio.to_thread(
                         TTS_ENGINE.tts_to_file,
                         text=clean_text,
                         language="ru",
-                        speaker_wav=speaker_wav,
+                        speaker_wav=speaker_name,
                         file_path=output_audio_name,
                         speed=1.1, temperature=0.65, repetition_penalty=2.5
                     )
+                    
+                    pitch_shift = voice_params.get("pitch_shift", 0)
+                    if pitch_shift != 0:
+                        # Применяем pitch shift через ffmpeg
+                        pass
+                    
                     print("✅ XTTS v2: голос синтезирован")
                 else:
-                    raise FileNotFoundError("Нет reference wav")
-        else:
-            raise RuntimeError("TTS_ENGINE is None")
-    except Exception as e:
-        print(f"⚠️ XTTS сбой ({e}), fallback на gTTS...")
-        try:
-            from gtts import gTTS
-            tts = gTTS(text=clean_text, lang="ru", slow=False)
-            tts.save(output_audio_name)
-            print("✅ gTTS fallback: аудио создано")
-        except Exception as e2:
-            print(f"❌ gTTS тоже упал: {e2}")
+                    voice_sample = character.get("voice_sample")
+                    speaker_wav = None
+                    
+                    if voice_sample and os.path.exists(voice_sample):
+                        speaker_wav = voice_sample
+                    else:
+                        # Ищем любой доступный голос
+                        for char_key, char_data in CHARACTERS.items():
+                            vs = char_data.get("voice_sample")
+                            if vs and os.path.exists(vs):
+                                speaker_wav = vs
+                                break
+                    
+                    if speaker_wav:
+                        await asyncio.to_thread(
+                            TTS_ENGINE.tts_to_file,
+                            text=clean_text,
+                            language="ru",
+                            speaker_wav=speaker_wav,
+                            file_path=output_audio_name,
+                            speed=1.1, temperature=0.65, repetition_penalty=2.5
+                        )
+                        print("✅ XTTS v2: голос синтезирован")
+                    else:
+                        raise FileNotFoundError("Нет reference wav")
+            else:
+                raise RuntimeError("TTS_ENGINE is None")
+        except Exception as e:
+            print(f"⚠️ XTTS сбой ({e}), fallback на gTTS...")
+            try:
+                from gtts import gTTS
+                tts = gTTS(text=clean_text, lang="ru", slow=False)
+                tts.save(output_audio_name)
+                print("✅ gTTS fallback: аудио создано")
+            except Exception as e2:
+                print(f"❌ gTTS тоже упал: {e2}")
     
     await send_status(task_id, "generating", "Генерация изображения...")
     
