@@ -644,7 +644,7 @@ function applyAccountAndStats(d) {
     document.getElementById('statTrust').textContent = `💖 Доверие: ${s.trust ?? 30}%`;
     document.getElementById('statIntimacy').textContent = `🔥 Близость: ${s.intimacy ?? 20}%`;
     document.getElementById('statEnergy').textContent = `⚡ Энергия: ${s.energy ?? 80}%`;
-    document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0} · 🦴 ${a.bones ?? 0}`;
+    document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0}`;
     const btn = document.getElementById('premiumBadgeBtn');
     btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (10 💀/мес)';
 }
