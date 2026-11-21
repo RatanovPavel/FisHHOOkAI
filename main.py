@@ -755,9 +755,13 @@ async def process_task(task_data, ws, send_status):
         print(f"❌ Сбой LLM: {e}")
         bot_text = "Произошла ошибка при генерации ответа."
     
-    await send_status(task_id, "speaking", "Синтез речи...")
-    
+    want_voice = bool(audio_b64) or ("🎁" in user_text) or any(w in user_text.lower() for w in ["голос", "озвуч", "скажи", "проговори", "послушать"])
+    output_audio_name = os.path.join(session_dir, "bot_response.wav")
+    if want_voice:
+        await send_status(task_id, "speaking", "Синтез речи...")
+
     # ШАГ 3: Синтез речи (TTS)
+
     clean_text = bot_text
     clean_text = re.sub(r'\*.*?\*', '', clean_text)
     clean_text = re.sub(r'[一-鿿㐀-䶿]+', '', clean_text)
