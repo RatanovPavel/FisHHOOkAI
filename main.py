@@ -625,7 +625,7 @@ def classify_user_intent(user_text):
     if VOICE_MODEL is None or VOICE_TOKENIZER is None:
         return {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
     try:
-        sys_p = 'Analyze user message intent. Output ONLY valid JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "short english SD pose/scene"}. is_nsfw=true for any nudity, sex, erotic, explicit poses or intimate requests.'
+        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD scene/pose"}. want_photo=true whenever user asks to send/show/make a photo/selfie/pic in ANY place (cafe, beach, gym, etc). is_nsfw=true for nudity, naked, bikini-off, sauna, sex, erotic or explicit poses.'
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
