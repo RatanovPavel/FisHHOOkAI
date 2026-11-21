@@ -731,7 +731,7 @@ async def process_task(task_data, ws, send_status):
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
             if intent.get("is_nsfw") and not is_prem:
                 generate_img = False
-                system_prompt += " ВАЖНО: собеседник просит контент 18+, но у него НЕТ подписки PREMIUM. Не читай мораль, а кокетливо скажи, что откровенные фото и темы доступны только с подпиской 👑 PREMIUM (кнопка в правом верхнем углу чата)."
+                system_prompt += " Обязательно ответь на русском языке с лёгким кокетством, без англицизмов: скажи, что откровенные фото и темы доступны только с подпиской 👑 PREMIUM (кнопка в правом верхнем углу чата)."
             elif is_gift_msg or intent.get("want_photo") or generate_img:
                 generate_img = True
                 image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (intent.get("photo_prompt") or user_text)
@@ -756,7 +756,7 @@ async def process_task(task_data, ws, send_status):
             
             outputs = await asyncio.to_thread(
                 lambda: VOICE_MODEL.generate(
-                    **inputs, max_new_tokens=180, temperature=0.72,
+                    **inputs, max_new_tokens=260, temperature=0.72,
                     do_sample=True, top_p=0.9, repetition_penalty=1.12
                 )
             )
@@ -775,7 +775,7 @@ async def process_task(task_data, ws, send_status):
             if len(bot_text) < 5:
                 with torch.no_grad():
                     outputs = VOICE_MODEL.generate(
-                        **inputs, max_new_tokens=180, temperature=0.7,
+                        **inputs, max_new_tokens=260, temperature=0.7,
                         do_sample=True, top_p=0.85, repetition_penalty=1.2
                     )
                 full_output = VOICE_TOKENIZER.decode(outputs[0], skip_special_tokens=True)
