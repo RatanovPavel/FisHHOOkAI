@@ -689,7 +689,15 @@ async def process_task(task_data, ws, send_status):
             extract_user_memory(user_text, mem)
             system_prompt = generate_personality_prompt(character_key, state, mem)
             chat_history = mem.get("history", [])
-          
+
+            is_prem = mem.get("_account", {}).get("is_premium", False)
+            low_msg = user_text.lower()
+            is_gift_msg = "подарил тебе:" in low_msg or "🎁" in user_text
+            if not generate_img and (is_gift_msg or any(w in low_msg for w in ["фото", "фотк", "селфи", "покажись", "покажи себя", "как ты выглядишь", "сфоткай"])):
+                generate_img = True
+                image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else user_text
+            if not is_prem: nsfw = False
+
             if chat_history and chat_history[0]["role"] == "system":
                 chat_history[0]["content"] = system_prompt
             else:
