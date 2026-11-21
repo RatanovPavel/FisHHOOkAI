@@ -624,8 +624,6 @@ async function loadCharacter() {
             const avatar = characterData.main_photo || `/characters/${characterKey}/main.jpg`;
             document.getElementById('chatAvatar').src = avatar;
             
-            document.getElementById('genderSelect').value = characterData.gender || 'female';
-            
             addBotMessage(`Привет! Я ${characterData.name}. ${characterData.description || 'Рада знакомству!'}`);
             
             document.title = `SKULLA.RU | Чат с ${characterData.name}`;
