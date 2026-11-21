@@ -627,7 +627,7 @@ def classify_user_intent(user_text):
     default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": ""}
     if VOICE_MODEL is None or VOICE_TOKENIZER is None: return default
     try:
-        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, etc) if mentioned else empty"}.'
+        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, or prefers ты/вы) if mentioned else empty"}.'
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
