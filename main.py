@@ -444,6 +444,8 @@ def generate_personality_prompt(character_key, state, mem=None):
     if mem:
         if mem.get("user_name"):
             prompt_parts.append(f"Собеседника зовут {mem['user_name']}, обращайся к нему по имени.")
+        else:
+            prompt_parts.append("Ты ещё не знаешь имя собеседника: если спросит, как его зовут, честно и тепло скажи, что он ещё не представился, и спроси его имя.")
         if mem.get("facts"):
             prompt_parts.append("Что ты помнишь о собеседнике: " + "; ".join(mem["facts"][-8:]) + ".")
         if mem.get("gifts"):
