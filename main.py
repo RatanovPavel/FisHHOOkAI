@@ -280,8 +280,8 @@ def save_server_memory(character_key, mem):
         print(f"⚠ Ошибка сохранения памяти: {e}")
 
 def extract_user_memory(user_text, mem):
-    re.IGNORECASE
-    m = re.search(r'(?:меня зовут|мо[её] имя|я\s+—?\s*)([А-ЯЁ][а-яё]{2,15})', user_text)
+    
+    m = re.search(r'(?:меня зовут|мо[её] имя|я\s+—?\s*)([А-ЯЁ][а-яё]{2,15})', user_text, re.IGNORECASE)
     if m and m.group(1).lower() not in ["привет", "хорошо", "сегодня", "очень", "просто", "тоже"]:
         mem["user_name"] = m.group(1)
     low = user_text.lower()
@@ -627,7 +627,7 @@ def generate_suggestions(character, user_text, bot_text):
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
         with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=20, temperature=0.8, do_sample=True)
-        q = re.sub(r'["\'\n一-鿿！？，。]+', '', VOICE_TOKENIZER.decode(out[inp.input_ids.shape:], skip_special_tokens=True)).strip()[:45]
+        q = re.sub(r'["\'\n一-鿿！？，。]+', '', VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True)).strip()[:45]
         return ([f"💬 {q}"] if len(q) > 3 else ["💬 Расскажи подробнее"]) + base
     except Exception:
         return ["💬 Расскажи подробнее"] + base
