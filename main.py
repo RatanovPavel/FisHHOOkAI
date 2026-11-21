@@ -724,7 +724,6 @@ async def process_task(task_data, ws, send_status):
             sentiment = analyze_message_sentiment(user_text)
             state = update_character_state(character_key, sentiment)
             mem["state"] = state
-            system_prompt = generate_personality_prompt(character_key, state, mem)
             chat_history = mem.get("history", [])
 
             is_prem = mem.get("_account", {}).get("is_premium", False)
