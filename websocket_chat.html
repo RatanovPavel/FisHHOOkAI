@@ -325,7 +325,10 @@
     <div class="input-panel">
         <!-- Постоянная лента подарков (Кофе, Цветы, Вино за 🦴 и Украшение за 💀) -->
         <div id="giftMenu" class="flex gap-2 mb-2.5 pb-2 border-b border-slate-800/80 overflow-x-auto">
-            <!-- Кнопки отправки подарков с параметрами sendGift(...) -->
+            <button onclick="sendGift('☕ Авторский кофе', 10, 'bones', 10, 5, 5)" ...>☕ Кофе · 10 🦴</button>
+            <button onclick="sendGift('💐 Букет цветов', 25, 'bones', 15, 10, 10)" ...>💐 Цветы · 25 🦴</button>
+            <button onclick="sendGift('🍾 Бутылка вина', 50, 'bones', 20, 15, 20)" ...>🍾 Вино · 50 🦴</button>
+            <button onclick="sendGift('💎 Изящное украшение', 5, 'skulls', 30, 25, 30)" ...>💎 Украшение · 5 💀</button>            
         </div>
         <div class="input-row">
             <button id="micBtn" class="mic-btn" onclick="toggleRecording()" title="Голосовое сообщение">
