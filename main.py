@@ -873,13 +873,15 @@ async def process_task(task_data, ws, send_status):
     # ШАГ 5: Отправка результатов через WebSocket
     # Вместо загрузки на сервер, отправляем файлы через WebSocket
     
+    suggestions = await asyncio.to_thread(generate_suggestions, character, user_text, bot_text)
     result = {
         "type": "task_result",
         "task_id": task_id,
         "user_text": user_text,
         "bot_text": bot_text,
         "audio_url": None,
-        "image_url": None
+        "image_url": None,
+        "suggestions": suggestions
     }
     
     # Отправляем аудио (сжимаем WAV -> MP3 для быстрой доставки)
