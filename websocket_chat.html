@@ -580,7 +580,8 @@ function handleTaskResult(data) {
     );
 
     loadMemoryBadge();
-    
+    if (data.suggestions && data.suggestions.length) renderSuggestions(data.suggestions);
+
     // Автовоспроизведение аудио
     if (data.audio_url) {
         const audio = new Audio(data.audio_url);
@@ -649,6 +650,13 @@ function applyAccountAndStats(d) {
     const btn = document.getElementById('premiumBadgeBtn');
     btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (20 💀/мес)';
 }
+function renderSuggestions(list = ["👋 Привет! Давай познакомимся", "📸 Пришли свою фоточку", "🎤 Ответь мне голосом"]) {
+    const bar = document.getElementById('suggestionsBar');
+    if (bar) bar.innerHTML = list.map(t => `<button type="button" onclick="useSuggestion('${t.replace(/'/g, "\\'")}')" class="px-2.5 py-1 rounded-full bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 text-[11px] whitespace-nowrap cursor-pointer">${escapeHtml(t)}</button>`).join('');
+}
+function useSuggestion(text) { document.getElementById('messageInput').value = text; sendMessage(); }
+renderSuggestions();
+
 async function loadMemoryBadge() {
     const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}`);
     if (r.ok) applyAccountAndStats(await r.json());
