@@ -747,11 +747,7 @@ async function sendMessage() {
         return;
     }
     
-    const generateImage = document.getElementById('generateImageCheck').checked;
-    const imagePrompt = document.getElementById('imagePromptInput').value.trim();
-    const scene = document.getElementById('sceneSelect').value;
-    const role = document.getElementById('roleSelect').value;
-    const gender = document.getElementById('genderSelect').value;
+    const gender = characterData?.gender || 'female';
     
     input.value = '';
     autoResize(input);
