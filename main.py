@@ -770,6 +770,7 @@ async def process_task(task_data, ws, send_status):
             # Очистка от артефактов
             bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯！？，。、；：「」『』（）]+', '', bot_text)
             bot_text = re.sub(r'!\[.*?\]\(.*?\)|\[.*?\]', '', bot_text)
+            bot_text = re.sub(r'\([a-zA-Z0-9_\s]+\)', '', bot_text)
             bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
             if len(bot_text) < 5:
@@ -783,6 +784,8 @@ async def process_task(task_data, ws, send_status):
                 if "assistant" in bot_text:
                     bot_text = bot_text.split("assistant")[-1].strip()
                 bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯！？，。、；：「」『』（）]+', '', bot_text)
+                bot_text = re.sub(r'!\[.*?\]\(.*?\)|\[.*?\]', '', bot_text)
+                bot_text = re.sub(r'\([a-zA-Z0-9_\s]+\)', '', bot_text)
                 bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
             print(f"🤖 {character['name']}: {bot_text}")
