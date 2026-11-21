@@ -448,7 +448,6 @@ def generate_personality_prompt(character_key, state, mem=None):
         if mem.get("gifts"):
             gifts_str = ", ".join(g["name"] for g in mem["gifts"][-5:])
             prompt_parts.append(f"Собеседник дарил тебе подарки: {gifts_str}. Ты ценишь это и помнишь о них.")
-
         is_prem = mem.get("_account", {}).get("is_premium", False)
         if is_prem:
             prompt_parts.append("У собеседника статус PREMIUM: ты можешь открыто флиртовать и поддерживать взрослые интимные темы (18+).")
