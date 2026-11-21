@@ -635,18 +635,19 @@ async function loadCharacter() {
     }
 }
 
-function toggleGiftMenu() { document.getElementById('giftMenu').classList.toggle('hidden'); }
+function applyAccountAndStats(d) {
+    const s = d.memory?.state || {}, a = d.account || {};
+    document.getElementById('statMood').textContent = `😊 Настроение: ${s.mood ?? 50}%`;
+    document.getElementById('statTrust').textContent = `💖 Доверие: ${s.trust ?? 30}%`;
+    document.getElementById('statIntimacy').textContent = `🔥 Близость: ${s.intimacy ?? 20}%`;
+    document.getElementById('statEnergy').textContent = `⚡ Энергия: ${s.energy ?? 80}%`;
+    document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0} · 🦴 ${a.bones ?? 0}`;
+    const btn = document.getElementById('premiumBadgeBtn');
+    btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (10 💀/мес)';
+}
 async function loadMemoryBadge() {
     const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}`);
-    if (r.ok) { const d = await r.json(); document.getElementById('trustBadge').textContent = `💖 ${d.memory?.state?.trust ?? 30}%`; }
-}
-
-async function sendGift(name, mood, trust, intimacy) {
-    toggleGiftMenu();
-    const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}/gift`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, mood, trust, intimacy }) });
-    if (r.ok) { const d = await r.json(); document.getElementById('trustBadge').textContent = `💖 ${d.memory?.state?.trust ?? 30}%`; }
-    document.getElementById('messageInput').value = `🎁 Подарил тебе: ${name}`;
-    sendMessage();
+    if (r.ok) applyAccountAndStats(await r.json());
 }
 
 function addUserMessage(text, imageUrl = null) {
