@@ -621,16 +621,18 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 def generate_suggestions(character, user_text, bot_text):
     base = ["📸 Пришли фоточку", "🎤 Ответь голосом"]
     if VOICE_MODEL is None or VOICE_TOKENIZER is None:
-        return base + ["Расскажи о себе"]
+        return ["💬 Расскажи о себе", "💬 Какие у тебя увлечения?"] + base
     try:
-        msgs = [{"role": "system", "content": "Придумай 1 короткий ответ-вопрос (3-5 слов) от лица пользователя для продолжения диалога. Выведи ТОЛЬКО фразу без кавычек."}, {"role": "user", "content": f"Собеседник ({character['name']}): {bot_text}"}]
+        msgs = [{"role": "system", "content": f"Придумай 2 РАЗНЫЕ короткие реплики (по 3-5 слов, каждая с новой строки) от лица пользователя для развития диалога. НЕ повторяй вопрос: '{user_text[:40]}'."}, {"role": "user", "content": f"{character['name']}: {bot_text}"}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
-        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=20, temperature=0.8, do_sample=True)
-        q = re.sub(r'["\'\n一-鿿！？，。]+', '', VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True)).strip()[:45]
-        return ([f"💬 {q}"] if len(q) > 3 else ["💬 Расскажи подробнее"]) + base
-    except Exception:
-        return ["💬 Расскажи подробнее"] + base
+        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=45, temperature=0.85, do_sample=True)
+        raw = re.sub(r'["\'\d.)\-•一-鿿！？，。]+', '', VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True))
+        lines = [f"💬 {l.strip()[:42]}" for l in raw.split("\n") if len(l.strip()) > 3][:2]
+        return (lines if lines else ["💬 А что тебе ещё нравится?"]) + base
+    except Exception: return ["💬 Расскажи подробнее", "💬 А что ты любишь?"] + base
+
+
 
 
 async def process_task(task_data, ws, send_status):
