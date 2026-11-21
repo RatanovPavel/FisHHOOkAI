@@ -646,7 +646,7 @@ function applyAccountAndStats(d) {
     document.getElementById('statEnergy').textContent = `⚡ Энергия: ${s.energy ?? 80}%`;
     document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0}`;
     const btn = document.getElementById('premiumBadgeBtn');
-    btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (10 💀/мес)';
+    btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (20 💀/мес)';
 }
 async function loadMemoryBadge() {
     const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}`);
