@@ -833,12 +833,9 @@ async function sendVoiceMessage(audioBlob) {
                 character: characterKey,
                 audio_base64: audioBase64,
                 text_message: '',
-                scene: scene,
-                role: role,
-                gender: gender,
-                generate_image: generateImage,
-                image_prompt: generateImage ? imagePrompt : '',
-                nsfw: ['shower', 'nsfw'].includes(scene)
+                scene: 'nature', role: 'assistant', gender: gender,
+                generate_image: false, image_prompt: '', nsfw: false
+
             }
         }));
     };
