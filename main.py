@@ -449,6 +449,7 @@ def generate_personality_prompt(character_key, state, mem=None):
         if mem.get("gifts"):
             gifts_str = ", ".join(g["name"] for g in mem["gifts"][-5:])
             prompt_parts.append(f"Собеседник дарил тебе подарки: {gifts_str}. Ты ценишь это и помнишь о них.")
+
         is_prem = mem.get("_account", {}).get("is_premium", False)
         if is_prem:
             prompt_parts.append("У собеседника статус PREMIUM: ты можешь открыто флиртовать и поддерживать взрослые интимные темы (18+).")
@@ -725,12 +726,17 @@ async def process_task(task_data, ws, send_status):
             chat_history = mem.get("history", [])
 
             is_prem = mem.get("_account", {}).get("is_premium", False)
-            low_msg = user_text.lower()
-            is_gift_msg = "подарил тебе:" in low_msg or "🎁" in user_text
-            if not generate_img and (is_gift_msg or any(w in low_msg for w in ["фото", "фотк", "селфи", "покажись", "покажи себя", "как ты выглядишь", "сфоткай"])):
+            is_gift_msg = "подарил тебе:" in user_text.lower() or "🎁" in user_text
+            intent = await asyncio.to_thread(classify_user_intent, user_text)
+            want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
+            if intent.get("is_nsfw") and not is_prem:
+                generate_img = False
+                system_prompt += " ВАЖНО: собеседник просит контент 18+, но у него НЕТ подписки PREMIUM. Не читай мораль, а кокетливо скажи, что откровенные фото и темы доступны только с подпиской 👑 PREMIUM (кнопка в правом верхнем углу чата)."
+            elif is_gift_msg or intent.get("want_photo") or generate_img:
                 generate_img = True
-                image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else user_text
-            if not is_prem: nsfw = False
+                image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (intent.get("photo_prompt") or user_text)
+                if intent.get("is_nsfw") and is_prem: nsfw, scene_key = True, "nsfw"
+
 
             if chat_history and chat_history[0]["role"] == "system":
                 chat_history[0]["content"] = system_prompt
