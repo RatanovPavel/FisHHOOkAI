@@ -624,19 +624,20 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 # ============================================================================
 
 def classify_user_intent(user_text):
-    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
-        return {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
+    default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": ""}
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None: return default
     try:
-        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD scene/pose"}. want_photo=true whenever user asks to send/show/make a photo/selfie/pic in ANY place (cafe, beach, gym, etc). is_nsfw=true for nudity, naked, bikini-off, sauna, sex, erotic or explicit poses.'
+        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, etc) if mentioned else empty"}.'
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
-        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=60, do_sample=False)
+        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=90, do_sample=False)
         raw = VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True)
         m = re.search(r'\{.*?\}', raw, re.S)
-        return json.loads(m.group(0)) if m else {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
-    except Exception:
-        return {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
+        if m: default.update(json.loads(m.group(0)))
+    except Exception: pass
+    return default
+
 
 
 def generate_suggestions(character, user_text, bot_text):
