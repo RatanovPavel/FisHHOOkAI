@@ -769,6 +769,7 @@ async def process_task(task_data, ws, send_status):
             
             # Очистка от артефактов
             bot_text = re.sub(r'[一-鿿㐀-䶿぀-ゟ゠-ヿ가-힯！？，。、；：「」『』（）]+', '', bot_text)
+            bot_text = re.sub(r'!\[.*?\]\(.*?\)|\[.*?\]', '', bot_text)
             bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
             if len(bot_text) < 5:
