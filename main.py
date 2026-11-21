@@ -280,6 +280,7 @@ def save_server_memory(character_key, mem):
         print(f"⚠ Ошибка сохранения памяти: {e}")
 
 def extract_user_memory(user_text, mem):
+    re.IGNORECASE
     m = re.search(r'(?:меня зовут|мо[её] имя|я\s+—?\s*)([А-ЯЁ][а-яё]{2,15})', user_text)
     if m and m.group(1).lower() not in ["привет", "хорошо", "сегодня", "очень", "просто", "тоже"]:
         mem["user_name"] = m.group(1)
