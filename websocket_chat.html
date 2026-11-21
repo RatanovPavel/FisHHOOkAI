@@ -767,10 +767,6 @@ async function sendMessage() {
             generate_image: false, image_prompt: '', nsfw: false
         }
     }));
-    
-    if (generateImage && imagePrompt) {
-        document.getElementById('imagePromptInput').value = '';
-    }
 }
 
 // Запись голоса
