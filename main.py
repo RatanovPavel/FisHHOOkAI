@@ -618,6 +618,21 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 # 🎙️ ОБРАБОТКА ЗАДАЧИ
 # ============================================================================
 
+def generate_suggestions(character, user_text, bot_text):
+    base = ["📸 Пришли фоточку", "🎤 Ответь голосом"]
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+        return base + ["Расскажи о себе"]
+    try:
+        msgs = [{"role": "system", "content": "Придумай 1 короткий ответ-вопрос (3-5 слов) от лица пользователя для продолжения диалога. Выведи ТОЛЬКО фразу без кавычек."}, {"role": "user", "content": f"Собеседник ({character['name']}): {bot_text}"}]
+        p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+        inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
+        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=20, temperature=0.8, do_sample=True)
+        q = re.sub(r'["\'\n一-鿿！？，。]+', '', VOICE_TOKENIZER.decode(out[inp.input_ids.shape:], skip_special_tokens=True)).strip()[:45]
+        return ([f"💬 {q}"] if len(q) > 3 else ["💬 Расскажи подробнее"]) + base
+    except Exception:
+        return ["💬 Расскажи подробнее"] + base
+
+
 async def process_task(task_data, ws, send_status):
     """Обрабатывает задачу от браузера"""
     task_id = task_data.get("task_id", "unknown")
