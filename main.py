@@ -620,6 +620,22 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 # 🎙️ ОБРАБОТКА ЗАДАЧИ
 # ============================================================================
 
+def classify_user_intent(user_text):
+    if VOICE_MODEL is None or VOICE_TOKENIZER is None:
+        return {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
+    try:
+        sys_p = 'Analyze user message intent. Output ONLY valid JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "short english SD pose/scene"}. is_nsfw=true for any nudity, sex, erotic, explicit poses or intimate requests.'
+        msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
+        p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+        inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
+        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=60, do_sample=False)
+        raw = VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True)
+        m = re.search(r'\{.*?\}', raw, re.S)
+        return json.loads(m.group(0)) if m else {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
+    except Exception:
+        return {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text}
+
+
 def generate_suggestions(character, user_text, bot_text):
     base = ["📸 Пришли фоточку", "🎤 Ответь голосом"]
     if VOICE_MODEL is None or VOICE_TOKENIZER is None:
@@ -633,8 +649,6 @@ def generate_suggestions(character, user_text, bot_text):
         lines = [f"💬 {l.strip()[:42]}" for l in raw.split("\n") if len(l.strip()) > 3][:2]
         return (lines if lines else ["💬 А что тебе ещё нравится?"]) + base
     except Exception: return ["💬 Расскажи подробнее", "💬 А что ты любишь?"] + base
-
-
 
 
 async def process_task(task_data, ws, send_status):
