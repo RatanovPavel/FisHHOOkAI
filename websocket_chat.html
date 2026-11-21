@@ -663,7 +663,7 @@ async function sendGift(name, cost, currency, mood, trust, intimacy) {
     sendMessage();
 }
 async function buyPremium() {
-    if (!confirm('Оформить 👑 PREMIUM на 30 дней за 10 💀? Откроет интимные темы и 18+ фото.')) return;
+    if (!confirm('Оформить 👑 PREMIUM на 30 дней за 20 💀? Откроет интимные темы и 18+ фото.')) return;
     const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/buy_premium`, { method: 'POST' });
     if (!r.ok) return alert('Недостаточно 💀 черепов на балансе! Пополните баланс в магазине.');
     const d = await r.json();
