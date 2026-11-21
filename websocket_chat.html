@@ -312,7 +312,11 @@
             <span id="statIntimacy" class="text-pink-300">🔥 Близость: 20%</span>
             <span id="statEnergy" class="text-cyan-300">⚡ Энергия: 80%</span>
         </div>
-        <button type="button" onclick="document.getElementById('statsBar').classList.toggle('hidden')" class="text-[10px] text-slate-400 hover:text-white cursor-pointer">📊 Статы</button>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="showMemoryDebug()" class="text-[10px] text-cyan-400 hover:text-white cursor-pointer">🧠 Память</button>
+            <button type="button" onclick="document.getElementById('statsBar').classList.toggle('hidden')" class="text-[10px] text-slate-400 hover:text-white cursor-pointer">📊 Статы</button>
+        </div>
+
     </div>
 
 
