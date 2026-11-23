@@ -229,17 +229,12 @@
                         <span onclick="i18n.setLang('en')" class="cursor-pointer hover:text-cyan-400 transition-colors" id="lang-en">EN</span>
                     </div>
                     <!-- БАЛАНСЫ -->
-                    <div id="token-balance-display" class="hidden flex items-center gap-3 md:gap-4 px-4 py-2.5 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl shrink-0">
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm">🦴</span>
-                            <span id="user-bones-count" class="text-xs font-black text-white font-mono">0</span>
-                        </div>
-                        <div class="w-px h-4 bg-slate-800"></div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-sm">💀</span>
-                            <span id="user-skulls-count" class="text-xs font-black text-cyan-400 font-mono">0</span>
-                        </div>
+                    <div id="token-balance-display" class="hidden flex items-center gap-2 px-4 py-2.5 bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl shrink-0">
+                        <span class="text-sm">💀</span>
+                        <span id="user-skulls-count" class="text-xs font-black text-cyan-400 font-mono">0</span>
+                        <span id="user-bones-count" class="hidden">0</span>
                     </div>
+        
                     <!-- ПРОФИЛЬ -->
                     <button onclick="openAuthModal()" class="nav-profile-btn nav-glass px-4 py-2.5 md:px-6 md:py-3 flex items-center gap-3 active:scale-95 transition-all shrink-0">
                         <span id="header-user-label" data-i18n="index.t1" class="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">Авторизация</span>
