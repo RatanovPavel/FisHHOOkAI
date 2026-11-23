@@ -750,6 +750,8 @@ async def process_task(task_data, ws, send_status):
                 if f_str not in mem.get("facts", []):
                     mem.setdefault("facts", []).append(f_str)
             system_prompt = generate_personality_prompt(character_key, state, mem)
+            if scenario_prompt:
+                system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ (строго держись этой роли и обстановки): {scenario_prompt}"
 
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
 
