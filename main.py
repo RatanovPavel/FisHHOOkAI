@@ -740,10 +740,12 @@ async def process_task(task_data, ws, send_status):
             system_prompt = generate_personality_prompt(character_key, state, mem)
 
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
+
             if intent.get("is_nsfw") and not is_prem:
                 generate_img = False
-                bot_text = f"Ой, {mem.get('user_name') or 'милый'}, такие откровенные фото и темы я открываю только для VIP-друзей с подпиской 👑 PREMIUM — нажми на кнопку в правом верхнем углу чата, и я буду твоей без границ 😉"
-                raise StopIteration("NSFW_PAYWALL")
+                bot_text = f"Ой, {mem.get('user_name') or 'милый'}, такие откровенные фото и темы я открываю только с подпиской 👑 PREMIUM — нажми на кнопку в правом верхнем углу чата, и я буду твоей без границ 😉"
+            else:
+
 
             if intent.get("is_nsfw") and not is_prem:
                 generate_img = False
