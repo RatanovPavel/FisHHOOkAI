@@ -391,39 +391,40 @@
     }
     
     .fh-card {
-        position: relative;
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
-        border: 1px solid rgba(100, 116, 139, 0.2);
-        border-radius: 1.5rem;
-        overflow: hidden;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        cursor: pointer;
-        height: 480px;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .fh-card:hover {
-        border-color: rgba(34, 211, 238, 0.5);
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: 0 20px 60px rgba(34, 211, 238, 0.15), 0 0 40px rgba(168, 85, 247, 0.1);
-    }
-    
-    .fh-card-photo-wrap {
-        position: relative;
-        height: 280px;  /* Увеличил высоту для лучшего отображения лиц */
-        overflow: hidden;
-        flex-shrink: 0;
-    }
-    
-    .fh-card-photo {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center top;  /* ВАЖНО: показываем верхнюю часть (лица) */
-        filter: brightness(0.95) contrast(1.05);  /* Смягчил фильтры для лучшей видимости */
-        transition: filter 0.4s;
-    }
+  position: relative;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.7));
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 1.5rem;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.fh-card:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 60px rgba(34, 211, 238, 0.15), 0 0 40px rgba(168, 85, 247, 0.1);
+}
+
+.fh-card-photo-wrap {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 360px;
+  overflow: hidden;
+}
+
+.fh-card-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
+
+
     
     .fh-card:hover .fh-card-photo {
         filter: brightness(1) contrast(1.15);
