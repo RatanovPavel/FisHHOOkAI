@@ -745,14 +745,11 @@ async def process_task(task_data, ws, send_status):
                 generate_img = False
                 bot_text = f"Ой, {mem.get('user_name') or 'милый'}, такие откровенные фото и темы я открываю только с подпиской 👑 PREMIUM — нажми на кнопку в правом верхнем углу чата, и я буду твоей без границ 😉"
             else:
+                if is_gift_msg or intent.get("want_photo") or generate_img:
+                    generate_img = True
+                    image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (intent.get("photo_prompt") or user_text)
+                    if intent.get("is_nsfw") and is_prem: nsfw, scene_key = True, "nsfw"
 
-
-            if intent.get("is_nsfw") and not is_prem:
-                generate_img = False
-                system_prompt += " Обязательно ответь на русском языке с лёгким кокетством, без англицизмов: скажи, что откровенные фото и темы доступны только с подпиской 👑 PREMIUM (кнопка в правом верхнем углу чата)."
-            elif is_gift_msg or intent.get("want_photo") or generate_img:
-                generate_img = True
-                image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (intent.get("photo_prompt") or user_text)
                 if intent.get("is_nsfw") and is_prem: nsfw, scene_key = True, "nsfw"
 
 
