@@ -662,6 +662,12 @@ function renderSuggestions(list = ["👋 Привет! Давай познако
 function useSuggestion(text) { document.getElementById('messageInput').value = text; sendMessage(); }
 renderSuggestions();
 
+let allScenarios = [], activeScenario = null, isPremiumUser = false;
+async function loadScenarios() {
+    const r = await fetch('/api/memory/scenarios');
+    if (r.ok) { allScenarios = (await r.json()).scenarios || []; renderScenarios(); }
+}
+
 async function loadMemoryBadge() {
     const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}`);
     if (r.ok) applyAccountAndStats(await r.json());
