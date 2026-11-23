@@ -626,10 +626,10 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 # ============================================================================
 
 def classify_user_intent(user_text):
-    default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": ""}
+    default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": "", "d_mood": 0, "d_trust": 0, "d_intimacy": 0, "d_energy": -1}
     if VOICE_MODEL is None or VOICE_TOKENIZER is None: return default
     try:
-        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, or prefers ты/вы) if mentioned else empty"}.'
+        sys_p = 'Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, or prefers ты/вы) if mentioned else empty", "d_mood": int(-25..20), "d_trust": int(-20..15), "d_intimacy": int(-15..15), "d_energy": int(-5..5)}. Adjust deltas based on tone (compliment/warmth/humor -> positive, rudeness/pressure -> negative).'
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
