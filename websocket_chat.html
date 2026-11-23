@@ -647,6 +647,7 @@ async function loadCharacter() {
 
 function applyAccountAndStats(d) {
     const s = d.memory?.state || {}, a = d.account || {};
+    isPremiumUser = !!a.is_premium; renderScenarios();
     document.getElementById('statMood').textContent = `😊 Настроение: ${s.mood ?? 50}%`;
     document.getElementById('statTrust').textContent = `💖 Доверие: ${s.trust ?? 30}%`;
     document.getElementById('statIntimacy').textContent = `🔥 Близость: ${s.intimacy ?? 20}%`;
@@ -666,6 +667,10 @@ let allScenarios = [], activeScenario = null, isPremiumUser = false;
 async function loadScenarios() {
     const r = await fetch('/api/memory/scenarios');
     if (r.ok) { allScenarios = (await r.json()).scenarios || []; renderScenarios(); }
+}
+function renderScenarios() {
+    const bar = document.getElementById('scenariosBar');
+    if (bar) bar.innerHTML = allScenarios.map(sc => `<button type="button" onclick="startScenario('${sc.key}')" class="px-2.5 py-1 rounded-lg ${activeScenario?.key === sc.key ? 'bg-amber-500/35 border-amber-400 text-white' : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-200'} border text-xs whitespace-nowrap cursor-pointer">${isPremiumUser ? '' : '🔒 '}${sc.icon} ${escapeHtml(sc.title)}</button>`).join('');
 }
 
 async function loadMemoryBadge() {
