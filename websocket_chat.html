@@ -673,7 +673,8 @@ function renderScenarios() {
     if (!bar) return;
     const pool = [...allScenarios].sort(() => Math.random() - 0.5).slice(0, 3);
     if (activeScenario && !pool.some(x => x.key === activeScenario.key)) pool[0] = activeScenario;
-    const moreBtn = allScenarios.length > 3 ? `<button type="button" onclick="renderScenarios()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs cursor-pointer">🔄 Ещё</button>` : '';
+    const moreBtn = allScenarios.length > 3 ? `<button type="button" onclick="renderScenarios()" class="ml-auto px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs cursor-pointer">🔄 Ещё</button>` : '';
+    const cls = sc => activeScenario?.key === sc.key ? 'bg-amber-500/35 border-amber-400 text-white' : 'bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-200';
     bar.innerHTML = pool.map(sc => `<button type="button" onclick="startScenario('${sc.key}')" class="px-2.5 py-1 rounded-lg ...">${isPremiumUser ? '' : '🔒 '}${sc.icon} ${escapeHtml(sc.title)}</button>`).join('') + moreBtn;
 }
 
