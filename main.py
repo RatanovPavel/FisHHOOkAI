@@ -723,14 +723,18 @@ async def process_task(task_data, ws, send_status):
             mem = load_server_memory(character_key)
             if mem.get("state"):
                 CHARACTER_STATES[character_key] = mem["state"]
-            sentiment = analyze_message_sentiment(user_text)
-            state = update_character_state(character_key, sentiment)
-            mem["state"] = state
+
             chat_history = mem.get("history", [])
 
             is_prem = mem.get("_account", {}).get("is_premium", False)
             is_gift_msg = "подарил тебе:" in user_text.lower() or "🎁" in user_text
             intent = await asyncio.to_thread(classify_user_intent, user_text)
+
+            state = get_character_state(character_key)
+            for sk, dk in [("mood", "d_mood"), ("trust", "d_trust"), ("intimacy", "d_intimacy"), ("energy", "d_energy")]:
+                state[sk] = max(-100 if sk == "mood" else 0, min(100, state.get(sk, 50) + max(-25, min(20, int(intent.get(dk, 0))))))
+            CHARACTER_STATES[character_key] = mem["state"] = state
+
             if intent.get("user_name") and len(str(intent["user_name"]).strip()) >= 2:
                 mem["user_name"] = str(intent["user_name"]).strip().capitalize()
             if intent.get("fact") and len(str(intent["fact"]).strip()) >= 4:
