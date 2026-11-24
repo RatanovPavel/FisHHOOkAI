@@ -756,7 +756,7 @@ async def process_task(task_data, ws, send_status):
                 if "🎭 Начинаем сценарий:" in user_text and chat_history:
                     chat_history = [chat_history[0]]
                 system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ: {scenario_prompt} ПРАВИЛО ИГРЫ: Сразу вживись в роль и говори от первого лица прямо сейчас (словно это происходит в реальности). НИКОГДА не пиши 'Представь, что...' или 'Я бы сказала...' — сразу начни сцену живой репликой!"
-                
+
             if intent.get("next_node"):
                 generate_img = True
                 if not image_prompt: image_prompt = intent.get("photo_prompt") or user_text
@@ -860,7 +860,7 @@ async def process_task(task_data, ws, send_status):
             clean_text = "Извини, я не могу ответить сейчас."
         
         output_audio_name = os.path.join(session_dir, "bot_response.wav")
-        
+        intent = {}
         try:
             if TTS_ENGINE is not None:
                 voice_params = character.get("voice_params")
@@ -952,7 +952,8 @@ async def process_task(task_data, ws, send_status):
         "bot_text": bot_text,
         "audio_url": None,
         "image_url": None,
-        "suggestions": suggestions
+        "suggestions": suggestions,
+        "next_node": intent.get("next_node", "")
     }
     
     # Отправляем аудио (сжимаем WAV -> MP3 для быстрой доставки)
