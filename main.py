@@ -842,7 +842,8 @@ async def process_task(task_data, ws, send_status):
     except Exception as e:
         print(f"❌ Сбой LLM: {e}")
         bot_text = "Произошла ошибка при генерации ответа."
-    
+        
+    intent = {}
     output_audio_name = os.path.join(session_dir, "bot_response.wav")
     if want_voice:
         await send_status(task_id, "speaking", "Синтез речи...")
@@ -860,7 +861,7 @@ async def process_task(task_data, ws, send_status):
             clean_text = "Извини, я не могу ответить сейчас."
         
         output_audio_name = os.path.join(session_dir, "bot_response.wav")
-        intent = {}
+        
         try:
             if TTS_ENGINE is not None:
                 voice_params = character.get("voice_params")
