@@ -750,8 +750,11 @@ async def process_task(task_data, ws, send_status):
                 if f_str not in mem.get("facts", []):
                     mem.setdefault("facts", []).append(f_str)
             system_prompt = generate_personality_prompt(character_key, state, mem)
+            
             if scenario_prompt:
-                system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ (строго держись этой роли и обстановки): {scenario_prompt}"
+                if "🎭 Начинаем сценарий:" in user_text and chat_history:
+                    chat_history = [chat_history[0]]
+                system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ: {scenario_prompt} ПРАВИЛО ИГРЫ: Сразу вживись в роль и говори от первого лица прямо сейчас (словно это происходит в реальности). НИКОГДА не пиши 'Представь, что...' или 'Я бы сказала...' — сразу начни сцену живой репликой!"
 
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
 
