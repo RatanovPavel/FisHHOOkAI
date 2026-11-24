@@ -688,8 +688,10 @@ function nextScenarios() { scenarioOffset = (scenarioOffset + 1) % allScenarios.
 function startScenario(entryKey) {
     if (!isPremiumUser) return alert('🎭 Ролевые сценарии доступны с подпиской 👑 PREMIUM (кнопка в правом верхнем углу чата).');
     activeScenario = allScenarios.find(x => x.entry === entryKey) || null; currentNode = scenarioNodes[entryKey] || null; renderScenarios();
-    if (activeScenario && ws && ws.readyState === WebSocket.OPEN) { document.getElementById('messageInput').value = `🎭 Начинаем сценарий: ${activeScenario.title}`; sendMessage(); }
+    if (currentNode?.choices?.length) renderSuggestions(currentNode.choices);
+    if (activeScenario && ws && ws.readyState === WebSocket.OPEN) { document.getElementById('messageInput').value = `🎭 Начинаем сценарий: ${activeScenario.title}`; sendMessage(true); }
 }
+
 loadScenarios();
 
 async function loadMemoryBadge() {
