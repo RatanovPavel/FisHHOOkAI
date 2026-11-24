@@ -737,7 +737,7 @@ async def process_task(task_data, ws, send_status):
 
             is_prem = mem.get("_account", {}).get("is_premium", False)
             is_gift_msg = "подарил тебе:" in user_text.lower() or "🎁" in user_text
-            intent = await asyncio.to_thread(classify_user_intent, user_text)
+            intent = await asyncio.to_thread(classify_user_intent, user_text, scenario_branches)
 
             state = get_character_state(character_key)
             for sk, dk in [("mood", "d_mood"), ("trust", "d_trust"), ("intimacy", "d_intimacy"), ("energy", "d_energy")]:
@@ -756,6 +756,10 @@ async def process_task(task_data, ws, send_status):
                 if "🎭 Начинаем сценарий:" in user_text and chat_history:
                     chat_history = [chat_history[0]]
                 system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ: {scenario_prompt} ПРАВИЛО ИГРЫ: Сразу вживись в роль и говори от первого лица прямо сейчас (словно это происходит в реальности). НИКОГДА не пиши 'Представь, что...' или 'Я бы сказала...' — сразу начни сцену живой репликой!"
+                
+            if intent.get("next_node"):
+                generate_img = True
+                if not image_prompt: image_prompt = intent.get("photo_prompt") or user_text
 
             want_voice = bool(audio_b64) or is_gift_msg or intent.get("want_voice", False)
 
