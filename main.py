@@ -750,7 +750,7 @@ async def process_task(task_data, ws, send_status):
                 if f_str not in mem.get("facts", []):
                     mem.setdefault("facts", []).append(f_str)
             system_prompt = generate_personality_prompt(character_key, state, mem)
-            
+
             if scenario_prompt:
                 if "🎭 Начинаем сценарий:" in user_text and chat_history:
                     chat_history = [chat_history[0]]
@@ -807,6 +807,7 @@ async def process_task(task_data, ws, send_status):
             bot_text = re.sub(r'!\[.*?\]\(.*?\)|\[.*?\]', '', bot_text)
             bot_text = re.sub(r'\([a-zA-Z0-9_\s]+\)', '', bot_text)
             bot_text = re.sub(r'[a-zA-Z_]{2,}', '', bot_text)
+            bot_text = re.sub(r'💬.*$', '', bot_text).replace('：', ':')
             bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
             if len(bot_text) < 5:
@@ -823,6 +824,7 @@ async def process_task(task_data, ws, send_status):
                 bot_text = re.sub(r'!\[.*?\]\(.*?\)|\[.*?\]', '', bot_text)
                 bot_text = re.sub(r'\([a-zA-Z0-9_\s]+\)', '', bot_text)
                 bot_text = re.sub(r'[a-zA-Z_]{2,}', '', bot_text)
+                bot_text = re.sub(r'💬.*$', '', bot_text).replace('：', ':')
                 bot_text = re.sub(r'\s+', ' ', bot_text).strip()
             
             print(f"🤖 {character['name']}: {bot_text}")
