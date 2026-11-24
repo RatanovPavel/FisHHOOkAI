@@ -632,7 +632,7 @@ def generate_photorealistic_image(user_prompt, character_key, scene_key, output_
 # 🎙️ ОБРАБОТКА ЗАДАЧИ
 # ============================================================================
 
-def classify_user_intent(user_text):
+def classify_user_intent(user_text, branches=None):
     default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": "", "d_mood": 0, "d_trust": 0, "d_intimacy": 0, "d_energy": -1}
     if VOICE_MODEL is None or VOICE_TOKENIZER is None: return default
     try:
