@@ -794,7 +794,7 @@ function hideTypingIndicator() {
 }
 
 // Отправка текстового сообщения через WebSocket
-async function sendMessage() {
+async function sendMessage(forceImg = false) {
     const input = document.getElementById('messageInput');
     const text = input.value.trim();
     
@@ -821,8 +821,8 @@ async function sendMessage() {
         task_data: {
             character: characterKey,
             text_message: text,
-            scene: activeScenario?.scene || 'nature', scenario_prompt: activeScenario?.prompt || '', role: 'assistant', gender: gender,
-            generate_image: false, image_prompt: '', nsfw: false
+            scene: currentNode?.scene || 'nature', scenario_prompt: currentNode?.prompt || '', scenario_branches: currentNode?.branches || [],
+            generate_image: !!forceImg, image_prompt: forceImg ? (currentNode?.img || '') : '',
         }
     }));
 }
