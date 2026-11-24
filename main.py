@@ -636,7 +636,7 @@ def classify_user_intent(user_text, branches=None):
     default = {"want_photo": False, "want_voice": False, "is_nsfw": False, "photo_prompt": user_text, "user_name": "", "fact": "", "d_mood": 0, "d_trust": 0, "d_intimacy": 0, "d_energy": -1, "next_node": ""}
     if VOICE_MODEL is None or VOICE_TOKENIZER is None: return default
     try:
-        sys_p = f' If branches given, pick matching "next_node" id else empty: {json.dumps(branches or [], ensure_ascii=False)}''Analyze user message. Output ONLY JSON: {"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user (city, job, hobby, or prefers ты/вы) if mentioned else empty", "d_mood": int(-25..20), "d_trust": int(-20..15), "d_intimacy": int(-15..15), "d_energy": int(-5..5)}. Adjust deltas based on tone (compliment/warmth/humor -> positive, rudeness/pressure -> negative).'
+        sys_p = f'Analyze user message. Output ONLY JSON: {{"want_photo": bool, "want_voice": bool, "is_nsfw": bool, "photo_prompt": "english SD pose/scene", "user_name": "name if introduced else empty", "fact": "short Russian fact about user if mentioned else empty", "d_mood": int(-25..20), "d_trust": int(-20..15), "d_intimacy": int(-15..15), "d_energy": int(-5..5), "next_node": "matching next id from branches else empty"}}. Branches: {json.dumps(branches or [], ensure_ascii=False)}'
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
