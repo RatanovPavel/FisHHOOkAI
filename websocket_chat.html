@@ -663,11 +663,16 @@ function renderSuggestions(list = ["👋 Привет! Давай познако
 function useSuggestion(text) { document.getElementById('messageInput').value = text; sendMessage(); }
 renderSuggestions();
 
-let allScenarios = [], activeScenario = null, isPremiumUser = false;
+let allScenarios = [], scenarioNodes = {}, currentNode = null, activeScenario = null, isPremiumUser = false;
 async function loadScenarios() {
     const r = await fetch('/api/memory/scenarios');
-    if (r.ok) { allScenarios = (await r.json()).scenarios || []; renderScenarios(); }
+    if (r.ok) {
+        allScenarios = (await r.json()).scenarios || [];
+        scenarioNodes = Object.assign({}, ...allScenarios.map(s => s.nodes || {}));
+        renderScenarios();
+    }
 }
+
 function renderScenarios() {
     const bar = document.getElementById('scenariosBar');
     if (!bar) return;
