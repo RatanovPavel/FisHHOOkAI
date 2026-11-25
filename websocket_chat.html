@@ -727,7 +727,7 @@ async function sendGift(name, cost, currency, mood, trust, intimacy, energy = 0)
     if (!ws || ws.readyState !== WebSocket.OPEN || document.getElementById('workerSetupCard')) {
         return alert('⚡ Сначала подключите воркер (GPU), чтобы собеседник мог принять ваш подарок!');
     }
-    const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}/gift`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, cost, currency, mood, trust, intimacy }) });
+    const r = await fetch(`/api/memory/${encodeURIComponent(USER_ID)}/${characterKey}/gift`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, cost, currency, mood, trust, intimacy, energy }) });
     if (!r.ok) { const err = await r.json().catch(() => ({})); return alert(err.detail === 'NOT_ENOUGH_SKULLS' ? 'Недостаточно 💀 черепов!' : err.detail === 'NOT_ENOUGH_BONES' ? 'Недостаточно 🦴 костей!' : 'Ошибка отправки подарка'); }
     applyAccountAndStats(await r.json());
     document.getElementById('messageInput').value = `🎁 Подарил тебе: ${name}`;
