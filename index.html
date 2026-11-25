@@ -1061,6 +1061,7 @@
 
     // Рендер карточек
     function fhRenderCompanions(companions) {
+        window._lastCompanions = companions;
         const grid = document.getElementById('fhGrid');
         const info = document.getElementById('fhSortInfo');
         
