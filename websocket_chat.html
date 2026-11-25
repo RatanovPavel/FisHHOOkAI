@@ -646,17 +646,17 @@ async function loadCharacter() {
     }
 }
 
-let currentStats = { mood: 50, trust: 30, intimacy: 20, energy: 80 };
+let currentStats = { mood: 50, trust: 0, intimacy: 0, energy: 50 };
 
 function applyAccountAndStats(d) {
     const s = d.memory?.state || {}, a = d.account || {};
-    currentStats = { mood: s.mood ?? 50, trust: s.trust ?? 30, intimacy: s.intimacy ?? 20, energy: s.energy ?? 80 };
     isPremiumUser = !!a.is_premium; renderScenarios();
-    document.getElementById('statMood').textContent = `😊 Настроение: ${s.mood ?? 50}%`;
-    document.getElementById('statTrust').textContent = `💖 Доверие: ${s.trust ?? 30}%`;
-    document.getElementById('statIntimacy').textContent = `🔥 Близость: ${s.intimacy ?? 20}%`;
-    document.getElementById('statEnergy').textContent = `⚡ Энергия: ${s.energy ?? 80}%`;
-    document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0}`;
+    currentStats = { mood: s.mood ?? 50, trust: s.trust ?? 0, intimacy: s.intimacy ?? 0, energy: s.energy ?? 50 };
+    document.getElementById('statMood').textContent = `😊 Настроение: ${currentStats.mood}%`;
+    document.getElementById('statTrust').textContent = `💖 Доверие: ${currentStats.trust}%`;
+    document.getElementById('statIntimacy').textContent = `🔥 Близость: ${currentStats.intimacy}%`;
+    document.getElementById('statEnergy').textContent = `⚡ Энергия: ${currentStats.energy}%`;
+
     const btn = document.getElementById('premiumBadgeBtn');
     btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (20 💀/мес)';
 }
