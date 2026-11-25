@@ -646,6 +646,8 @@ async function loadCharacter() {
     }
 }
 
+let currentStats = { mood: 50, trust: 30, intimacy: 20, energy: 80 };
+
 function applyAccountAndStats(d) {
     const s = d.memory?.state || {}, a = d.account || {};
     isPremiumUser = !!a.is_premium; renderScenarios();
