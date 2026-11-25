@@ -585,8 +585,8 @@ function handleTaskResult(data) {
     );
 
     loadMemoryBadge();
-    if (data.suggestions && data.suggestions.length) renderSuggestions(data.suggestions);
-    if (data.next_node && scenarioNodes[data.next_node]) { currentNode = scenarioNodes[data.next_node]; if (currentNode.choices?.length) renderSuggestions(currentNode.choices); }
+    if (data.next_node && scenarioNodes[data.next_node]) currentNode = scenarioNodes[data.next_node];
+    if (currentNode) renderQuestChoices(); else if (data.suggestions?.length) renderSuggestions(data.suggestions);
 
     // Автовоспроизведение аудио
     if (data.audio_url) {
