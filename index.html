@@ -1078,7 +1078,7 @@
     // Создание карточки
     function fhCreateCard(comp, index) {
         const isOnline = Math.random() > 0.3;
-        const isPremium = comp.subscription_required || false;
+        const isPremium = Boolean(userPremiumMap[comp.key]);
         const isNsfw = comp.nsfw_allowed || false;
         const isAnime = comp.style === 'anime';
         
