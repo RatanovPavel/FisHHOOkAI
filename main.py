@@ -777,7 +777,7 @@ async def process_task(task_data, ws, send_status):
             else:
                 if is_gift_msg or intent.get("want_photo") or generate_img:
                     generate_img = True
-                    image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (intent.get("photo_prompt") or user_text)
+                    image_prompt = "happy smiling selfie holding a gift" if is_gift_msg else (image_prompt or intent.get("photo_prompt") or user_text)
                     if intent.get("is_nsfw") and is_prem: nsfw, scene_key = True, "nsfw"
 
                 if intent.get("is_nsfw") and is_prem: nsfw, scene_key = True, "nsfw"
