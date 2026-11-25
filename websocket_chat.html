@@ -671,6 +671,13 @@ function renderQuestChoices() {
     const exitBtn = `<button type="button" onclick="exitQuest()" class="px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] whitespace-nowrap cursor-pointer">🚪 Выйти из сценария</button>`;
     bar.innerHTML = items.map(c => `<button type="button" onclick="doQuestAction('${c.text.replace(/'/g, "\\'")}', '${c.next || ''}')" class="px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] whitespace-nowrap cursor-pointer">${escapeHtml(c.text)}</button>`).join('') + exitBtn;
 }
+function doQuestAction(text, nextId) {
+    if (nextId && scenarioNodes[nextId]) currentNode = scenarioNodes[nextId];
+    renderQuestChoices();
+    document.getElementById('messageInput').value = text; sendMessage(!!nextId);
+}
+function exitQuest() { activeScenario = null; currentNode = null; renderScenarios(); renderSuggestions(); }
+
 
 let allScenarios = [], scenarioNodes = {}, currentNode = null, activeScenario = null, isPremiumUser = false;
 async function loadScenarios() {
