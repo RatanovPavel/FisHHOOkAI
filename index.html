@@ -1022,11 +1022,11 @@
             filtered = filtered.filter(c => c.style === fhActiveFilters.style);
         }
         
-     if (fhActiveFilters.type === 'free') {
-         filtered = filtered.filter(c => !userPremiumMap[c.key]);
-     } else if (fhActiveFilters.type === 'premium') {
-         filtered = filtered.filter(c => Boolean(userPremiumMap[c.key]));
-     }
+        if (fhActiveFilters.type === 'free') {
+            filtered = filtered.filter(c => !userPremiumMap[c.key]);
+        } else if (fhActiveFilters.type === 'premium') {
+            filtered = filtered.filter(c => Boolean(userPremiumMap[c.key]));
+        }
         
         fhFilteredCompanions = filtered;
         fhApplySort();
