@@ -1089,14 +1089,10 @@
             badgesHTML += '<span class="fh-badge fh-badge-style fh-badge-realistic">📷 Фото</span>';
         }
         
-        if (isNsfw) {
-            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-nsfw-style">🔥 18+</span>';
-        } else if (isPremium) {
-            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-premium">💎 Premium</span>';
-        } else {
-            badgesHTML += '<span class="fh-badge fh-badge-type fh-badge-free">Free</span>';
+        if (isPremium) {
+            badgesHTML += `<span class="fh-badge fh-badge-type fh-badge-premium">👑 PREMIUM</span>`;
         }
-        
+
         const photoURL = comp.main_photo_url || `/characters/${comp.key}/main.jpg`;
         
         const traitColors = {
