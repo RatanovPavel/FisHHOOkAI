@@ -496,7 +496,8 @@ def init_models():
     try:
         from transformers import BitsAndBytesConfig
         
-        model_id = "Qwen/Qwen2.5-7B-Instruct"
+        model_id = "huihui-ai/Qwen2.5-7B-Instruct-abliterated-v2"
+
         VOICE_TOKENIZER = AutoTokenizer.from_pretrained(model_id)
         
         quantization_config = BitsAndBytesConfig(
@@ -842,7 +843,7 @@ async def process_task(task_data, ws, send_status):
     except Exception as e:
         print(f"❌ Сбой LLM: {e}")
         bot_text = "Произошла ошибка при генерации ответа."
-        
+
     intent = {}
     output_audio_name = os.path.join(session_dir, "bot_response.wav")
     if want_voice:
