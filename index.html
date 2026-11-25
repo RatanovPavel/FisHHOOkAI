@@ -1053,7 +1053,7 @@
     let userPremiumMap = {};
     (async () => {
         const u = JSON.parse(localStorage.getItem('skulla_user') || 'null');
-        if (u?.isLoggedIn) { const r = await fetch(`/api/memory/${encodeURIComponent(u.id || u.email)}/premium_list`); if (r.ok) { userPremiumMap = (await r.json()).premium || {}; if (window._lastCompanions) fhRenderCompanions(window._lastCompanions); } }
+        if (u?.isLoggedIn) { const r = await fetch(`/api/memory/${encodeURIComponent(u.id || u.email)}/premium_list`); if (r.ok) { userPremiumMap = (await r.json()).premium || {}; fhApplyFilters(); } }
     })();
 
     // Рендер карточек
