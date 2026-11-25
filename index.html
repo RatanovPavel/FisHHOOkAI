@@ -1022,13 +1022,11 @@
             filtered = filtered.filter(c => c.style === fhActiveFilters.style);
         }
         
-        if (fhActiveFilters.type === 'free') {
-            filtered = filtered.filter(c => !c.subscription_required && !c.nsfw_allowed);
-        } else if (fhActiveFilters.type === 'premium') {
-            filtered = filtered.filter(c => c.subscription_required);
-        } else if (fhActiveFilters.type === 'nsfw') {
-            filtered = filtered.filter(c => c.nsfw_allowed);
-        }
+     if (fhActiveFilters.type === 'free') {
+         filtered = filtered.filter(c => !userPremiumMap[c.key]);
+     } else if (fhActiveFilters.type === 'premium') {
+         filtered = filtered.filter(c => Boolean(userPremiumMap[c.key]));
+     }
         
         fhFilteredCompanions = filtered;
         fhApplySort();
