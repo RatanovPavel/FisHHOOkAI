@@ -723,7 +723,7 @@ async function showMemoryDebug() {
     addBotMessage(`🧠 ПАМЯТЬ (${characterKey}):\n• Имя: ${m.user_name || 'не задано'}\n• Факты: ${facts}\n• Подарки: ${gifts}\n• Статы: ${JSON.stringify(m.state || {})}\n• Аккаунт: 💀 ${a.skulls ?? 0}, Premium=${a.is_premium}\n• Сообщений в истории: ${(m.history || []).length}`);
 }
 
-async function sendGift(name, cost, currency, mood, trust, intimacy) {
+async function sendGift(name, cost, currency, mood, trust, intimacy, energy = 0) {
     if (!ws || ws.readyState !== WebSocket.OPEN || document.getElementById('workerSetupCard')) {
         return alert('⚡ Сначала подключите воркер (GPU), чтобы собеседник мог принять ваш подарок!');
     }
