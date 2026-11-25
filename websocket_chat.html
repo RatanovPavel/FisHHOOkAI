@@ -664,6 +664,14 @@ function renderSuggestions(list = ["👋 Привет! Давай познако
 function useSuggestion(text) { document.getElementById('messageInput').value = text; sendMessage(); }
 renderSuggestions();
 
+function renderQuestChoices() {
+    const bar = document.getElementById('suggestionsBar');
+    if (!bar || !currentNode) return;
+    const items = (currentNode.choices || []).map(c => typeof c === 'string' ? {text: c, next: ''} : c);
+    const exitBtn = `<button type="button" onclick="exitQuest()" class="px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] whitespace-nowrap cursor-pointer">🚪 Выйти из сценария</button>`;
+    bar.innerHTML = items.map(c => `<button type="button" onclick="doQuestAction('${c.text.replace(/'/g, "\\'")}', '${c.next || ''}')" class="px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] whitespace-nowrap cursor-pointer">${escapeHtml(c.text)}</button>`).join('') + exitBtn;
+}
+
 let allScenarios = [], scenarioNodes = {}, currentNode = null, activeScenario = null, isPremiumUser = false;
 async function loadScenarios() {
     const r = await fetch('/api/memory/scenarios');
