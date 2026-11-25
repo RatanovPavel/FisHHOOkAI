@@ -641,7 +641,7 @@ def classify_user_intent(user_text, branches=None):
         msgs = [{"role": "system", "content": sys_p}, {"role": "user", "content": user_text}]
         p = VOICE_TOKENIZER.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
         inp = VOICE_TOKENIZER(p, return_tensors="pt").to("cuda")
-        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=90, do_sample=False)
+        with torch.no_grad(): out = VOICE_MODEL.generate(**inp, max_new_tokens=160, do_sample=False)
         raw = VOICE_TOKENIZER.decode(out[0][inp.input_ids.shape[1]:], skip_special_tokens=True)
         m = re.search(r'\{.*?\}', raw, re.S)
         if m: default.update(json.loads(m.group(0)))
