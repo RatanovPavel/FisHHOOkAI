@@ -650,6 +650,7 @@ let currentStats = { mood: 50, trust: 30, intimacy: 20, energy: 80 };
 
 function applyAccountAndStats(d) {
     const s = d.memory?.state || {}, a = d.account || {};
+    currentStats = { mood: s.mood ?? 50, trust: s.trust ?? 30, intimacy: s.intimacy ?? 20, energy: s.energy ?? 80 };
     isPremiumUser = !!a.is_premium; renderScenarios();
     document.getElementById('statMood').textContent = `😊 Настроение: ${s.mood ?? 50}%`;
     document.getElementById('statTrust').textContent = `💖 Доверие: ${s.trust ?? 30}%`;
