@@ -660,7 +660,7 @@ function applyAccountAndStats(d) {
     const btn = document.getElementById('premiumBadgeBtn');
     btn.textContent = a.is_premium ? `👑 PREMIUM до ${a.premium_until.slice(0, 10)}` : '👑 Premium (20 💀/мес)';
     document.getElementById('userBalanceBadge').textContent = `💀 ${a.skulls ?? 0}`;
-y
+    if (currentNode) renderQuestChoices();
 }
 function renderSuggestions(list = ["👋 Привет! Давай познакомимся", "📸 Пришли свою фоточку", "🎤 Ответь мне голосом"]) {
     const bar = document.getElementById('suggestionsBar');
@@ -669,18 +669,35 @@ function renderSuggestions(list = ["👋 Привет! Давай познако
 function useSuggestion(text) { document.getElementById('messageInput').value = text; sendMessage(); }
 renderSuggestions();
 
+let questLockReason = '';
+function checkReq(req) {
+    if (!req) return '';
+    const map = { trust: ['💖 Доверие', currentStats.trust], intimacy: ['🔥 Близость', currentStats.intimacy], energy: ['⚡ Энергия', currentStats.energy], mood: ['😊 Настроение', currentStats.mood] };
+    const miss = Object.entries(req).filter(([k, v]) => (map[k]?.[1] ?? 0) < v).map(([k, v]) => `${map[k]} ${map[k][1]}% из ${v}%`);
+    return miss.length ? miss.join(', ') : '';
+}
+
 function renderQuestChoices() {
     const bar = document.getElementById('suggestionsBar');
     if (!bar || !currentNode) return;
-    const items = (currentNode.choices || []).map(c => typeof c === 'string' ? {text: c, next: ''} : c);
+    window._questItems = (currentNode.choices || []).map(c => typeof c === 'string' ? {text: c, next: ''} : c);
     const exitBtn = `<button type="button" onclick="exitQuest()" class="px-2.5 py-1 rounded-full bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 text-[11px] whitespace-nowrap cursor-pointer">🚪 Выйти из сценария</button>`;
-    bar.innerHTML = items.map(c => `<button type="button" onclick="doQuestAction('${c.text.replace(/'/g, "\\'")}', '${c.next || ''}')" class="px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 text-[11px] whitespace-nowrap cursor-pointer">${escapeHtml(c.text)}</button>`).join('') + exitBtn;
+    bar.innerHTML = window._questItems.map((c, i) => {
+        const lock = checkReq(c.req);
+        const cls = lock ? 'bg-slate-800/80 border-amber-500/40 text-amber-300/90' : 'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/30 text-emerald-300';
+        return `<button type="button" onclick="doQuestAction(${i})" class="px-2.5 py-1 rounded-full border text-[11px] whitespace-nowrap cursor-pointer ${cls}">${lock ? '🔒 ' : ''}${escapeHtml(c.text)}</button>`;
+    }).join('') + exitBtn;
 }
-function doQuestAction(text, nextId) {
-    if (nextId && scenarioNodes[nextId]) currentNode = scenarioNodes[nextId];
+function doQuestAction(idx) {
+    const c = window._questItems?.[idx]; if (!c) return;
+    const lock = checkReq(c.req);
+    if (lock) { questLockReason = lock; document.getElementById('messageInput').value = c.text; sendMessage(false); return; }
+    questLockReason = '';
+    if (c.next && scenarioNodes[c.next]) currentNode = scenarioNodes[c.next];
     renderQuestChoices();
-    document.getElementById('messageInput').value = text; sendMessage(!!nextId);
+    document.getElementById('messageInput').value = c.text; sendMessage(!!c.next);
 }
+
 function exitQuest() { activeScenario = null; currentNode = null; renderScenarios(); renderSuggestions(); }
 
 
@@ -844,8 +861,10 @@ async function sendMessage(forceImg = false) {
             text_message: text,
             scene: currentNode?.scene || 'nature', scenario_prompt: currentNode?.prompt || '', scenario_branches: currentNode?.branches || [],
             generate_image: !!forceImg, image_prompt: forceImg ? (currentNode?.img || '') : '',
+            quest_lock_reason: questLockReason,
         }
     }));
+    questLockReason = '';
 }
 
 // Запись голоса
