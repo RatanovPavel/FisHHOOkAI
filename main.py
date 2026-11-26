@@ -759,6 +759,7 @@ async def process_task(task_data, ws, send_status):
                     chat_history = [chat_history[0]]
                 system_prompt += f" АКТИВНЫЙ РОЛЕВОЙ СЦЕНАРИЙ: {scenario_prompt} ПРАВИЛО ИГРЫ: Сразу вживись в роль и говори от первого лица прямо сейчас (словно это происходит в реальности). НИКОГДА не пиши 'Представь, что...' или 'Я бы сказала...' — сразу начни сцену живой репликой!"
             if quest_lock_reason: system_prompt += f" ВАЖНО: Собеседник пытается перейти дальше по сюжету, но ему НЕ ХВАТАЕТ показателей ({quest_lock_reason}). Мягко, но твёрдо откажи ему в рамках роли и объясни причину (например, что вы ещё недостаточно доверяете друг другу, мало знакомы или ты сильно устала и хочешь кофе)."
+            if quest_lock_reason: intent["next_node"] = ""
             if intent.get("next_node"):
                 generate_img = True
                 if not image_prompt: image_prompt = intent.get("photo_prompt") or user_text
