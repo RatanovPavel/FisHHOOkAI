@@ -673,7 +673,8 @@ let questLockReason = '';
 function checkReq(req) {
     if (!req) return '';
     const map = { trust: ['💖 Доверие', currentStats.trust], intimacy: ['🔥 Близость', currentStats.intimacy], energy: ['⚡ Энергия', currentStats.energy], mood: ['😊 Настроение', currentStats.mood] };
-    const miss = Object.entries(req).filter(([k, v]) => (map[k]?.[1] ?? 0) < v).map(([k, v]) => `${map[k]} ${map[k][1]}% из ${v}%`);
+    const miss = Object.entries(req).filter(([k, v]) => (map[k]?.[1] ?? 0) < v).map(([k, v]) => `${map[k][0]} (${map[k][1]}% из ${v}%)`);
+    
     return miss.length ? miss.join(', ') : '';
 }
 
