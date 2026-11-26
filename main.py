@@ -697,6 +697,7 @@ async def process_task(task_data, ws, send_status):
     scene_key = data.get("scene", "nature")
     scenario_prompt = data.get("scenario_prompt", "")
     scenario_branches = data.get("scenario_branches", [])
+    quest_lock_reason = data.get("quest_lock_reason", "")
     nsfw = data.get("nsfw", False)
     print(f"🔍 Пришедшие данные от сайта: { {k: (v[:30] + '...' if isinstance(v, str) and len(v) > 30 else v) for k, v in data.items()} }")
     print(f"\n📨 [TASK {task_id}] Персонаж: {character['name']}, Сцена: {scene_key}")
