@@ -691,7 +691,7 @@ function checkReq(req) {
 function renderQuestChoices() {
     const panel = document.getElementById('questPanel'), box = document.getElementById('questActions'), sBar = document.getElementById('scenariosBar');
     if (!panel || !box || !currentNode) return;
-    panel.classList.remove('hidden'); if (sBar) sBar.classList.add('hidden');
+    panel.classList.remove('hidden'); if (sBar) sBar.classList.add('hidden'); document.getElementById('scenariosLabel')?.classList.add('hidden');
     document.getElementById('questTitle').textContent = `${activeScenario?.icon || '🎭'} ${activeScenario?.title || 'Сценарий'}`;
     window._questItems = (currentNode.choices || []).map(c => typeof c === 'string' ? {text: c, next: ''} : c);
     box.innerHTML = window._questItems.map((c, i) => {
@@ -714,6 +714,7 @@ function exitQuest() {
     activeScenario = null; currentNode = null;
     document.getElementById('questPanel')?.classList.add('hidden');
     document.getElementById('scenariosBar')?.classList.remove('hidden');
+    document.getElementById('scenariosLabel')?.classList.remove('hidden');
     renderScenarios(); renderSuggestions();
 }
 
