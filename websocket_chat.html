@@ -329,7 +329,9 @@
     <div class="input-panel">
         <div id="scenariosLabel" class="text-[10px] uppercase tracking-wider text-amber-400/70 font-bold mb-1">🎭 Ролевые сценарии</div>
         <div id="scenariosBar" class="flex flex-wrap gap-1.5 mb-2"></div>
+
         <!-- Постоянная лента подарков (Кофе, Цветы, Вино за 🦴 и Украшение за 💀) -->
+        <div class="text-[10px] uppercase tracking-wider text-pink-400/70 font-bold mb-1">🎁 Подарки (повышают статы)</div>
         <div id="giftMenu" class="flex gap-2 mb-2.5 pb-2 border-b border-slate-800/80 overflow-x-auto">
             <button type="button" onclick="sendGift('☕ Авторский кофе', 1, 'skulls', 10, 5, 0, 35)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-pink-500/20 border border-slate-700 text-xs whitespace-nowrap cursor-pointer">☕ Кофе · 1 💀</button>
             <button type="button" onclick="sendGift('💐 Букет цветов', 3, 'skulls', 20, 25, 10, 0)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-pink-500/20 border border-slate-700 text-xs whitespace-nowrap cursor-pointer">💐 Цветы · 3 💀</button>
@@ -342,6 +344,7 @@
             <div id="questActions" class="flex flex-wrap gap-1.5"></div>
         </div>
 
+        <div class="text-[10px] uppercase tracking-wider text-cyan-400/70 font-bold mb-1">💬 Фразы для общения</div>
         <div id="suggestionsBar" class="flex gap-1.5 mb-2 overflow-x-auto"></div>
         <div class="input-row">
             <button id="micBtn" class="mic-btn" onclick="toggleRecording()" title="Голосовое сообщение">
